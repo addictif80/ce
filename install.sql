@@ -304,6 +304,38 @@ CREATE TABLE IF NOT EXISTS `calculateur_budget` (
   FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Table formations
+CREATE TABLE IF NOT EXISTS `formations` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` INT NOT NULL,
+  `titre` VARCHAR(255) NOT NULL,
+  `date_debut` DATE DEFAULT NULL,
+  `date_fin` DATE DEFAULT NULL,
+  `lieu` ENUM('presentiel','distanciel') DEFAULT 'distanciel',
+  `adresse_hotel` VARCHAR(500) DEFAULT NULL,
+  `reservation_faite` TINYINT(1) DEFAULT 0,
+  `peage_ar` DECIMAL(10,2) DEFAULT 0,
+  `repas` DECIMAL(10,2) DEFAULT 0,
+  `indemnites_km` DECIMAL(10,2) DEFAULT 0,
+  `montant_total` DECIMAL(10,2) DEFAULT 0,
+  `envoyee_expansya` TINYINT(1) DEFAULT 0,
+  `remboursee` TINYINT(1) DEFAULT 0,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table notifications envoyées (éviter les doublons)
+CREATE TABLE IF NOT EXISTS `notifications_log` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` INT NOT NULL,
+  `type` VARCHAR(50) NOT NULL,
+  `date_envoi` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `nb_instances` INT DEFAULT 0,
+  `nb_demandes` INT DEFAULT 0,
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Table notes (pour instances, demandes rappel, demandes clients)
 CREATE TABLE IF NOT EXISTS `notes` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,

@@ -8,7 +8,12 @@ define('DB_USER', 'cemp_cemp');
 define('DB_PASS', '');
 define('DB_NAME', 'cemp_cemp');
 define('APP_NAME', 'Portail Gestion d\'Activités');
-define('APP_VERSION', '1.0');
+define('APP_VERSION', '1.1');
+
+// Configuration email pour les notifications
+define('MAIL_FROM', 'noreply@portail-ce.local');
+define('MAIL_FROM_NAME', 'Portail Gestion d\'Activités');
+define('APP_URL', 'http://localhost/ce');
 
 // Connexion PDO
 function getDB() {

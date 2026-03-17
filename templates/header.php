@@ -34,6 +34,11 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
             <a href="modules/rappels/index.php" class="<?= strpos($_SERVER['REQUEST_URI'], 'rappels') !== false ? 'active' : '' ?>"><i class="fas fa-phone-alt"></i> Demandes de rappel</a>
             <a href="modules/demandes_clients/index.php" class="<?= strpos($_SERVER['REQUEST_URI'], 'demandes_clients') !== false ? 'active' : '' ?>"><i class="fas fa-headset"></i> Suivi demandes clients</a>
             <a href="modules/offres/index.php" class="<?= strpos($_SERVER['REQUEST_URI'], 'offres') !== false ? 'active' : '' ?>"><i class="fas fa-tags"></i> Offres en cours</a>
+            <a href="modules/instances/calendrier.php" class="<?= strpos($_SERVER['REQUEST_URI'], 'instances/calendrier') !== false ? 'active' : '' ?>"><i class="fas fa-calendar"></i> Calendrier instances</a>
+
+            <div class="nav-section">Formation</div>
+            <a href="modules/formations/index.php" class="<?= strpos($_SERVER['REQUEST_URI'], 'formations/index') !== false || (strpos($_SERVER['REQUEST_URI'], 'formations') !== false && strpos($_SERVER['REQUEST_URI'], 'calendrier') === false && strpos($_SERVER['REQUEST_URI'], 'caldav') === false) ? 'active' : '' ?>"><i class="fas fa-graduation-cap"></i> Formations</a>
+            <a href="modules/formations/calendrier.php" class="<?= strpos($_SERVER['REQUEST_URI'], 'formations/calendrier') !== false ? 'active' : '' ?>"><i class="fas fa-calendar-alt"></i> Calendrier formations</a>
 
             <div class="nav-section">Commercial</div>
             <a href="modules/production/index.php" class="<?= strpos($_SERVER['REQUEST_URI'], 'production') !== false ? 'active' : '' ?>"><i class="fas fa-chart-line"></i> Suivi production</a>

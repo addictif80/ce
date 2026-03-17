@@ -27,14 +27,15 @@ $proceduresEnAvant = $stmtProc->fetchAll();
         $typeLabels = [
             'instances' => 'Instance', 'rappels' => 'Rappel', 'offres' => 'Offre',
             'codes' => 'Code utile', 'contacts' => 'Contact', 'demandes_clients' => 'Demande client',
-            'blocnotes' => 'Bloc-notes', 'procedures' => 'Procédure', 'courriers' => 'Courrier'
+            'blocnotes' => 'Bloc-notes', 'procedures' => 'Procédure', 'courriers' => 'Courrier',
+            'formations' => 'Formation'
         ];
         $typeLinks = [
             'instances' => 'modules/instances/index.php', 'rappels' => 'modules/rappels/index.php',
             'offres' => 'modules/offres/index.php', 'codes' => 'modules/codes/index.php',
             'contacts' => 'modules/contacts/index.php', 'demandes_clients' => 'modules/demandes_clients/index.php',
             'blocnotes' => 'modules/blocnotes/index.php', 'procedures' => 'modules/procedures/index.php',
-            'courriers' => 'modules/courriers/index.php'
+            'courriers' => 'modules/courriers/index.php', 'formations' => 'modules/formations/index.php'
         ];
         foreach ($searchResults as $r): ?>
             <div class="search-result-item">
@@ -102,6 +103,28 @@ $proceduresEnAvant = $stmtProc->fetchAll();
             <div class="stat-number"><?= $stats['phoning_reste_rdv'] ?></div>
             <div class="stat-label">RDV restants (semaine)</div>
         </div>
+    </div>
+</div>
+
+<!-- Formations -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="stat-card stat-info">
+            <div class="stat-number"><?= $stats['formations_a_venir'] ?></div>
+            <div class="stat-label">Formations à venir</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card stat-warning">
+            <div class="stat-number"><?= $stats['formations_non_expansya'] ?></div>
+            <div class="stat-label">Notes de frais non envoyées</div>
+        </div>
+    </div>
+    <div class="col-md-3 d-flex align-items-center">
+        <a href="modules/formations/index.php" class="btn btn-ce-outline"><i class="fas fa-graduation-cap"></i> Mes formations</a>
+    </div>
+    <div class="col-md-3 d-flex align-items-center">
+        <a href="modules/formations/calendrier.php" class="btn btn-ce-outline"><i class="fas fa-calendar-alt"></i> Calendrier formations</a>
     </div>
 </div>
 

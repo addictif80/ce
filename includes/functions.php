@@ -146,6 +146,11 @@ function searchGlobal($query, $userId) {
     $stmt->execute([$userId, $like, $like, $like]);
     $results = array_merge($results, $stmt->fetchAll());
 
+    // Formations
+    $stmt = $db->prepare("SELECT id, titre AS titre, CONCAT(lieu, ' - ', COALESCE(adresse_hotel,'')) AS detail, 'formations' AS type FROM formations WHERE user_id = ? AND (titre LIKE ? OR adresse_hotel LIKE ?)");
+    $stmt->execute([$userId, $like, $like]);
+    $results = array_merge($results, $stmt->fetchAll());
+
     return $results;
 }
 
@@ -188,6 +193,16 @@ function getDashboardStats($userId) {
     $stats['phoning_rdv_semaine'] = $phoning['rdv'];
     $stats['phoning_reste_appels'] = max(0, 60 - $phoning['appels']);
     $stats['phoning_reste_rdv'] = max(0, 12 - $phoning['rdv']);
+
+    // Formations à venir
+    $stmt = $db->prepare("SELECT COUNT(*) FROM formations WHERE user_id = ? AND date_fin >= CURDATE()");
+    $stmt->execute([$userId]);
+    $stats['formations_a_venir'] = $stmt->fetchColumn();
+
+    // Notes de frais non envoyées Expansya
+    $stmt = $db->prepare("SELECT COUNT(*) FROM formations WHERE user_id = ? AND lieu = 'presentiel' AND envoyee_expansya = 0");
+    $stmt->execute([$userId]);
+    $stats['formations_non_expansya'] = $stmt->fetchColumn();
 
     return $stats;
 }
