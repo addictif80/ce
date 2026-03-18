@@ -249,7 +249,7 @@ $modeles = $stmt->fetchAll();
                                 <input type="color" id="addColorPicker" value="#000000" onchange="execCmdVal('foreColor', this.value)" title="Couleur du texte" style="width:30px;height:28px;border:none;padding:0;cursor:pointer;">
                             </div>
                             <div class="wysiwyg-editor" id="addEditor" contenteditable="true"></div>
-                            <textarea name="corps" id="addCorps" style="display:none;" required></textarea>
+                            <textarea name="corps" id="addCorps" style="display:none;"></textarea>
                         </div>
 
                         <div class="col-12">
