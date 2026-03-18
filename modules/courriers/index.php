@@ -27,8 +27,16 @@ $db->exec("CREATE TABLE IF NOT EXISTS modeles_courriers (
     nom_modele VARCHAR(255) NOT NULL,
     objet VARCHAR(500) DEFAULT '',
     corps LONGTEXT,
+    variables JSON DEFAULT NULL,
     INDEX(user_id)
 )");
+
+// Migration : ajouter la colonne variables si elle n'existe pas
+try {
+    $db->exec("ALTER TABLE modeles_courriers ADD COLUMN variables JSON DEFAULT NULL");
+} catch (PDOException $e) {
+    // Colonne déjà existante
+}
 
 // Ajout courrier
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add') {
@@ -77,8 +85,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
 // Sauvegarde modèle
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_template') {
-    $stmt = $db->prepare("INSERT INTO modeles_courriers (user_id, nom_modele, objet, corps) VALUES (?, ?, ?, ?)");
-    $stmt->execute([$userId, $_POST['nom_modele'], $_POST['tpl_objet'] ?? '', $_POST['tpl_corps'] ?? '']);
+    $variables = isset($_POST['tpl_variables']) ? $_POST['tpl_variables'] : null;
+    $stmt = $db->prepare("INSERT INTO modeles_courriers (user_id, nom_modele, objet, corps, variables) VALUES (?, ?, ?, ?, ?)");
+    $stmt->execute([$userId, $_POST['nom_modele'], $_POST['tpl_objet'] ?? '', $_POST['tpl_corps'] ?? '', $variables]);
     header('Location: index.php');
     exit;
 }
@@ -233,6 +242,20 @@ $modeles = $stmt->fetchAll();
                         <div class="col-12">
                             <label class="form-label">Objet <span class="text-danger">*</span></label>
                             <input type="text" name="objet" id="addObjet" class="form-control" required>
+                        </div>
+
+                        <!-- Variables dynamiques -->
+                        <div class="col-12">
+                            <div class="variables-section">
+                                <div class="variables-header">
+                                    <label class="form-label mb-0"><i class="fas fa-code"></i> Variables dynamiques</label>
+                                    <button type="button" class="btn btn-sm btn-ce-outline" onclick="addVariableRow('add')"><i class="fas fa-plus"></i> Ajouter une variable</button>
+                                </div>
+                                <div class="variables-help">
+                                    Ajoutez des variables puis insérez <code>{{nom}}</code> dans le corps du courrier. Elles seront remplacées par leur valeur.
+                                </div>
+                                <div id="addVariablesContainer"></div>
+                            </div>
                         </div>
 
                         <!-- WYSIWYG -->
@@ -435,6 +458,54 @@ $modeles = $stmt->fetchAll();
     margin-top: 30px;
     font-weight: 500;
 }
+
+/* Variables dynamiques */
+.variables-section {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 12px 15px;
+}
+.variables-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+.variables-help {
+    font-size: 12px;
+    color: #6c757d;
+    margin-bottom: 8px;
+}
+.variables-help code {
+    background: #e9ecef;
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: #CF0A2C;
+}
+.variable-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 6px;
+}
+.variable-row input {
+    font-size: 13px;
+}
+.variable-row .var-name {
+    flex: 0 0 180px;
+}
+.variable-row .var-value {
+    flex: 1;
+}
+.variable-row .btn-insert-var {
+    flex-shrink: 0;
+    font-size: 12px;
+    white-space: nowrap;
+}
+.variable-row .btn-remove-var {
+    flex-shrink: 0;
+}
 </style>
 
 <script>
@@ -452,11 +523,84 @@ function execCmdVal(command, value) {
     document.execCommand(command, false, value);
 }
 
-// Préparer le formulaire avant soumission (copier innerHTML dans textarea)
+// --- Variables dynamiques ---
+
+// Ajouter une ligne de variable
+function addVariableRow(prefix, name = '', value = '') {
+    const container = document.getElementById(prefix + 'VariablesContainer');
+    const row = document.createElement('div');
+    row.className = 'variable-row';
+    row.innerHTML = `
+        <input type="text" class="form-control var-name" placeholder="Nom (ex: next-rdv)" value="${name.replace(/"/g, '&quot;')}">
+        <input type="text" class="form-control var-value" placeholder="Valeur (ex: 25/03/2026 à 14h30)" value="${value.replace(/"/g, '&quot;')}">
+        <button type="button" class="btn btn-sm btn-ce-outline btn-insert-var" onclick="insertVariable(this, '${prefix}')" title="Insérer dans le corps"><i class="fas fa-arrow-down"></i> Insérer</button>
+        <button type="button" class="btn btn-sm btn-outline-danger btn-remove-var" onclick="this.closest('.variable-row').remove()" title="Supprimer"><i class="fas fa-times"></i></button>
+    `;
+    container.appendChild(row);
+}
+
+// Insérer le tag {{nom}} dans l'éditeur à la position du curseur
+function insertVariable(btn, prefix) {
+    const row = btn.closest('.variable-row');
+    const name = row.querySelector('.var-name').value.trim();
+    if (!name) {
+        alert('Veuillez saisir un nom de variable.');
+        row.querySelector('.var-name').focus();
+        return;
+    }
+    const editor = document.getElementById(prefix + 'Editor');
+    editor.focus();
+    document.execCommand('insertText', false, '{{' + name + '}}');
+}
+
+// Récupérer toutes les variables d'un formulaire
+function getVariables(prefix) {
+    const vars = {};
+    const rows = document.querySelectorAll('#' + prefix + 'VariablesContainer .variable-row');
+    rows.forEach(row => {
+        const name = row.querySelector('.var-name').value.trim();
+        const value = row.querySelector('.var-value').value;
+        if (name) vars[name] = value;
+    });
+    return vars;
+}
+
+// Récupérer les noms de variables (pour sauvegarde dans les modèles)
+function getVariableNames(prefix) {
+    const names = [];
+    const rows = document.querySelectorAll('#' + prefix + 'VariablesContainer .variable-row');
+    rows.forEach(row => {
+        const name = row.querySelector('.var-name').value.trim();
+        if (name) names.push(name);
+    });
+    return names;
+}
+
+// Remplacer les {{variables}} dans un texte
+function replaceVariables(text, vars) {
+    for (const [name, value] of Object.entries(vars)) {
+        const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        text = text.replace(new RegExp('\\{\\{' + escaped + '\\}\\}', 'g'), value);
+    }
+    return text;
+}
+
+// Auto-détecter les variables {{...}} dans le contenu d'un modèle
+function detectVariables(text) {
+    const matches = text.match(/\{\{([^}]+)\}\}/g);
+    if (!matches) return [];
+    const names = [...new Set(matches.map(m => m.replace(/\{\{|\}\}/g, '')))];
+    return names;
+}
+
+// Préparer le formulaire avant soumission (copier innerHTML dans textarea + remplacer variables)
 function prepareSubmit(prefix) {
     const editor = document.getElementById(prefix + 'Editor');
     const textarea = document.getElementById(prefix + 'Corps');
-    textarea.value = editor.innerHTML.trim();
+    const vars = getVariables(prefix);
+    let content = editor.innerHTML.trim();
+    content = replaceVariables(content, vars);
+    textarea.value = content;
     if (!textarea.value || textarea.value === '<br>') {
         alert('Veuillez rédiger le corps du courrier.');
         return false;
@@ -473,6 +617,20 @@ function loadTemplate(prefix) {
     if (!modele) return;
     document.getElementById(prefix + 'Objet').value = modele.objet || '';
     document.getElementById(prefix + 'Editor').innerHTML = modele.corps || '';
+
+    // Charger les variables du modèle ou les auto-détecter
+    const container = document.getElementById(prefix + 'VariablesContainer');
+    container.innerHTML = '';
+    let varNames = [];
+    if (modele.variables) {
+        try {
+            varNames = JSON.parse(modele.variables);
+        } catch(e) {}
+    }
+    if (varNames.length === 0) {
+        varNames = detectVariables(modele.corps || '');
+    }
+    varNames.forEach(name => addVariableRow(prefix, name, ''));
 }
 
 // Sauvegarder comme modèle
@@ -487,6 +645,7 @@ function saveTemplate(prefix) {
     const objet = document.getElementById(prefix + 'Objet').value;
     const corps = document.getElementById(prefix + 'Editor').innerHTML.trim();
 
+    const varNames = getVariableNames(prefix);
     const form = document.createElement('form');
     form.method = 'POST';
     form.style.display = 'none';
@@ -495,6 +654,7 @@ function saveTemplate(prefix) {
         <input name="nom_modele" value="${nom.replace(/"/g, '&quot;')}">
         <input name="tpl_objet" value="${objet.replace(/"/g, '&quot;')}">
         <textarea name="tpl_corps">${corps}</textarea>
+        <input name="tpl_variables" value="${JSON.stringify(varNames).replace(/"/g, '&quot;')}">
     `;
     document.body.appendChild(form);
     form.submit();
@@ -622,6 +782,18 @@ function editCourrier(id) {
                     <input type="text" name="objet" id="editObjet" class="form-control" value="${c.objet}" required>
                 </div>
                 <div class="col-12">
+                    <div class="variables-section">
+                        <div class="variables-header">
+                            <label class="form-label mb-0"><i class="fas fa-code"></i> Variables dynamiques</label>
+                            <button type="button" class="btn btn-sm btn-ce-outline" onclick="addVariableRow('edit')"><i class="fas fa-plus"></i> Ajouter une variable</button>
+                        </div>
+                        <div class="variables-help">
+                            Ajoutez des variables puis insérez <code>{{nom}}</code> dans le corps du courrier. Elles seront remplacées par leur valeur.
+                        </div>
+                        <div id="editVariablesContainer"></div>
+                    </div>
+                </div>
+                <div class="col-12">
                     <label class="form-label">Corps du courrier <span class="text-danger">*</span></label>
                     <div class="wysiwyg-toolbar" id="editToolbar">
                         <button type="button" onclick="execCmd('bold')" title="Gras"><i class="fas fa-bold"></i></button>
@@ -642,6 +814,10 @@ function editCourrier(id) {
             </div>
         </form>`;
     new bootstrap.Modal(document.getElementById('editModal')).show();
+
+    // Auto-détecter les variables dans le corps existant
+    const editVarNames = detectVariables(c.corps || '');
+    editVarNames.forEach(name => addVariableRow('edit', name, ''));
 }
 
 // Imprimer un courrier
