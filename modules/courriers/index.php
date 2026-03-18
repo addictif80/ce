@@ -364,59 +364,62 @@ $modeles = $stmt->fetchAll();
     }
     @page {
         size: A4;
-        margin: 20mm;
+        margin: 10mm 15mm 10mm 15mm;
     }
 }
 
 .print-courrier {
     font-family: 'Georgia', 'Times New Roman', serif;
-    font-size: 12pt;
-    line-height: 1.5;
+    font-size: 11pt;
+    line-height: 1.4;
     color: #000;
 }
 .print-courrier .print-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 20px;
+    margin-bottom: 0;
 }
 .print-courrier .print-logo img {
-    max-width: 200px;
+    max-width: 180px;
     height: auto;
 }
 .print-courrier .print-sender {
-    margin-top: 10px;
-    font-size: 10pt;
-    line-height: 1.4;
+    margin-top: 6px;
+    font-size: 9pt;
+    line-height: 1.3;
 }
 .print-courrier .print-destinataire {
-    text-align: right;
-    min-width: 250px;
-    margin-top: 10px;
+    text-align: left;
+    margin-left: auto;
+    margin-top: 30mm;
+    min-width: 85mm;
+    max-width: 100mm;
+    font-size: 11pt;
     line-height: 1.4;
 }
 .print-courrier .print-lieu-date {
     text-align: right;
-    margin: 30px 0 20px 0;
+    margin: 10px 0 10px 0;
 }
 .print-courrier .print-objet {
     font-weight: bold;
-    margin: 20px 0;
+    margin: 10px 0;
 }
 .print-courrier .print-corps {
-    margin: 20px 0;
+    margin: 10px 0;
     text-align: justify;
 }
 .print-courrier .print-footer {
     text-align: right;
-    margin-top: 60px;
+    margin-top: 40px;
 }
 
 /* Detail letter preview */
 .letter-preview {
     max-width: 800px;
     margin: 0 auto;
-    padding: 40px;
+    padding: 25px 30px;
     border: 1px solid #dee2e6;
     border-radius: 8px;
     background: #fff;
@@ -426,39 +429,46 @@ $modeles = $stmt->fetchAll();
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 20px;
+    margin-bottom: 0;
 }
 .letter-preview .lp-logo img {
-    max-width: 180px;
+    max-width: 160px;
 }
 .letter-preview .lp-sender {
-    font-size: 13px;
+    font-size: 12px;
     color: #555;
-    margin-top: 8px;
-    line-height: 1.4;
+    margin-top: 6px;
+    line-height: 1.3;
 }
 .letter-preview .lp-dest {
-    text-align: right;
+    text-align: left;
+    margin-left: auto;
+    margin-top: 25px;
     line-height: 1.4;
+    min-width: 250px;
+    padding: 10px 15px;
+    border: 1px dashed #ccc;
+    border-radius: 4px;
+    background: #fafafa;
 }
 .letter-preview .lp-lieu-date {
     text-align: right;
-    margin: 25px 0 15px 0;
+    margin: 15px 0 10px 0;
     color: #555;
 }
 .letter-preview .lp-objet {
     font-weight: bold;
-    margin: 15px 0;
-    font-size: 15px;
+    margin: 10px 0;
+    font-size: 14px;
 }
 .letter-preview .lp-corps {
-    margin: 20px 0;
-    line-height: 1.7;
+    margin: 10px 0;
+    line-height: 1.6;
     text-align: justify;
 }
 .letter-preview .lp-footer {
     text-align: right;
-    margin-top: 50px;
+    margin-top: 30px;
     font-weight: 500;
 }
 </style>
@@ -553,13 +563,15 @@ function showDetail(id) {
                     </div>
                     <div class="lp-sender">
                         ${userData.prenom} ${userData.nom}<br>
+                        5 Avenue Charles de Gaulle<br>
+                        12700 Capdenac-Gare<br>
                         ${userData.tel_pro ? userData.tel_pro + '<br>' : ''}
                         ${userData.email_pro ? userData.email_pro : ''}
                     </div>
                 </div>
-                <div class="lp-dest">
-                    ${destLines}
-                </div>
+            </div>
+            <div class="lp-dest">
+                ${destLines}
             </div>
             <div class="lp-lieu-date">
                 ${c.lieu || 'Capdenac-Gare'}, le ${fmtDate(c.date_courrier)}
@@ -685,13 +697,15 @@ function printCourrier(id) {
                 </div>
                 <div class="print-sender">
                     ${userData.prenom} ${userData.nom}<br>
+                    5 Avenue Charles de Gaulle<br>
+                    12700 Capdenac-Gare<br>
                     ${userData.tel_pro ? userData.tel_pro + '<br>' : ''}
                     ${userData.email_pro ? userData.email_pro : ''}
                 </div>
             </div>
-            <div class="print-destinataire">
-                ${destLines}
-            </div>
+        </div>
+        <div class="print-destinataire">
+            ${destLines}
         </div>
         <div class="print-lieu-date">
             ${c.lieu || 'Capdenac-Gare'}, le ${fmtDate(c.date_courrier)}
