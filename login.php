@@ -32,12 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="login-container">
         <div class="login-card">
             <div class="login-header">
-                <svg viewBox="0 0 200 50" width="250" xmlns="http://www.w3.org/2000/svg" class="login-logo">
-                    <rect x="0" y="5" width="40" height="40" rx="8" fill="#e4002b"/>
-                    <text x="8" y="35" font-family="Arial,sans-serif" font-weight="bold" font-size="28" fill="white">CE</text>
-                    <text x="50" y="22" font-family="Arial,sans-serif" font-weight="bold" font-size="13" fill="#333">CAISSE D'EPARGNE</text>
-                    <text x="50" y="38" font-family="Arial,sans-serif" font-size="10" fill="#666">Midi-Pyrénées</text>
-                </svg>
+                <img src="https://www.img.caisse-epargne.fr/app/uploads/sites/16/2021/05/31152836/ce-logo-midi-pyrennees.png" alt="Caisse d'Épargne Midi-Pyrénées" class="login-logo">
                 <h2>Portail de Gestion d'Activités</h2>
             </div>
             <?php if ($error): ?>

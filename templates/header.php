@@ -33,12 +33,7 @@ $B = $baseUrl; // raccourci
     <!-- SIDEBAR -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <svg viewBox="0 0 200 50" width="180" xmlns="http://www.w3.org/2000/svg">
-                <rect x="0" y="5" width="40" height="40" rx="8" fill="white"/>
-                <text x="10" y="35" font-family="Arial,sans-serif" font-weight="bold" font-size="28" fill="#e4002b">CE</text>
-                <text x="50" y="22" font-family="Arial,sans-serif" font-weight="bold" font-size="13" fill="white">CAISSE D'EPARGNE</text>
-                <text x="50" y="38" font-family="Arial,sans-serif" font-size="10" fill="rgba(255,255,255,0.8)">Midi-Pyrénées</text>
-            </svg>
+            <img src="https://www.img.caisse-epargne.fr/app/uploads/sites/16/2021/05/31152836/ce-logo-midi-pyrennees.png" alt="Caisse d'Épargne Midi-Pyrénées" style="max-width:180px;">
             <h3>Gestion d'Activités</h3>
         </div>
         <nav class="sidebar-nav">
