@@ -33,7 +33,12 @@ $B = $baseUrl; // raccourci
     <!-- SIDEBAR -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <img src="https://ce-prod.cloudimg.io/_images_/app/uploads/sites/16/2023/06/02105536/cemp-logo-paris-2024.png?func=bound&w=400&h=80&gravity=auto&optipress=2" alt="CE">
+            <svg viewBox="0 0 200 50" width="180" xmlns="http://www.w3.org/2000/svg">
+                <rect x="0" y="5" width="40" height="40" rx="8" fill="white"/>
+                <text x="10" y="35" font-family="Arial,sans-serif" font-weight="bold" font-size="28" fill="#e4002b">CE</text>
+                <text x="50" y="22" font-family="Arial,sans-serif" font-weight="bold" font-size="13" fill="white">CAISSE D'EPARGNE</text>
+                <text x="50" y="38" font-family="Arial,sans-serif" font-size="10" fill="rgba(255,255,255,0.8)">Midi-Pyrénées</text>
+            </svg>
             <h3>Gestion d'Activités</h3>
         </div>
         <nav class="sidebar-nav">
