@@ -392,9 +392,9 @@ $modeles = $stmt->fetchAll();
 .print-courrier .print-destinataire {
     text-align: left;
     margin-left: auto;
-    margin-top: 30mm;
-    min-width: 85mm;
-    max-width: 100mm;
+    margin-right: 0;
+    margin-top: 20mm;
+    width: 85mm;
     font-size: 11pt;
     line-height: 1.4;
 }
@@ -443,9 +443,10 @@ $modeles = $stmt->fetchAll();
 .letter-preview .lp-dest {
     text-align: left;
     margin-left: auto;
-    margin-top: 25px;
+    margin-right: 0;
+    margin-top: 20px;
+    width: 280px;
     line-height: 1.4;
-    min-width: 250px;
     padding: 10px 15px;
     border: 1px dashed #ccc;
     border-radius: 4px;
