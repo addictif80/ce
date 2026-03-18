@@ -34,16 +34,28 @@ $db->exec("CREATE TABLE IF NOT EXISTS modeles_courriers (
 // Migration : ajouter la colonne variables si elle n'existe pas
 try {
     $db->exec("ALTER TABLE modeles_courriers ADD COLUMN variables JSON DEFAULT NULL");
-} catch (PDOException $e) {
-    // Colonne déjà existante
-}
+} catch (PDOException $e) {}
+
+// Migration : ajouter civilite_dest, nom_dest, prenom_dest
+try {
+    $db->exec("ALTER TABLE courriers ADD COLUMN civilite_dest VARCHAR(20) DEFAULT '' AFTER user_id");
+    $db->exec("ALTER TABLE courriers ADD COLUMN nom_dest VARCHAR(255) DEFAULT '' AFTER civilite_dest");
+    $db->exec("ALTER TABLE courriers ADD COLUMN prenom_dest VARCHAR(255) DEFAULT '' AFTER nom_dest");
+} catch (PDOException $e) {}
 
 // Ajout courrier
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add') {
-    $stmt = $db->prepare("INSERT INTO courriers (user_id, nom_prenom_dest, complement_dest, adresse_dest, complement_adresse_dest, cp_ville_dest, lieu, objet, corps) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $civilite = $_POST['civilite_dest'] ?? '';
+    $nom = $_POST['nom_dest'] ?? '';
+    $prenom = $_POST['prenom_dest'] ?? '';
+    $nomPrenom = trim($civilite . ' ' . $prenom . ' ' . $nom);
+    $stmt = $db->prepare("INSERT INTO courriers (user_id, civilite_dest, nom_dest, prenom_dest, nom_prenom_dest, complement_dest, adresse_dest, complement_adresse_dest, cp_ville_dest, lieu, objet, corps) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     $stmt->execute([
         $userId,
-        $_POST['nom_prenom_dest'],
+        $civilite,
+        $nom,
+        $prenom,
+        $nomPrenom,
         $_POST['complement_dest'] ?? '',
         $_POST['adresse_dest'],
         $_POST['complement_adresse_dest'] ?? '',
@@ -58,9 +70,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
 // Edition courrier
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'edit') {
-    $stmt = $db->prepare("UPDATE courriers SET nom_prenom_dest = ?, complement_dest = ?, adresse_dest = ?, complement_adresse_dest = ?, cp_ville_dest = ?, lieu = ?, objet = ?, corps = ? WHERE id = ? AND user_id = ?");
+    $civilite = $_POST['civilite_dest'] ?? '';
+    $nom = $_POST['nom_dest'] ?? '';
+    $prenom = $_POST['prenom_dest'] ?? '';
+    $nomPrenom = trim($civilite . ' ' . $prenom . ' ' . $nom);
+    $stmt = $db->prepare("UPDATE courriers SET civilite_dest = ?, nom_dest = ?, prenom_dest = ?, nom_prenom_dest = ?, complement_dest = ?, adresse_dest = ?, complement_adresse_dest = ?, cp_ville_dest = ?, lieu = ?, objet = ?, corps = ? WHERE id = ? AND user_id = ?");
     $stmt->execute([
-        $_POST['nom_prenom_dest'],
+        $civilite,
+        $nom,
+        $prenom,
+        $nomPrenom,
         $_POST['complement_dest'] ?? '',
         $_POST['adresse_dest'],
         $_POST['complement_adresse_dest'] ?? '',
@@ -209,11 +228,23 @@ $modeles = $stmt->fetchAll();
 
                     <!-- Destinataire -->
                     <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Nom et prénom du destinataire <span class="text-danger">*</span></label>
-                            <input type="text" name="nom_prenom_dest" class="form-control" required>
+                        <div class="col-md-2">
+                            <label class="form-label">Civilité <span class="text-danger">*</span></label>
+                            <select name="civilite_dest" id="addCivilite" class="form-select" required>
+                                <option value="">--</option>
+                                <option value="Madame">Madame</option>
+                                <option value="Monsieur">Monsieur</option>
+                            </select>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
+                            <label class="form-label">Nom <span class="text-danger">*</span></label>
+                            <input type="text" name="nom_dest" id="addNomDest" class="form-control" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Prénom <span class="text-danger">*</span></label>
+                            <input type="text" name="prenom_dest" id="addPrenomDest" class="form-control" required>
+                        </div>
+                        <div class="col-md-3">
                             <label class="form-label">Complément (titre, service...)</label>
                             <input type="text" name="complement_dest" class="form-control">
                         </div>
@@ -252,7 +283,13 @@ $modeles = $stmt->fetchAll();
                                     <button type="button" class="btn btn-sm btn-ce-outline" onclick="addVariableRow('add')"><i class="fas fa-plus"></i> Ajouter une variable</button>
                                 </div>
                                 <div class="variables-help">
-                                    Ajoutez des variables puis insérez <code>{{nom}}</code> dans le corps du courrier. Elles seront remplacées par leur valeur.
+                                    Cliquez sur une variable pour l'insérer dans le corps du courrier. Les variables fixes sont remplies automatiquement depuis les champs du destinataire.
+                                </div>
+                                <div class="builtin-variables">
+                                    <span class="builtin-var-label">Variables fixes :</span>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertBuiltinVar('add', 'civilite')"><code>{{civilite}}</code></button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertBuiltinVar('add', 'nom_dest')"><code>{{nom_dest}}</code></button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertBuiltinVar('add', 'prenom_dest')"><code>{{prenom_dest}}</code></button>
                                 </div>
                                 <div id="addVariablesContainer"></div>
                             </div>
@@ -506,6 +543,26 @@ $modeles = $stmt->fetchAll();
 .variable-row .btn-remove-var {
     flex-shrink: 0;
 }
+.builtin-variables {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+.builtin-var-label {
+    font-size: 12px;
+    color: #555;
+    font-weight: 500;
+}
+.builtin-variables .btn {
+    font-size: 12px;
+    padding: 2px 8px;
+}
+.builtin-variables code {
+    color: #CF0A2C;
+    font-size: 12px;
+}
 </style>
 
 <script>
@@ -524,6 +581,25 @@ function execCmdVal(command, value) {
 }
 
 // --- Variables dynamiques ---
+
+// Insérer une variable fixe (civilite, nom_dest, prenom_dest) dans l'éditeur
+function insertBuiltinVar(prefix, varName) {
+    const editor = document.getElementById(prefix + 'Editor');
+    editor.focus();
+    document.execCommand('insertText', false, '{{' + varName + '}}');
+}
+
+// Récupérer les valeurs des variables fixes depuis les champs du formulaire
+function getBuiltinVariables(prefix) {
+    const civiliteEl = document.getElementById(prefix + 'Civilite');
+    const nomEl = document.getElementById(prefix + 'NomDest');
+    const prenomEl = document.getElementById(prefix + 'PrenomDest');
+    return {
+        'civilite': civiliteEl ? civiliteEl.value : '',
+        'nom_dest': nomEl ? nomEl.value : '',
+        'prenom_dest': prenomEl ? prenomEl.value : ''
+    };
+}
 
 // Ajouter une ligne de variable
 function addVariableRow(prefix, name = '', value = '') {
@@ -585,21 +661,24 @@ function replaceVariables(text, vars) {
     return text;
 }
 
-// Auto-détecter les variables {{...}} dans le contenu d'un modèle
+// Auto-détecter les variables {{...}} dans le contenu d'un modèle (exclut les variables fixes)
+const BUILTIN_VARS = ['civilite', 'nom_dest', 'prenom_dest'];
 function detectVariables(text) {
     const matches = text.match(/\{\{([^}]+)\}\}/g);
     if (!matches) return [];
     const names = [...new Set(matches.map(m => m.replace(/\{\{|\}\}/g, '')))];
-    return names;
+    return names.filter(n => !BUILTIN_VARS.includes(n));
 }
 
 // Préparer le formulaire avant soumission (copier innerHTML dans textarea + remplacer variables)
 function prepareSubmit(prefix) {
     const editor = document.getElementById(prefix + 'Editor');
     const textarea = document.getElementById(prefix + 'Corps');
-    const vars = getVariables(prefix);
+    const builtinVars = getBuiltinVariables(prefix);
+    const customVars = getVariables(prefix);
+    const allVars = {...builtinVars, ...customVars};
     let content = editor.innerHTML.trim();
-    content = replaceVariables(content, vars);
+    content = replaceVariables(content, allVars);
     textarea.value = content;
     if (!textarea.value || textarea.value === '<br>') {
         alert('Veuillez rédiger le corps du courrier.');
@@ -672,7 +751,8 @@ function showDetail(id) {
     const c = courriersData.find(x => x.id == id);
     if (!c) return;
 
-    let destLines = c.nom_prenom_dest;
+    const destName = [c.civilite_dest, c.prenom_dest, c.nom_dest].filter(Boolean).join(' ') || c.nom_prenom_dest;
+    let destLines = destName;
     if (c.complement_dest) destLines += '<br>' + c.complement_dest;
     destLines += '<br>' + c.adresse_dest;
     if (c.complement_adresse_dest) destLines += '<br>' + c.complement_adresse_dest;
@@ -749,11 +829,23 @@ function editCourrier(id) {
             <hr>
 
             <div class="row g-3">
-                <div class="col-md-6">
-                    <label class="form-label">Nom et prénom du destinataire <span class="text-danger">*</span></label>
-                    <input type="text" name="nom_prenom_dest" class="form-control" value="${c.nom_prenom_dest}" required>
+                <div class="col-md-2">
+                    <label class="form-label">Civilité <span class="text-danger">*</span></label>
+                    <select name="civilite_dest" id="editCivilite" class="form-select" required>
+                        <option value="">--</option>
+                        <option value="Madame" ${c.civilite_dest === 'Madame' ? 'selected' : ''}>Madame</option>
+                        <option value="Monsieur" ${c.civilite_dest === 'Monsieur' ? 'selected' : ''}>Monsieur</option>
+                    </select>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-4">
+                    <label class="form-label">Nom <span class="text-danger">*</span></label>
+                    <input type="text" name="nom_dest" id="editNomDest" class="form-control" value="${c.nom_dest || ''}" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Prénom <span class="text-danger">*</span></label>
+                    <input type="text" name="prenom_dest" id="editPrenomDest" class="form-control" value="${c.prenom_dest || ''}" required>
+                </div>
+                <div class="col-md-3">
                     <label class="form-label">Complément (titre, service...)</label>
                     <input type="text" name="complement_dest" class="form-control" value="${c.complement_dest || ''}">
                 </div>
@@ -788,7 +880,13 @@ function editCourrier(id) {
                             <button type="button" class="btn btn-sm btn-ce-outline" onclick="addVariableRow('edit')"><i class="fas fa-plus"></i> Ajouter une variable</button>
                         </div>
                         <div class="variables-help">
-                            Ajoutez des variables puis insérez <code>{{nom}}</code> dans le corps du courrier. Elles seront remplacées par leur valeur.
+                            Cliquez sur une variable pour l'insérer dans le corps du courrier. Les variables fixes sont remplies automatiquement depuis les champs du destinataire.
+                        </div>
+                        <div class="builtin-variables">
+                            <span class="builtin-var-label">Variables fixes :</span>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertBuiltinVar('edit', 'civilite')"><code>{{civilite}}</code></button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertBuiltinVar('edit', 'nom_dest')"><code>{{nom_dest}}</code></button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertBuiltinVar('edit', 'prenom_dest')"><code>{{prenom_dest}}</code></button>
                         </div>
                         <div id="editVariablesContainer"></div>
                     </div>
@@ -825,7 +923,8 @@ function printCourrier(id) {
     const c = courriersData.find(x => x.id == id);
     if (!c) return;
 
-    let destLines = c.nom_prenom_dest;
+    const destName = [c.civilite_dest, c.prenom_dest, c.nom_dest].filter(Boolean).join(' ') || c.nom_prenom_dest;
+    let destLines = destName;
     if (c.complement_dest) destLines += '<br>' + c.complement_dest;
     destLines += '<br>' + c.adresse_dest;
     if (c.complement_adresse_dest) destLines += '<br>' + c.complement_adresse_dest;
