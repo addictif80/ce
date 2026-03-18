@@ -361,58 +361,20 @@ $modeles = $stmt->fetchAll();
         left: 0;
         top: 0;
         width: 100%;
+        margin: 0;
+        padding: 0;
     }
     @page {
         size: A4;
-        margin: 10mm 15mm 10mm 15mm;
+        margin: 8mm 10mm 8mm 10mm;
     }
 }
 
 .print-courrier {
-    font-family: 'Georgia', 'Times New Roman', serif;
+    font-family: Arial, Helvetica, sans-serif;
     font-size: 11pt;
     line-height: 1.4;
     color: #000;
-}
-.print-courrier .print-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 0;
-}
-.print-courrier .print-logo img {
-    max-width: 180px;
-    height: auto;
-}
-.print-courrier .print-sender {
-    margin-top: 6px;
-    font-size: 9pt;
-    line-height: 1.3;
-}
-.print-courrier .print-destinataire {
-    text-align: left;
-    margin-left: auto;
-    margin-right: 0;
-    margin-top: 20mm;
-    width: 85mm;
-    font-size: 11pt;
-    line-height: 1.4;
-}
-.print-courrier .print-lieu-date {
-    text-align: right;
-    margin: 10px 0 10px 0;
-}
-.print-courrier .print-objet {
-    font-weight: bold;
-    margin: 10px 0;
-}
-.print-courrier .print-corps {
-    margin: 10px 0;
-    text-align: justify;
-}
-.print-courrier .print-footer {
-    text-align: right;
-    margin-top: 40px;
 }
 
 /* Detail letter preview */
@@ -420,6 +382,7 @@ $modeles = $stmt->fetchAll();
     max-width: 800px;
     margin: 0 auto;
     padding: 25px 30px;
+    font-family: Arial, Helvetica, sans-serif;
     border: 1px solid #dee2e6;
     border-radius: 8px;
     background: #fff;
@@ -691,12 +654,10 @@ function printCourrier(id) {
 
     const printArea = document.getElementById('printArea');
     printArea.innerHTML = `
-        <div class="print-header">
-            <div>
-                <div class="print-logo">
-                    <img src="https://ce-prod.cloudimg.io/_images_/app/uploads/sites/16/2023/06/02105536/cemp-logo-paris-2024.png?func=bound&w=400&h=80&gravity=auto&optipress=2" alt="Caisse d'Épargne">
-                </div>
-                <div class="print-sender">
+        <div style="font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.4;color:#000;">
+            <div style="margin-bottom:0;">
+                <img src="https://ce-prod.cloudimg.io/_images_/app/uploads/sites/16/2023/06/02105536/cemp-logo-paris-2024.png?func=bound&w=400&h=80&gravity=auto&optipress=2" alt="Caisse d'Épargne" style="max-width:180px;height:auto;">
+                <div style="margin-top:4px;font-size:9pt;line-height:1.3;">
                     ${userData.prenom} ${userData.nom}<br>
                     5 Avenue Charles de Gaulle<br>
                     12700 Capdenac-Gare<br>
@@ -704,16 +665,19 @@ function printCourrier(id) {
                     ${userData.email_pro ? userData.email_pro : ''}
                 </div>
             </div>
+            <div style="text-align:right;margin-top:5mm;">
+                <div style="display:inline-block;text-align:left;min-width:80mm;font-size:11pt;line-height:1.5;">
+                    ${destLines}
+                </div>
+            </div>
+            <div style="clear:both;"></div>
+            <div style="text-align:right;margin:8px 0;">
+                ${c.lieu || 'Capdenac-Gare'}, le ${fmtDate(c.date_courrier)}
+            </div>
+            <div style="font-weight:bold;margin:8px 0;">Objet : ${c.objet}</div>
+            <div style="margin:8px 0;text-align:justify;">${c.corps}</div>
+            <div style="text-align:right;margin-top:40px;">${userData.prenom} ${userData.nom}</div>
         </div>
-        <div class="print-destinataire">
-            ${destLines}
-        </div>
-        <div class="print-lieu-date">
-            ${c.lieu || 'Capdenac-Gare'}, le ${fmtDate(c.date_courrier)}
-        </div>
-        <div class="print-objet">Objet : ${c.objet}</div>
-        <div class="print-corps">${c.corps}</div>
-        <div class="print-footer">${userData.prenom} ${userData.nom}</div>
     `;
     printArea.style.display = 'block';
 
