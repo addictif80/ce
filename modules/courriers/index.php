@@ -668,10 +668,10 @@ function printCourrier(id) {
                     ${userData.email_pro ? userData.email_pro : ''}
                 </div>
             </div>
-            <div style="position:absolute;top:40mm;right:0;width:85mm;font-size:11pt;line-height:1.5;">
+            <div style="position:absolute;top:47mm;left:100mm;width:85mm;font-size:11pt;line-height:1.5;">
                 ${destLines}
             </div>
-            <div style="margin-top:55mm;"></div>
+            <div style="margin-top:80mm;"></div>
             <div style="text-align:right;">
                 ${c.lieu || 'Capdenac-Gare'}, le ${fmtDate(c.date_courrier)}
             </div>
