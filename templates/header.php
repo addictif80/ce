@@ -1,4 +1,5 @@
 <?php
+ob_start(); // Buffer la sortie pour que header() fonctionne même après du HTML
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 requireLogin();
@@ -7,14 +8,10 @@ $liensExternes = getLiensExternes();
 $currentPage = basename($_SERVER['PHP_SELF'], '.php');
 
 // Calcul du chemin de base pour les URLs (fonctionne depuis n'importe quel sous-dossier)
-$baseUrl = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), '/');
-// Remonter au dossier racine du projet si on est dans un module
-$scriptPath = str_replace('\\', '/', $_SERVER['SCRIPT_NAME']);
-$rootDir = str_replace('\\', '/', realpath(__DIR__ . '/..'));
-$docRoot = str_replace('\\', '/', realpath($_SERVER['DOCUMENT_ROOT']));
-$baseUrl = rtrim(str_replace($docRoot, '', $rootDir), '/');
-if ($baseUrl === '') $baseUrl = '';
-$B = $baseUrl; // raccourci
+$projectRootFs = str_replace('\\', '/', realpath(__DIR__ . '/..'));
+$scriptFs = str_replace('\\', '/', realpath($_SERVER['SCRIPT_FILENAME'] ?? $_SERVER['PHP_SELF']));
+$relativeScript = str_replace($projectRootFs, '', $scriptFs);
+$B = rtrim(str_replace($relativeScript, '', $_SERVER['SCRIPT_NAME']), '/');
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -28,6 +25,31 @@ $B = $baseUrl; // raccourci
     <?php if (isset($extraCss)): foreach((array)$extraCss as $css): ?>
         <link href="<?= $css ?>" rel="stylesheet">
     <?php endforeach; endif; ?>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    function filterTable(inputId, tableId) {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+        input.addEventListener('keyup', function() {
+            const filter = this.value.toLowerCase();
+            const rows = document.querySelectorAll('#' + tableId + ' tbody tr');
+            rows.forEach(row => {
+                row.style.display = row.textContent.toLowerCase().includes(filter) ? '' : 'none';
+            });
+        });
+    }
+    function toggleStatus(url, id, field, cb) {
+        const value = cb.checked ? 1 : 0;
+        fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: 'id=' + id + '&field=' + field + '&value=' + value
+        }).then(r => r.json()).then(data => {
+            if (!data.success) { cb.checked = !cb.checked; alert('Erreur'); }
+            else { location.reload(); }
+        });
+    }
+    </script>
 </head>
 <body>
     <!-- SIDEBAR -->
