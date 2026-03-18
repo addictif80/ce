@@ -4,10 +4,12 @@
  * Crée la base de données et l'utilisateur admin
  */
 
-$host = 'localhost';
-$user = 'cemp_cemp';
-$pass = '';
-$dbname = 'cemp_cemp';
+require_once __DIR__ . '/includes/config.php';
+
+$host = DB_HOST;
+$user = DB_USER;
+$pass = DB_PASS;
+$dbname = DB_NAME;
 
 // Tenter la connexion
 try {
