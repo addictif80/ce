@@ -538,7 +538,6 @@ function showDetail(id) {
             <div class="lp-dest">
                 ${destLines}
             </div>
-            <br><br>
             <div class="lp-lieu-date">
                 ${c.lieu || 'Capdenac-Gare'}, le ${fmtDate(c.date_courrier)}
             </div>
