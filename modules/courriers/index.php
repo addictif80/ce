@@ -534,13 +534,17 @@ function showDetail(id) {
                     </div>
                 </div>
             </div>
+            <br><br>
             <div class="lp-dest">
                 ${destLines}
             </div>
+            <br><br>
             <div class="lp-lieu-date">
                 ${c.lieu || 'Capdenac-Gare'}, le ${fmtDate(c.date_courrier)}
             </div>
+            <br><br>
             <div class="lp-objet">Objet : ${c.objet}</div>
+            <br><br>
             <div class="lp-corps">${c.corps}</div>
             <div class="lp-footer">${userData.prenom} ${userData.nom}</div>
         </div>
@@ -654,8 +658,8 @@ function printCourrier(id) {
 
     const printArea = document.getElementById('printArea');
     printArea.innerHTML = `
-        <div style="font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.4;color:#000;">
-            <div style="margin-bottom:0;">
+        <div style="font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.4;color:#000;position:relative;">
+            <div>
                 <img src="https://ce-prod.cloudimg.io/_images_/app/uploads/sites/16/2023/06/02105536/cemp-logo-paris-2024.png?func=bound&w=400&h=80&gravity=auto&optipress=2" alt="Caisse d'Épargne" style="max-width:180px;height:auto;">
                 <div style="margin-top:4px;font-size:9pt;line-height:1.3;">
                     ${userData.prenom} ${userData.nom}<br>
@@ -665,17 +669,17 @@ function printCourrier(id) {
                     ${userData.email_pro ? userData.email_pro : ''}
                 </div>
             </div>
-            <div style="text-align:right;margin-top:5mm;">
-                <div style="display:inline-block;text-align:left;min-width:80mm;font-size:11pt;line-height:1.5;">
-                    ${destLines}
-                </div>
+            <div style="position:absolute;top:47mm;left:100mm;width:85mm;font-size:11pt;line-height:1.5;">
+                ${destLines}
             </div>
-            <div style="clear:both;"></div>
-            <div style="text-align:right;margin:8px 0;">
+            <div style="margin-top:80mm;"></div>
+            <div style="text-align:right;">
                 ${c.lieu || 'Capdenac-Gare'}, le ${fmtDate(c.date_courrier)}
             </div>
-            <div style="font-weight:bold;margin:8px 0;">Objet : ${c.objet}</div>
-            <div style="margin:8px 0;text-align:justify;">${c.corps}</div>
+            <br><br>
+            <div style="font-weight:bold;">Objet : ${c.objet}</div>
+            <br><br>
+            <div style="text-align:justify;">${c.corps}</div>
             <div style="text-align:right;margin-top:40px;">${userData.prenom} ${userData.nom}</div>
         </div>
     `;
