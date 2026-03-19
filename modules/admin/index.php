@@ -1,4 +1,36 @@
 <?php
+// AJAX: fetch record details (before header to avoid HTML output)
+if (isset($_GET['ajax']) && $_GET['ajax'] === 'detail') {
+    require_once __DIR__ . '/../../includes/auth.php';
+    require_once __DIR__ . '/../../includes/functions.php';
+    requireLogin();
+    if (!isAdmin()) { http_response_code(403); echo json_encode(['error' => 'forbidden']); exit; }
+    $db = getDB();
+    $table = $_GET['table'] ?? '';
+    $id = (int)($_GET['id'] ?? 0);
+    $allowed = ['instances','demandes_rappel','offres','demandes_clients','suivi_production',
+        'seances_phoning','credit_immobilier','calculateur_budget','formations','blocnotes',
+        'courriers','modeles_courriers','procedures','codes_utiles','contacts_utiles'];
+    if (!in_array($table, $allowed) || $id <= 0) {
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'invalid']);
+        exit;
+    }
+    // Check if table has user_id
+    $hasUserId = true;
+    try { $db->query("SELECT user_id FROM `$table` LIMIT 1"); } catch (Exception $e) { $hasUserId = false; }
+    if ($hasUserId) {
+        $stmt = $db->prepare("SELECT t.*, u.nom AS user_nom, u.prenom AS user_prenom FROM `$table` t LEFT JOIN users u ON t.user_id = u.id WHERE t.id = ?");
+    } else {
+        $stmt = $db->prepare("SELECT t.* FROM `$table` t WHERE t.id = ?");
+    }
+    $stmt->execute([$id]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    header('Content-Type: application/json');
+    echo json_encode($row ?: ['error' => 'not_found']);
+    exit;
+}
+
 $pageTitle = 'Administration';
 require_once __DIR__ . '/../../templates/header.php';
 requireAdmin();
@@ -17,24 +49,6 @@ try { $db->exec("ALTER TABLE contacts_utiles ADD COLUMN approved_by INT DEFAULT 
 try { $db->exec("ALTER TABLE offres ADD COLUMN approved TINYINT(1) DEFAULT 0"); } catch (Exception $e) {}
 try { $db->exec("ALTER TABLE offres ADD COLUMN approved_by INT DEFAULT NULL"); } catch (Exception $e) {}
 
-// AJAX: fetch record details for admin data browser
-if (isset($_GET['ajax']) && $_GET['ajax'] === 'detail') {
-    $table = $_GET['table'] ?? '';
-    $id = (int)($_GET['id'] ?? 0);
-    $allowed = ['instances','demandes_rappel','offres','demandes_clients','suivi_production',
-        'seances_phoning','credit_immobilier','calculateur_budget','formations','blocnotes',
-        'courriers','modeles_courriers','procedures','codes_utiles','contacts_utiles'];
-    if (!in_array($table, $allowed) || $id <= 0) {
-        echo json_encode(['error' => 'invalid']);
-        exit;
-    }
-    $stmt = $db->prepare("SELECT t.*, u.nom AS user_nom, u.prenom AS user_prenom FROM `$table` t LEFT JOIN users u ON t.user_id = u.id WHERE t.id = ?");
-    $stmt->execute([$id]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    header('Content-Type: application/json');
-    echo json_encode($row ?: ['error' => 'not_found']);
-    exit;
-}
 
 // === ACTIONS ===
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
