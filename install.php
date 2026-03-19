@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->exec($sql);
 
         // Créer l'utilisateur admin
-        $adminPassword = password_hash('70748483Arifa80=', PASSWORD_DEFAULT);
+        $adminPassword = password_hash('', PASSWORD_DEFAULT);
         $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE username = 'adrien'");
         $stmt->execute([$adminPassword]);
 
