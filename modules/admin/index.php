@@ -1,5 +1,30 @@
 <?php
-// AJAX: fetch record details (before header to avoid HTML output)
+// AJAX endpoints (before header to avoid HTML output)
+$allowedTables = ['instances','demandes_rappel','offres','demandes_clients','suivi_production',
+    'seances_phoning','credit_immobilier','calculateur_budget','formations','blocnotes',
+    'courriers','modeles_courriers','procedures','codes_utiles','contacts_utiles'];
+
+// Fields that should never be editable
+$systemFields = ['id','user_id','user_nom','user_prenom','created_at','updated_at','password','variables','approved_by'];
+
+if (isset($_GET['ajax']) && $_GET['ajax'] === 'schema') {
+    require_once __DIR__ . '/../../includes/auth.php';
+    require_once __DIR__ . '/../../includes/functions.php';
+    requireLogin();
+    if (!isAdmin()) { http_response_code(403); echo json_encode(['error' => 'forbidden']); exit; }
+    $db = getDB();
+    $table = $_GET['table'] ?? '';
+    if (!in_array($table, $allowedTables)) {
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'invalid']);
+        exit;
+    }
+    $cols = $db->query("SHOW COLUMNS FROM `$table`")->fetchAll(PDO::FETCH_ASSOC);
+    header('Content-Type: application/json');
+    echo json_encode($cols);
+    exit;
+}
+
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'detail') {
     require_once __DIR__ . '/../../includes/auth.php';
     require_once __DIR__ . '/../../includes/functions.php';
@@ -8,10 +33,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'detail') {
     $db = getDB();
     $table = $_GET['table'] ?? '';
     $id = (int)($_GET['id'] ?? 0);
-    $allowed = ['instances','demandes_rappel','offres','demandes_clients','suivi_production',
-        'seances_phoning','credit_immobilier','calculateur_budget','formations','blocnotes',
-        'courriers','modeles_courriers','procedures','codes_utiles','contacts_utiles'];
-    if (!in_array($table, $allowed) || $id <= 0) {
+    if (!in_array($table, $allowedTables) || $id <= 0) {
         header('Content-Type: application/json');
         echo json_encode(['error' => 'invalid']);
         exit;
@@ -160,6 +182,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         header('Location: index.php?tab=donnees&module=' . urlencode($_POST['module'] ?? '') . '&msg=deleted');
         exit;
     }
+
+    // --- Modification de données (admin gestion) ---
+    if ($action === 'admin_edit') {
+        $table = $_POST['table'] ?? '';
+        $id = (int)($_POST['id'] ?? 0);
+        $allowed_tables = ['instances', 'demandes_rappel', 'offres', 'demandes_clients', 'suivi_production',
+            'seances_phoning', 'credit_immobilier', 'calculateur_budget', 'formations', 'blocnotes',
+            'courriers', 'modeles_courriers', 'procedures', 'codes_utiles', 'contacts_utiles'];
+        $systemFields = ['id','user_id','created_at','updated_at','password','variables','approved_by'];
+        if (in_array($table, $allowed_tables) && $id > 0) {
+            $cols = $db->query("SHOW COLUMNS FROM `$table`")->fetchAll(PDO::FETCH_ASSOC);
+            $sets = [];
+            $values = [];
+            foreach ($cols as $col) {
+                $field = $col['Field'];
+                if (in_array($field, $systemFields)) continue;
+                if (!array_key_exists('field_' . $field, $_POST)) continue;
+                $val = $_POST['field_' . $field];
+                if ($val === '' && ($col['Null'] === 'YES' || str_contains($col['Type'], 'date'))) {
+                    $val = null;
+                }
+                $sets[] = "`$field` = ?";
+                $values[] = $val;
+            }
+            if (!empty($sets)) {
+                $values[] = $id;
+                $sql = "UPDATE `$table` SET " . implode(', ', $sets) . " WHERE id = ?";
+                $stmt = $db->prepare($sql);
+                $stmt->execute($values);
+            }
+        }
+        header('Location: index.php?tab=donnees&module=' . urlencode($_POST['module'] ?? '') . '&msg=updated');
+        exit;
+    }
 }
 
 // Données
@@ -190,6 +246,7 @@ $activeTab = $_GET['tab'] ?? 'users';
         'approved' => 'Élément approuvé avec succès.',
         'rejected' => 'Élément refusé et supprimé.',
         'deleted' => 'Enregistrement supprimé.',
+        'updated' => 'Enregistrement modifié avec succès.',
     ];
     echo $msgs[$_GET['msg']] ?? 'Opération effectuée.';
     ?>
@@ -644,6 +701,7 @@ $selectedModule = $_GET['module'] ?? '';
                 <?php endforeach; ?>
                 <td class="actions">
                     <button class="btn btn-sm btn-ce-outline" onclick="showRecordDetail('<?= $selectedModule ?>', <?= $row['id'] ?>)" title="Voir"><i class="fas fa-eye"></i></button>
+                    <button class="btn btn-sm btn-ce-outline" onclick="editRecord('<?= $selectedModule ?>', <?= $row['id'] ?>)" title="Modifier"><i class="fas fa-edit"></i></button>
                     <form method="POST" class="d-inline" onsubmit="return confirm('Supprimer cet enregistrement ?')">
                         <input type="hidden" name="action" value="admin_delete">
                         <input type="hidden" name="table" value="<?= $selectedModule ?>">
@@ -667,6 +725,21 @@ $selectedModule = $_GET['module'] ?? '';
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body" id="recordDetailContent">
+                <div class="text-center py-4"><i class="fas fa-spinner fa-spin fa-2x"></i></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Edit Enregistrement -->
+<div class="modal fade modal-fullscreen-custom" id="recordEditModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-edit"></i> Modifier l'enregistrement</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="recordEditContent">
                 <div class="text-center py-4"><i class="fas fa-spinner fa-spin fa-2x"></i></div>
             </div>
         </div>
@@ -754,6 +827,127 @@ function showRecordDetail(table, id) {
         .catch(() => {
             content.innerHTML = '<div class="alert alert-danger">Erreur lors du chargement.</div>';
         });
+}
+
+const systemFields = ['id','user_id','created_at','updated_at','password','variables','approved_by','user_nom','user_prenom'];
+const dateFields = ['date_debut','date_fin','date_ajout','date_courrier','date_rdv','date_seance','date_echeance','date_envoi','suivi_offre_signee_date'];
+const enumMap = {
+    categorie: ['Banca','Epargne','Placement','Credit','Assurance'],
+    statut: ['a_faire','fait'],
+    type_client: ['Particulier','Pro','Asso'],
+    type_occupation: ['Proprietaire','Locatif'],
+    type_residence: ['RP','RS'],
+    type_bien: ['Appartement','Maison','Copro'],
+    lieu: ['presentiel','distanciel'],
+    ptz_demande: ['Initiale','Complementaire'],
+    ptz_type: ['Perf globale','Bouquets'],
+};
+
+let schemaCache = {};
+
+function editRecord(table, id) {
+    const content = document.getElementById('recordEditContent');
+    content.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin fa-2x"></i> Chargement...</div>';
+    new bootstrap.Modal(document.getElementById('recordEditModal')).show();
+
+    // Fetch schema and data in parallel
+    const fetchSchema = schemaCache[table]
+        ? Promise.resolve(schemaCache[table])
+        : fetch(`index.php?ajax=schema&table=${encodeURIComponent(table)}`).then(r => r.json()).then(s => { schemaCache[table] = s; return s; });
+    const fetchData = fetch(`index.php?ajax=detail&table=${encodeURIComponent(table)}&id=${id}`).then(r => r.json());
+
+    Promise.all([fetchSchema, fetchData]).then(([schema, data]) => {
+        if (data.error) {
+            content.innerHTML = '<div class="alert alert-danger">Enregistrement non trouvé.</div>';
+            return;
+        }
+        let html = `<form method="POST">
+            <input type="hidden" name="action" value="admin_edit">
+            <input type="hidden" name="table" value="${esc(table)}">
+            <input type="hidden" name="module" value="${esc(table)}">
+            <input type="hidden" name="id" value="${id}">`;
+
+        if (data.user_prenom || data.user_nom) {
+            html += `<div class="mb-3"><label class="form-label fw-bold">Utilisateur</label>
+                <div><span class="badge bg-secondary">${esc(data.user_prenom || '')} ${esc(data.user_nom || '')}</span></div></div>`;
+        }
+
+        html += '<div class="row g-3">';
+        for (const col of schema) {
+            const field = col.Field;
+            if (systemFields.includes(field)) continue;
+            const val = data[field] ?? '';
+            const label = fieldLabels[field] || field.replace(/_/g, ' ');
+            const colType = col.Type.toLowerCase();
+            const inputName = 'field_' + field;
+
+            // Determine input type
+            if (boolFields.includes(field) || colType === 'tinyint(1)') {
+                html += `<div class="col-md-6">
+                    <label class="form-label">${esc(label)}</label>
+                    <select name="${inputName}" class="form-select">
+                        <option value="0" ${val == 0 ? 'selected' : ''}>Non</option>
+                        <option value="1" ${val == 1 ? 'selected' : ''}>Oui</option>
+                    </select></div>`;
+            } else if (enumMap[field]) {
+                html += `<div class="col-md-6">
+                    <label class="form-label">${esc(label)}</label>
+                    <select name="${inputName}" class="form-select">
+                        <option value="">-- Aucun --</option>
+                        ${enumMap[field].map(o => `<option value="${esc(o)}" ${val === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}
+                    </select></div>`;
+            } else if (colType.includes('enum')) {
+                const opts = colType.match(/enum\((.+)\)/);
+                if (opts) {
+                    const values = opts[1].split(',').map(v => v.replace(/'/g, '').trim());
+                    html += `<div class="col-md-6">
+                        <label class="form-label">${esc(label)}</label>
+                        <select name="${inputName}" class="form-select">
+                            <option value="">-- Aucun --</option>
+                            ${values.map(o => `<option value="${esc(o)}" ${val === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}
+                        </select></div>`;
+                }
+            } else if (dateFields.includes(field) || colType.includes('date')) {
+                const dateVal = val ? (colType.includes('datetime') ? val.substring(0, 16) : val.substring(0, 10)) : '';
+                const inputType = colType.includes('datetime') ? 'datetime-local' : 'date';
+                html += `<div class="col-md-6">
+                    <label class="form-label">${esc(label)}</label>
+                    <input type="${inputType}" name="${inputName}" class="form-control" value="${esc(dateVal)}">
+                    </div>`;
+            } else if (colType.includes('text') || colType.includes('longtext') || field === 'corps' || field === 'texte' || field === 'details' || field === 'contenu') {
+                html += `<div class="col-12">
+                    <label class="form-label">${esc(label)}</label>
+                    <textarea name="${inputName}" class="form-control" rows="4">${esc(String(val))}</textarea>
+                    </div>`;
+            } else if (moneyFields.includes(field) || colType.includes('decimal')) {
+                html += `<div class="col-md-6">
+                    <label class="form-label">${esc(label)}</label>
+                    <div class="input-group">
+                        <input type="number" step="0.01" name="${inputName}" class="form-control" value="${val || 0}">
+                        <span class="input-group-text">&euro;</span>
+                    </div></div>`;
+            } else if (colType.includes('int')) {
+                html += `<div class="col-md-6">
+                    <label class="form-label">${esc(label)}</label>
+                    <input type="number" name="${inputName}" class="form-control" value="${esc(String(val))}">
+                    </div>`;
+            } else {
+                html += `<div class="col-md-6">
+                    <label class="form-label">${esc(label)}</label>
+                    <input type="text" name="${inputName}" class="form-control" value="${esc(String(val))}">
+                    </div>`;
+            }
+        }
+        html += `</div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Enregistrer</button>
+                <button type="button" class="btn btn-secondary ms-2" data-bs-dismiss="modal">Annuler</button>
+            </div>
+        </form>`;
+        content.innerHTML = html;
+    }).catch(() => {
+        content.innerHTML = '<div class="alert alert-danger">Erreur lors du chargement.</div>';
+    });
 }
 
 function esc(str) {
