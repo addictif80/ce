@@ -3,33 +3,58 @@ $pageTitle = 'Contacts utiles';
 require_once __DIR__ . '/../../templates/header.php';
 $db = getDB();
 $userId = getCurrentUserId();
+$isUserAdmin = isAdmin();
+
+// Auto-add approval columns
+try { $db->exec("ALTER TABLE contacts_utiles ADD COLUMN approved TINYINT(1) DEFAULT 0"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE contacts_utiles ADD COLUMN approved_by INT DEFAULT NULL"); } catch (Exception $e) {}
 
 // Ajout
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add') {
-    $stmt = $db->prepare("INSERT INTO contacts_utiles (user_id, telephone, mail, service, a_contacter_pour) VALUES (?, ?, ?, ?, ?)");
-    $stmt->execute([$userId, $_POST['telephone'], $_POST['mail'], $_POST['service'], $_POST['a_contacter_pour']]);
+    $stmt = $db->prepare("INSERT INTO contacts_utiles (user_id, telephone, mail, service, a_contacter_pour, approved, approved_by) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    $stmt->execute([
+        $userId, $_POST['telephone'], $_POST['mail'], $_POST['service'], $_POST['a_contacter_pour'],
+        $isUserAdmin ? 1 : 0,
+        $isUserAdmin ? $userId : null
+    ]);
     header('Location: index.php');
     exit;
 }
 
 // Edition
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'edit') {
-    $stmt = $db->prepare("UPDATE contacts_utiles SET telephone = ?, mail = ?, service = ?, a_contacter_pour = ? WHERE id = ? AND user_id = ?");
-    $stmt->execute([$_POST['telephone'], $_POST['mail'], $_POST['service'], $_POST['a_contacter_pour'], (int)$_POST['id'], $userId]);
+    $id = (int)$_POST['id'];
+    if ($isUserAdmin) {
+        $stmt = $db->prepare("UPDATE contacts_utiles SET telephone = ?, mail = ?, service = ?, a_contacter_pour = ? WHERE id = ?");
+        $stmt->execute([$_POST['telephone'], $_POST['mail'], $_POST['service'], $_POST['a_contacter_pour'], $id]);
+    } else {
+        $stmt = $db->prepare("UPDATE contacts_utiles SET telephone = ?, mail = ?, service = ?, a_contacter_pour = ? WHERE id = ? AND user_id = ?");
+        $stmt->execute([$_POST['telephone'], $_POST['mail'], $_POST['service'], $_POST['a_contacter_pour'], $id, $userId]);
+    }
     header('Location: index.php');
     exit;
 }
 
 // Suppression
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete') {
-    $stmt = $db->prepare("DELETE FROM contacts_utiles WHERE id = ? AND user_id = ?");
-    $stmt->execute([(int)$_POST['id'], $userId]);
+    $id = (int)$_POST['id'];
+    if ($isUserAdmin) {
+        $stmt = $db->prepare("DELETE FROM contacts_utiles WHERE id = ?");
+        $stmt->execute([$id]);
+    } else {
+        $stmt = $db->prepare("DELETE FROM contacts_utiles WHERE id = ? AND user_id = ?");
+        $stmt->execute([$id, $userId]);
+    }
     header('Location: index.php');
     exit;
 }
 
-// Liste
-$stmt = $db->prepare("SELECT * FROM contacts_utiles WHERE user_id = ? ORDER BY service ASC");
+// Liste : ses propres contacts + tous les contacts approuvés
+$stmt = $db->prepare("SELECT c.*, u.nom AS author_nom, u.prenom AS author_prenom
+    FROM contacts_utiles c
+    LEFT JOIN users u ON c.user_id = u.id
+    WHERE c.user_id = ? OR c.approved = 1
+    ORDER BY c.service ASC");
 $stmt->execute([$userId]);
 $contacts = $stmt->fetchAll();
 ?>
@@ -39,7 +64,7 @@ $contacts = $stmt->fetchAll();
     <div class="col-md-4">
         <div class="stat-card">
             <div class="stat-number"><?= count($contacts) ?></div>
-            <div class="stat-label">Contacts enregistrés</div>
+            <div class="stat-label">Contacts disponibles</div>
         </div>
     </div>
     <div class="col-md-4 d-flex align-items-center">
@@ -63,24 +88,44 @@ $contacts = $stmt->fetchAll();
                 <th>Téléphone</th>
                 <th>Mail</th>
                 <th>À contacter pour</th>
+                <th>Auteur</th>
+                <th>Statut</th>
                 <th>Actions</th>
             </tr>
         </thead>
         <tbody>
-        <?php foreach ($contacts as $contact): ?>
+        <?php foreach ($contacts as $contact):
+            $isOwn = ($contact['user_id'] == $userId);
+        ?>
             <tr>
                 <td><strong><?= e($contact['service']) ?></strong></td>
                 <td><?= e($contact['telephone']) ?></td>
                 <td><?= e($contact['mail']) ?></td>
                 <td><?= e(excerpt($contact['a_contacter_pour'])) ?></td>
+                <td>
+                    <?php if ($isOwn): ?>
+                        <span class="badge bg-primary">Moi</span>
+                    <?php else: ?>
+                        <?= e($contact['author_prenom'] . ' ' . $contact['author_nom']) ?>
+                    <?php endif; ?>
+                </td>
+                <td>
+                    <?php if ($contact['approved']): ?>
+                        <span class="badge bg-success"><i class="fas fa-check"></i> Approuvé</span>
+                    <?php elseif ($isOwn): ?>
+                        <span class="badge bg-warning text-dark"><i class="fas fa-clock"></i> En attente</span>
+                    <?php endif; ?>
+                </td>
                 <td class="actions">
                     <button class="btn btn-sm btn-ce-outline" onclick="showDetail(<?= $contact['id'] ?>)" title="Voir"><i class="fas fa-eye"></i></button>
+                    <?php if ($isOwn || $isUserAdmin): ?>
                     <button class="btn btn-sm btn-ce-outline" onclick="editContact(<?= $contact['id'] ?>)" title="Modifier"><i class="fas fa-edit"></i></button>
                     <form method="POST" class="d-inline" onsubmit="return confirm('Supprimer ce contact ?')">
                         <input type="hidden" name="action" value="delete">
                         <input type="hidden" name="id" value="<?= $contact['id'] ?>">
                         <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
                     </form>
+                    <?php endif; ?>
                 </td>
             </tr>
         <?php endforeach; ?>
@@ -116,6 +161,11 @@ $contacts = $stmt->fetchAll();
                             <label class="form-label">À contacter pour</label>
                             <textarea name="a_contacter_pour" class="form-control" rows="5"></textarea>
                         </div>
+                        <?php if (!$isUserAdmin): ?>
+                        <div class="col-12">
+                            <div class="alert alert-info mb-0"><i class="fas fa-info-circle"></i> Ce contact sera soumis à validation par un administrateur avant d'être visible par tous.</div>
+                        </div>
+                        <?php endif; ?>
                         <div class="col-12">
                             <button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Enregistrer</button>
                         </div>

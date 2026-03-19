@@ -4,6 +4,7 @@ require_once __DIR__ . '/../../templates/header.php';
 $db = getDB();
 $userId = getCurrentUserId();
 $user = getCurrentUser();
+$isUserAdmin = isAdmin();
 
 // Création des tables si nécessaire
 $db->exec("CREATE TABLE IF NOT EXISTS courriers (
@@ -31,17 +32,15 @@ $db->exec("CREATE TABLE IF NOT EXISTS modeles_courriers (
     INDEX(user_id)
 )");
 
-// Migration : ajouter la colonne variables si elle n'existe pas
-try {
-    $db->exec("ALTER TABLE modeles_courriers ADD COLUMN variables JSON DEFAULT NULL");
-} catch (PDOException $e) {}
+// Migrations
+try { $db->exec("ALTER TABLE modeles_courriers ADD COLUMN variables JSON DEFAULT NULL"); } catch (PDOException $e) {}
+try { $db->exec("ALTER TABLE courriers ADD COLUMN civilite_dest VARCHAR(20) DEFAULT '' AFTER user_id"); } catch (PDOException $e) {}
+try { $db->exec("ALTER TABLE courriers ADD COLUMN nom_dest VARCHAR(255) DEFAULT '' AFTER civilite_dest"); } catch (PDOException $e) {}
+try { $db->exec("ALTER TABLE courriers ADD COLUMN prenom_dest VARCHAR(255) DEFAULT '' AFTER nom_dest"); } catch (PDOException $e) {}
 
-// Migration : ajouter civilite_dest, nom_dest, prenom_dest
-try {
-    $db->exec("ALTER TABLE courriers ADD COLUMN civilite_dest VARCHAR(20) DEFAULT '' AFTER user_id");
-    $db->exec("ALTER TABLE courriers ADD COLUMN nom_dest VARCHAR(255) DEFAULT '' AFTER civilite_dest");
-    $db->exec("ALTER TABLE courriers ADD COLUMN prenom_dest VARCHAR(255) DEFAULT '' AFTER nom_dest");
-} catch (PDOException $e) {}
+// Approval columns for modeles_courriers
+try { $db->exec("ALTER TABLE modeles_courriers ADD COLUMN approved TINYINT(1) DEFAULT 0"); } catch (PDOException $e) {}
+try { $db->exec("ALTER TABLE modeles_courriers ADD COLUMN approved_by INT DEFAULT NULL"); } catch (PDOException $e) {}
 
 // Ajout courrier
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add') {
@@ -102,19 +101,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
-// Sauvegarde modèle
+// Sauvegarde modèle (auto-approuvé si admin)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_template') {
     $variables = isset($_POST['tpl_variables']) ? $_POST['tpl_variables'] : null;
-    $stmt = $db->prepare("INSERT INTO modeles_courriers (user_id, nom_modele, objet, corps, variables) VALUES (?, ?, ?, ?, ?)");
-    $stmt->execute([$userId, $_POST['nom_modele'], $_POST['tpl_objet'] ?? '', $_POST['tpl_corps'] ?? '', $variables]);
+    $stmt = $db->prepare("INSERT INTO modeles_courriers (user_id, nom_modele, objet, corps, variables, approved, approved_by) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    $stmt->execute([
+        $userId, $_POST['nom_modele'], $_POST['tpl_objet'] ?? '', $_POST['tpl_corps'] ?? '', $variables,
+        $isUserAdmin ? 1 : 0,
+        $isUserAdmin ? $userId : null
+    ]);
     header('Location: index.php');
     exit;
 }
 
 // Suppression modèle
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_template') {
-    $stmt = $db->prepare("DELETE FROM modeles_courriers WHERE id = ? AND user_id = ?");
-    $stmt->execute([(int)$_POST['tpl_id'], $userId]);
+    $id = (int)$_POST['tpl_id'];
+    if ($isUserAdmin) {
+        $stmt = $db->prepare("DELETE FROM modeles_courriers WHERE id = ?");
+        $stmt->execute([$id]);
+    } else {
+        $stmt = $db->prepare("DELETE FROM modeles_courriers WHERE id = ? AND user_id = ?");
+        $stmt->execute([$id, $userId]);
+    }
     header('Location: index.php');
     exit;
 }
@@ -124,8 +133,12 @@ $stmt = $db->prepare("SELECT * FROM courriers WHERE user_id = ? ORDER BY date_co
 $stmt->execute([$userId]);
 $courriers = $stmt->fetchAll();
 
-// Liste modèles
-$stmt = $db->prepare("SELECT * FROM modeles_courriers WHERE user_id = ? ORDER BY nom_modele ASC");
+// Liste modèles : ses propres modèles + tous les modèles approuvés
+$stmt = $db->prepare("SELECT m.*, u.nom AS author_nom, u.prenom AS author_prenom
+    FROM modeles_courriers m
+    LEFT JOIN users u ON m.user_id = u.id
+    WHERE m.user_id = ? OR m.approved = 1
+    ORDER BY m.nom_modele ASC");
 $stmt->execute([$userId]);
 $modeles = $stmt->fetchAll();
 ?>
@@ -208,8 +221,12 @@ $modeles = $stmt->fetchAll();
                             <div class="input-group">
                                 <select id="addTemplateSelect" class="form-select">
                                     <option value="">-- Choisir un modèle --</option>
-                                    <?php foreach ($modeles as $m): ?>
-                                        <option value="<?= $m['id'] ?>"><?= e($m['nom_modele']) ?></option>
+                                    <?php foreach ($modeles as $m):
+                                        $tplLabel = e($m['nom_modele']);
+                                        if ($m['user_id'] != $userId) $tplLabel .= ' (' . e($m['author_prenom'] . ' ' . $m['author_nom']) . ')';
+                                        if (!$m['approved'] && $m['user_id'] == $userId) $tplLabel .= ' [En attente]';
+                                    ?>
+                                        <option value="<?= $m['id'] ?>"><?= $tplLabel ?></option>
                                     <?php endforeach; ?>
                                 </select>
                                 <button type="button" class="btn btn-ce-outline" onclick="loadTemplate('add')"><i class="fas fa-download"></i> Charger</button>
@@ -221,6 +238,9 @@ $modeles = $stmt->fetchAll();
                                 <input type="text" id="addTemplateName" class="form-control" placeholder="Nom du modèle...">
                                 <button type="button" class="btn btn-ce-outline" onclick="saveTemplate('add')"><i class="fas fa-save"></i> Sauver</button>
                             </div>
+                            <?php if (!$isUserAdmin): ?>
+                            <small class="text-muted"><i class="fas fa-info-circle"></i> Le modèle sera soumis à validation admin.</small>
+                            <?php endif; ?>
                         </div>
                     </div>
 

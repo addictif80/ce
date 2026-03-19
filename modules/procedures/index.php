@@ -3,13 +3,22 @@ $pageTitle = 'Procédures';
 require_once __DIR__ . '/../../templates/header.php';
 $db = getDB();
 $userId = getCurrentUserId();
+$isUserAdmin = isAdmin();
+
+// Auto-add approval columns
+try { $db->exec("ALTER TABLE procedures ADD COLUMN approved TINYINT(1) DEFAULT 0"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE procedures ADD COLUMN approved_by INT DEFAULT NULL"); } catch (Exception $e) {}
 
 // Ajout
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add') {
     $miseEnAvant = isset($_POST['mise_en_avant']) ? 1 : 0;
     $lienPartage = generateShareLink();
-    $stmt = $db->prepare("INSERT INTO procedures (user_id, nom, texte, mise_en_avant, lien_partage, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
-    $stmt->execute([$userId, $_POST['nom'], $_POST['texte'], $miseEnAvant, $lienPartage]);
+    $stmt = $db->prepare("INSERT INTO procedures (user_id, nom, texte, mise_en_avant, lien_partage, approved, approved_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())");
+    $stmt->execute([
+        $userId, $_POST['nom'], $_POST['texte'], $miseEnAvant, $lienPartage,
+        $isUserAdmin ? 1 : 0,
+        $isUserAdmin ? $userId : null
+    ]);
     header('Location: index.php');
     exit;
 }
@@ -17,22 +26,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 // Edition
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'edit') {
     $miseEnAvant = isset($_POST['mise_en_avant']) ? 1 : 0;
-    $stmt = $db->prepare("UPDATE procedures SET nom = ?, texte = ?, mise_en_avant = ? WHERE id = ? AND user_id = ?");
-    $stmt->execute([$_POST['nom'], $_POST['texte'], $miseEnAvant, (int)$_POST['id'], $userId]);
+    $id = (int)$_POST['id'];
+    if ($isUserAdmin) {
+        $stmt = $db->prepare("UPDATE procedures SET nom = ?, texte = ?, mise_en_avant = ? WHERE id = ?");
+        $stmt->execute([$_POST['nom'], $_POST['texte'], $miseEnAvant, $id]);
+    } else {
+        $stmt = $db->prepare("UPDATE procedures SET nom = ?, texte = ?, mise_en_avant = ? WHERE id = ? AND user_id = ?");
+        $stmt->execute([$_POST['nom'], $_POST['texte'], $miseEnAvant, $id, $userId]);
+    }
     header('Location: index.php');
     exit;
 }
 
 // Suppression
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete') {
-    $stmt = $db->prepare("DELETE FROM procedures WHERE id = ? AND user_id = ?");
-    $stmt->execute([(int)$_POST['id'], $userId]);
+    $id = (int)$_POST['id'];
+    if ($isUserAdmin) {
+        $stmt = $db->prepare("DELETE FROM procedures WHERE id = ?");
+        $stmt->execute([$id]);
+    } else {
+        $stmt = $db->prepare("DELETE FROM procedures WHERE id = ? AND user_id = ?");
+        $stmt->execute([$id, $userId]);
+    }
     header('Location: index.php');
     exit;
 }
 
-// Liste
-$stmt = $db->prepare("SELECT * FROM procedures WHERE user_id = ? ORDER BY mise_en_avant DESC, created_at DESC");
+// Liste : ses propres procédures + toutes les procédures approuvées
+$stmt = $db->prepare("SELECT p.*, u.nom AS author_nom, u.prenom AS author_prenom
+    FROM procedures p
+    LEFT JOIN users u ON p.user_id = u.id
+    WHERE p.user_id = ? OR p.approved = 1
+    ORDER BY p.mise_en_avant DESC, p.created_at DESC");
 $stmt->execute([$userId]);
 $procedures = $stmt->fetchAll();
 
@@ -45,7 +70,7 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
     <div class="col-md-4">
         <div class="stat-card">
             <div class="stat-number"><?= count($procedures) ?></div>
-            <div class="stat-label">Procédures enregistrées</div>
+            <div class="stat-label">Procédures disponibles</div>
         </div>
     </div>
     <div class="col-md-4 d-flex align-items-center">
@@ -67,13 +92,16 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
             <tr>
                 <th>Nom</th>
                 <th>Mise en avant</th>
-                <th>Date</th>
+                <th>Auteur</th>
+                <th>Statut</th>
                 <th>Lien de partage</th>
                 <th>Actions</th>
             </tr>
         </thead>
         <tbody>
-        <?php foreach ($procedures as $proc): ?>
+        <?php foreach ($procedures as $proc):
+            $isOwn = ($proc['user_id'] == $userId);
+        ?>
             <tr>
                 <td><strong><?= e($proc['nom']) ?></strong></td>
                 <td>
@@ -83,7 +111,20 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
                         <span class="badge-afaire">Non</span>
                     <?php endif; ?>
                 </td>
-                <td><?= formatDate($proc['created_at']) ?></td>
+                <td>
+                    <?php if ($isOwn): ?>
+                        <span class="badge bg-primary">Moi</span>
+                    <?php else: ?>
+                        <?= e($proc['author_prenom'] . ' ' . $proc['author_nom']) ?>
+                    <?php endif; ?>
+                </td>
+                <td>
+                    <?php if ($proc['approved']): ?>
+                        <span class="badge bg-success"><i class="fas fa-check"></i> Approuvé</span>
+                    <?php elseif ($isOwn): ?>
+                        <span class="badge bg-warning text-dark"><i class="fas fa-clock"></i> En attente</span>
+                    <?php endif; ?>
+                </td>
                 <td>
                     <div class="input-group input-group-sm" style="max-width:320px;">
                         <input type="text" class="form-control form-control-sm" value="<?= e($baseUrl . '?token=' . $proc['lien_partage']) ?>" readonly id="link_<?= $proc['id'] ?>">
@@ -92,12 +133,14 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
                 </td>
                 <td class="actions">
                     <button class="btn btn-sm btn-ce-outline" onclick="showDetail(<?= $proc['id'] ?>)" title="Voir"><i class="fas fa-eye"></i></button>
+                    <?php if ($isOwn || $isUserAdmin): ?>
                     <button class="btn btn-sm btn-ce-outline" onclick="editProcedure(<?= $proc['id'] ?>)" title="Modifier"><i class="fas fa-edit"></i></button>
                     <form method="POST" class="d-inline" onsubmit="return confirm('Supprimer cette procédure ?')">
                         <input type="hidden" name="action" value="delete">
                         <input type="hidden" name="id" value="<?= $proc['id'] ?>">
                         <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
                     </form>
+                    <?php endif; ?>
                 </td>
             </tr>
         <?php endforeach; ?>
@@ -131,6 +174,11 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
                             <label class="form-label">Texte de la procédure</label>
                             <textarea name="texte" class="form-control" rows="15" required></textarea>
                         </div>
+                        <?php if (!$isUserAdmin): ?>
+                        <div class="col-12">
+                            <div class="alert alert-info mb-0"><i class="fas fa-info-circle"></i> Cette procédure sera soumise à validation par un administrateur avant d'être visible par tous.</div>
+                        </div>
+                        <?php endif; ?>
                         <div class="col-12">
                             <button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Enregistrer</button>
                         </div>
@@ -204,6 +252,7 @@ function showDetail(id) {
                 <h4>${escapeHtml(proc.nom)}</h4>
                 <small class="text-muted">Créée le ${proc.created_at}</small>
                 ${proc.mise_en_avant == 1 ? ' <span class="badge-fait ms-2"><i class="fas fa-star"></i> Mise en avant</span>' : ''}
+                ${proc.approved == 1 ? ' <span class="badge bg-success ms-2"><i class="fas fa-check"></i> Approuvé</span>' : ' <span class="badge bg-warning text-dark ms-2"><i class="fas fa-clock"></i> En attente</span>'}
             </div>
             <div class="col-12 mb-3">
                 <div class="p-3 bg-light rounded" style="white-space:pre-wrap;">${escapeHtml(proc.texte)}</div>

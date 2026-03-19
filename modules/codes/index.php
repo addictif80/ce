@@ -3,33 +3,58 @@ $pageTitle = 'Codes utiles';
 require_once __DIR__ . '/../../templates/header.php';
 $db = getDB();
 $userId = getCurrentUserId();
+$isUserAdmin = isAdmin();
+
+// Auto-add approval columns
+try { $db->exec("ALTER TABLE codes_utiles ADD COLUMN approved TINYINT(1) DEFAULT 0"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE codes_utiles ADD COLUMN approved_by INT DEFAULT NULL"); } catch (Exception $e) {}
 
 // Ajout
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add') {
-    $stmt = $db->prepare("INSERT INTO codes_utiles (user_id, code, fonction) VALUES (?, ?, ?)");
-    $stmt->execute([$userId, $_POST['code'], $_POST['fonction']]);
+    $stmt = $db->prepare("INSERT INTO codes_utiles (user_id, code, fonction, approved, approved_by) VALUES (?, ?, ?, ?, ?)");
+    $stmt->execute([
+        $userId, $_POST['code'], $_POST['fonction'],
+        $isUserAdmin ? 1 : 0,
+        $isUserAdmin ? $userId : null
+    ]);
     header('Location: index.php');
     exit;
 }
 
-// Edition
+// Edition (only own items, or admin can edit any)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'edit') {
-    $stmt = $db->prepare("UPDATE codes_utiles SET code = ?, fonction = ? WHERE id = ? AND user_id = ?");
-    $stmt->execute([$_POST['code'], $_POST['fonction'], (int)$_POST['id'], $userId]);
+    $id = (int)$_POST['id'];
+    if ($isUserAdmin) {
+        $stmt = $db->prepare("UPDATE codes_utiles SET code = ?, fonction = ? WHERE id = ?");
+        $stmt->execute([$_POST['code'], $_POST['fonction'], $id]);
+    } else {
+        $stmt = $db->prepare("UPDATE codes_utiles SET code = ?, fonction = ? WHERE id = ? AND user_id = ?");
+        $stmt->execute([$_POST['code'], $_POST['fonction'], $id, $userId]);
+    }
     header('Location: index.php');
     exit;
 }
 
-// Suppression
+// Suppression (only own items, or admin can delete any)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete') {
-    $stmt = $db->prepare("DELETE FROM codes_utiles WHERE id = ? AND user_id = ?");
-    $stmt->execute([(int)$_POST['id'], $userId]);
+    $id = (int)$_POST['id'];
+    if ($isUserAdmin) {
+        $stmt = $db->prepare("DELETE FROM codes_utiles WHERE id = ?");
+        $stmt->execute([$id]);
+    } else {
+        $stmt = $db->prepare("DELETE FROM codes_utiles WHERE id = ? AND user_id = ?");
+        $stmt->execute([$id, $userId]);
+    }
     header('Location: index.php');
     exit;
 }
 
-// Liste
-$stmt = $db->prepare("SELECT * FROM codes_utiles WHERE user_id = ? ORDER BY code ASC");
+// Liste : ses propres codes + tous les codes approuvés
+$stmt = $db->prepare("SELECT c.*, u.nom AS author_nom, u.prenom AS author_prenom
+    FROM codes_utiles c
+    LEFT JOIN users u ON c.user_id = u.id
+    WHERE c.user_id = ? OR c.approved = 1
+    ORDER BY c.code ASC");
 $stmt->execute([$userId]);
 $codes = $stmt->fetchAll();
 ?>
@@ -39,7 +64,7 @@ $codes = $stmt->fetchAll();
     <div class="col-md-4">
         <div class="stat-card">
             <div class="stat-number"><?= count($codes) ?></div>
-            <div class="stat-label">Codes enregistrés</div>
+            <div class="stat-label">Codes disponibles</div>
         </div>
     </div>
     <div class="col-md-4 d-flex align-items-center">
@@ -61,22 +86,42 @@ $codes = $stmt->fetchAll();
             <tr>
                 <th>Code</th>
                 <th>Fonction</th>
+                <th>Auteur</th>
+                <th>Statut</th>
                 <th>Actions</th>
             </tr>
         </thead>
         <tbody>
-        <?php foreach ($codes as $code): ?>
+        <?php foreach ($codes as $code):
+            $isOwn = ($code['user_id'] == $userId);
+        ?>
             <tr>
                 <td><strong><?= e($code['code']) ?></strong></td>
                 <td><?= e(excerpt($code['fonction'])) ?></td>
+                <td>
+                    <?php if ($isOwn): ?>
+                        <span class="badge bg-primary">Moi</span>
+                    <?php else: ?>
+                        <?= e($code['author_prenom'] . ' ' . $code['author_nom']) ?>
+                    <?php endif; ?>
+                </td>
+                <td>
+                    <?php if ($code['approved']): ?>
+                        <span class="badge bg-success"><i class="fas fa-check"></i> Approuvé</span>
+                    <?php elseif ($isOwn): ?>
+                        <span class="badge bg-warning text-dark"><i class="fas fa-clock"></i> En attente</span>
+                    <?php endif; ?>
+                </td>
                 <td class="actions">
                     <button class="btn btn-sm btn-ce-outline" onclick="showDetail(<?= $code['id'] ?>)" title="Voir"><i class="fas fa-eye"></i></button>
+                    <?php if ($isOwn || $isUserAdmin): ?>
                     <button class="btn btn-sm btn-ce-outline" onclick="editCode(<?= $code['id'] ?>)" title="Modifier"><i class="fas fa-edit"></i></button>
                     <form method="POST" class="d-inline" onsubmit="return confirm('Supprimer ce code ?')">
                         <input type="hidden" name="action" value="delete">
                         <input type="hidden" name="id" value="<?= $code['id'] ?>">
                         <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
                     </form>
+                    <?php endif; ?>
                 </td>
             </tr>
         <?php endforeach; ?>
@@ -104,6 +149,11 @@ $codes = $stmt->fetchAll();
                             <label class="form-label">Fonction</label>
                             <textarea name="fonction" class="form-control" rows="5" required></textarea>
                         </div>
+                        <?php if (!$isUserAdmin): ?>
+                        <div class="col-12">
+                            <div class="alert alert-info mb-0"><i class="fas fa-info-circle"></i> Ce code sera soumis à validation par un administrateur avant d'être visible par tous.</div>
+                        </div>
+                        <?php endif; ?>
                         <div class="col-12">
                             <button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Enregistrer</button>
                         </div>
@@ -146,6 +196,7 @@ $codes = $stmt->fetchAll();
 filterTable('searchCodes', 'tableCodes');
 
 const codesData = <?= json_encode($codes) ?>;
+const currentUserId = <?= $userId ?>;
 
 function showDetail(id) {
     const code = codesData.find(c => c.id == id);
