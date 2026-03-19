@@ -3,27 +3,48 @@ $pageTitle = 'Offres en cours';
 require_once __DIR__ . '/../../templates/header.php';
 $db = getDB();
 $userId = getCurrentUserId();
+$isUserAdmin = isAdmin();
+
+// Auto-add approval columns
+try { $db->exec("ALTER TABLE offres ADD COLUMN approved TINYINT(1) DEFAULT 0"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE offres ADD COLUMN approved_by INT DEFAULT NULL"); } catch (Exception $e) {}
 
 // Ajout
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add') {
-    $stmt = $db->prepare("INSERT INTO offres (user_id, nom, date_debut, date_fin, details) VALUES (?, ?, ?, ?, ?)");
-    $stmt->execute([$userId, $_POST['nom'], $_POST['date_debut'] ?: null, $_POST['date_fin'] ?: null, $_POST['details']]);
+    $stmt = $db->prepare("INSERT INTO offres (user_id, nom, date_debut, date_fin, details, approved, approved_by) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    $stmt->execute([
+        $userId, $_POST['nom'], $_POST['date_debut'] ?: null, $_POST['date_fin'] ?: null, $_POST['details'],
+        $isUserAdmin ? 1 : 0,
+        $isUserAdmin ? $userId : null
+    ]);
     header('Location: index.php');
     exit;
 }
 
 // Edition
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'edit') {
-    $stmt = $db->prepare("UPDATE offres SET nom = ?, date_debut = ?, date_fin = ?, details = ? WHERE id = ? AND user_id = ?");
-    $stmt->execute([$_POST['nom'], $_POST['date_debut'] ?: null, $_POST['date_fin'] ?: null, $_POST['details'], (int)$_POST['id'], $userId]);
+    $id = (int)$_POST['id'];
+    if ($isUserAdmin) {
+        $stmt = $db->prepare("UPDATE offres SET nom = ?, date_debut = ?, date_fin = ?, details = ? WHERE id = ?");
+        $stmt->execute([$_POST['nom'], $_POST['date_debut'] ?: null, $_POST['date_fin'] ?: null, $_POST['details'], $id]);
+    } else {
+        $stmt = $db->prepare("UPDATE offres SET nom = ?, date_debut = ?, date_fin = ?, details = ? WHERE id = ? AND user_id = ?");
+        $stmt->execute([$_POST['nom'], $_POST['date_debut'] ?: null, $_POST['date_fin'] ?: null, $_POST['details'], $id, $userId]);
+    }
     header('Location: index.php');
     exit;
 }
 
 // Suppression
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete') {
-    $stmt = $db->prepare("DELETE FROM offres WHERE id = ? AND user_id = ?");
-    $stmt->execute([(int)$_POST['id'], $userId]);
+    $id = (int)$_POST['id'];
+    if ($isUserAdmin) {
+        $stmt = $db->prepare("DELETE FROM offres WHERE id = ?");
+        $stmt->execute([$id]);
+    } else {
+        $stmt = $db->prepare("DELETE FROM offres WHERE id = ? AND user_id = ?");
+        $stmt->execute([$id, $userId]);
+    }
     header('Location: index.php');
     exit;
 }
@@ -35,17 +56,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
-// Stats
-$stmt = $db->prepare("SELECT COUNT(*) FROM offres WHERE user_id = ? AND (date_debut IS NULL OR date_debut <= CURDATE()) AND (date_fin IS NULL OR date_fin >= CURDATE())");
+// Stats (include approved from others)
+$stmt = $db->prepare("SELECT COUNT(*) FROM offres WHERE (user_id = ? OR approved = 1) AND (date_debut IS NULL OR date_debut <= CURDATE()) AND (date_fin IS NULL OR date_fin >= CURDATE())");
 $stmt->execute([$userId]);
 $nbEnCours = $stmt->fetchColumn();
 
-$stmt = $db->prepare("SELECT COUNT(*) FROM offres WHERE user_id = ? AND date_fin < CURDATE()");
+$stmt = $db->prepare("SELECT COUNT(*) FROM offres WHERE (user_id = ? OR approved = 1) AND date_fin < CURDATE()");
 $stmt->execute([$userId]);
 $nbTerminees = $stmt->fetchColumn();
 
-// Liste
-$stmt = $db->prepare("SELECT * FROM offres WHERE user_id = ? ORDER BY date_debut DESC");
+// Liste : ses propres offres + toutes les offres approuvées
+$stmt = $db->prepare("SELECT o.*, u.nom AS author_nom, u.prenom AS author_prenom
+    FROM offres o
+    LEFT JOIN users u ON o.user_id = u.id
+    WHERE o.user_id = ? OR o.approved = 1
+    ORDER BY o.date_debut DESC");
 $stmt->execute([$userId]);
 $offres = $stmt->fetchAll();
 ?>
@@ -84,34 +109,48 @@ $offres = $stmt->fetchAll();
                 <th>Nom</th>
                 <th>Date début</th>
                 <th>Date fin</th>
-                <th>Détails</th>
+                <th>Auteur</th>
+                <th>Statut</th>
                 <th>Actions</th>
             </tr>
         </thead>
         <tbody>
-        <?php foreach ($offres as $offre): ?>
-            <?php
-                $classDebut = '';
-                $classFin = '';
-                $now = date('Y-m-d');
-                if ($offre['date_debut'] && $offre['date_debut'] > $now) $classDebut = 'bg-warning';
-                if ($offre['date_fin'] && $offre['date_fin'] < $now) $classFin = 'bg-danger text-white';
-            ?>
+        <?php foreach ($offres as $offre):
+            $isOwn = ($offre['user_id'] == $userId);
+            $classDebut = '';
+            $classFin = '';
+            $now = date('Y-m-d');
+            if ($offre['date_debut'] && $offre['date_debut'] > $now) $classDebut = 'bg-warning';
+            if ($offre['date_fin'] && $offre['date_fin'] < $now) $classFin = 'bg-danger text-white';
+        ?>
             <tr>
                 <td><strong><?= e($offre['nom']) ?></strong></td>
                 <td><span class="<?= $classDebut ?> px-2 py-1 rounded"><?= formatDate($offre['date_debut']) ?></span></td>
                 <td><span class="<?= $classFin ?> px-2 py-1 rounded"><?= formatDate($offre['date_fin']) ?></span></td>
-                <td><?= e(excerpt($offre['details'])) ?>
-                    <button class="btn btn-sm btn-ce-outline ms-1" onclick="showDetail(<?= $offre['id'] ?>)"><i class="fas fa-eye"></i></button>
+                <td>
+                    <?php if ($isOwn): ?>
+                        <span class="badge bg-primary">Moi</span>
+                    <?php else: ?>
+                        <?= e($offre['author_prenom'] . ' ' . $offre['author_nom']) ?>
+                    <?php endif; ?>
+                </td>
+                <td>
+                    <?php if ($offre['approved']): ?>
+                        <span class="badge bg-success"><i class="fas fa-check"></i> Approuvé</span>
+                    <?php elseif ($isOwn): ?>
+                        <span class="badge bg-warning text-dark"><i class="fas fa-clock"></i> En attente</span>
+                    <?php endif; ?>
                 </td>
                 <td class="actions">
                     <button class="btn btn-sm btn-ce-outline" onclick="showDetail(<?= $offre['id'] ?>)" title="Voir"><i class="fas fa-eye"></i></button>
+                    <?php if ($isOwn || $isUserAdmin): ?>
                     <button class="btn btn-sm btn-ce-outline" onclick="editOffre(<?= $offre['id'] ?>)" title="Modifier"><i class="fas fa-edit"></i></button>
                     <form method="POST" class="d-inline" onsubmit="return confirm('Supprimer cette offre ?')">
                         <input type="hidden" name="action" value="delete">
                         <input type="hidden" name="id" value="<?= $offre['id'] ?>">
                         <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
                     </form>
+                    <?php endif; ?>
                 </td>
             </tr>
         <?php endforeach; ?>
@@ -147,6 +186,11 @@ $offres = $stmt->fetchAll();
                             <label class="form-label">Détails</label>
                             <textarea name="details" class="form-control" rows="5"></textarea>
                         </div>
+                        <?php if (!$isUserAdmin): ?>
+                        <div class="col-12">
+                            <div class="alert alert-info mb-0"><i class="fas fa-info-circle"></i> Cette offre sera soumise à validation par un administrateur avant d'être visible par tous.</div>
+                        </div>
+                        <?php endif; ?>
                         <div class="col-12">
                             <button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Enregistrer</button>
                         </div>
@@ -211,6 +255,7 @@ function showDetail(id) {
                 <p><strong>Nom :</strong> ${offre.nom}</p>
                 <p><strong>Date de début :</strong> ${offre.date_debut || 'Non définie'}</p>
                 <p><strong>Date de fin :</strong> ${offre.date_fin || 'Non définie'}</p>
+                <p><strong>Statut :</strong> ${offre.approved == 1 ? '<span class="badge bg-success">Approuvé</span>' : '<span class="badge bg-warning text-dark">En attente</span>'}</p>
             </div>
             <div class="col-md-6">
                 <p><strong>Détails :</strong></p>

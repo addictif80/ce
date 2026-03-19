@@ -14,6 +14,27 @@ try { $db->exec("ALTER TABLE codes_utiles ADD COLUMN approved TINYINT(1) DEFAULT
 try { $db->exec("ALTER TABLE codes_utiles ADD COLUMN approved_by INT DEFAULT NULL"); } catch (Exception $e) {}
 try { $db->exec("ALTER TABLE contacts_utiles ADD COLUMN approved TINYINT(1) DEFAULT 0"); } catch (Exception $e) {}
 try { $db->exec("ALTER TABLE contacts_utiles ADD COLUMN approved_by INT DEFAULT NULL"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE offres ADD COLUMN approved TINYINT(1) DEFAULT 0"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE offres ADD COLUMN approved_by INT DEFAULT NULL"); } catch (Exception $e) {}
+
+// AJAX: fetch record details for admin data browser
+if (isset($_GET['ajax']) && $_GET['ajax'] === 'detail') {
+    $table = $_GET['table'] ?? '';
+    $id = (int)($_GET['id'] ?? 0);
+    $allowed = ['instances','demandes_rappel','offres','demandes_clients','suivi_production',
+        'seances_phoning','credit_immobilier','calculateur_budget','formations','blocnotes',
+        'courriers','modeles_courriers','procedures','codes_utiles','contacts_utiles'];
+    if (!in_array($table, $allowed) || $id <= 0) {
+        echo json_encode(['error' => 'invalid']);
+        exit;
+    }
+    $stmt = $db->prepare("SELECT t.*, u.nom AS user_nom, u.prenom AS user_prenom FROM `$table` t LEFT JOIN users u ON t.user_id = u.id WHERE t.id = ?");
+    $stmt->execute([$id]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    header('Content-Type: application/json');
+    echo json_encode($row ?: ['error' => 'not_found']);
+    exit;
+}
 
 // === ACTIONS ===
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
@@ -90,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($action === 'approve') {
         $table = $_POST['table'] ?? '';
         $id = (int)($_POST['id'] ?? 0);
-        $allowed_tables = ['modeles_courriers', 'procedures', 'codes_utiles', 'contacts_utiles'];
+        $allowed_tables = ['modeles_courriers', 'procedures', 'codes_utiles', 'contacts_utiles', 'offres'];
         if (in_array($table, $allowed_tables) && $id > 0) {
             $stmt = $db->prepare("UPDATE `$table` SET approved = 1, approved_by = ? WHERE id = ?");
             $stmt->execute([$adminUserId, $id]);
@@ -102,7 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($action === 'reject') {
         $table = $_POST['table'] ?? '';
         $id = (int)($_POST['id'] ?? 0);
-        $allowed_tables = ['modeles_courriers', 'procedures', 'codes_utiles', 'contacts_utiles'];
+        $allowed_tables = ['modeles_courriers', 'procedures', 'codes_utiles', 'contacts_utiles', 'offres'];
         if (in_array($table, $allowed_tables) && $id > 0) {
             $stmt = $db->prepare("DELETE FROM `$table` WHERE id = ?");
             $stmt->execute([$id]);
@@ -136,7 +157,8 @@ $pendingModeles = $db->query("SELECT m.*, u.nom AS author_nom, u.prenom AS autho
 $pendingProcedures = $db->query("SELECT p.*, u.nom AS author_nom, u.prenom AS author_prenom FROM procedures p LEFT JOIN users u ON p.user_id = u.id WHERE p.approved = 0 ORDER BY p.id DESC")->fetchAll();
 $pendingCodes = $db->query("SELECT c.*, u.nom AS author_nom, u.prenom AS author_prenom FROM codes_utiles c LEFT JOIN users u ON c.user_id = u.id WHERE c.approved = 0 ORDER BY c.id DESC")->fetchAll();
 $pendingContacts = $db->query("SELECT c.*, u.nom AS author_nom, u.prenom AS author_prenom FROM contacts_utiles c LEFT JOIN users u ON c.user_id = u.id WHERE c.approved = 0 ORDER BY c.id DESC")->fetchAll();
-$totalPending = count($pendingModeles) + count($pendingProcedures) + count($pendingCodes) + count($pendingContacts);
+$pendingOffres = $db->query("SELECT o.*, u.nom AS author_nom, u.prenom AS author_prenom FROM offres o LEFT JOIN users u ON o.user_id = u.id WHERE o.approved = 0 ORDER BY o.id DESC")->fetchAll();
+$totalPending = count($pendingModeles) + count($pendingProcedures) + count($pendingCodes) + count($pendingContacts) + count($pendingOffres);
 
 $activeTab = $_GET['tab'] ?? 'users';
 ?>
@@ -479,6 +501,39 @@ function editUser(id) {
 </div>
 <?php endif; ?>
 
+<?php if (!empty($pendingOffres)): ?>
+<div class="data-table-container mb-4">
+    <div class="data-table-header"><h3><i class="fas fa-gift"></i> Offres en attente</h3></div>
+    <table class="data-table">
+        <thead><tr><th>Nom</th><th>Date début</th><th>Date fin</th><th>Auteur</th><th>Actions</th></tr></thead>
+        <tbody>
+        <?php foreach ($pendingOffres as $o): ?>
+            <tr>
+                <td><strong><?= e($o['nom']) ?></strong></td>
+                <td><?= formatDate($o['date_debut']) ?></td>
+                <td><?= formatDate($o['date_fin']) ?></td>
+                <td><?= e($o['author_prenom'] . ' ' . $o['author_nom']) ?></td>
+                <td class="actions">
+                    <form method="POST" class="d-inline">
+                        <input type="hidden" name="action" value="approve">
+                        <input type="hidden" name="table" value="offres">
+                        <input type="hidden" name="id" value="<?= $o['id'] ?>">
+                        <button class="btn btn-sm btn-success"><i class="fas fa-check"></i> Approuver</button>
+                    </form>
+                    <form method="POST" class="d-inline" onsubmit="return confirm('Refuser et supprimer ?')">
+                        <input type="hidden" name="action" value="reject">
+                        <input type="hidden" name="table" value="offres">
+                        <input type="hidden" name="id" value="<?= $o['id'] ?>">
+                        <button class="btn btn-sm btn-outline-danger"><i class="fas fa-times"></i> Refuser</button>
+                    </form>
+                </td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+</div>
+<?php endif; ?>
+
 <?php endif; ?>
 
 <?php elseif ($activeTab === 'donnees'): ?>
@@ -487,7 +542,7 @@ function editUser(id) {
 $modules = [
     'instances' => ['label' => 'Instances', 'icon' => 'tasks', 'cols' => ['titre','date_ajout'], 'display' => ['Titre','Date']],
     'demandes_rappel' => ['label' => 'Demandes de rappel', 'icon' => 'phone', 'cols' => ['telephone','raison','date_ajout'], 'display' => ['Téléphone','Raison','Date']],
-    'offres' => ['label' => 'Offres du moment', 'icon' => 'gift', 'cols' => ['titre','date_debut','date_fin'], 'display' => ['Titre','Début','Fin']],
+    'offres' => ['label' => 'Offres du moment', 'icon' => 'gift', 'cols' => ['nom','date_debut','date_fin'], 'display' => ['Nom','Début','Fin']],
     'demandes_clients' => ['label' => 'Demandes clients', 'icon' => 'headset', 'cols' => ['service','date_ajout'], 'display' => ['Service','Date']],
     'suivi_production' => ['label' => 'Suivi production', 'icon' => 'chart-line', 'cols' => ['categorie','montant','date_ajout'], 'display' => ['Catégorie','Montant','Date']],
     'seances_phoning' => ['label' => 'Séances phoning', 'icon' => 'phone-volume', 'cols' => ['date_seance','nb_appels'], 'display' => ['Date','Nb appels']],
@@ -574,6 +629,7 @@ $selectedModule = $_GET['module'] ?? '';
                 <td><?= $val ?></td>
                 <?php endforeach; ?>
                 <td class="actions">
+                    <button class="btn btn-sm btn-ce-outline" onclick="showRecordDetail('<?= $selectedModule ?>', <?= $row['id'] ?>)" title="Voir"><i class="fas fa-eye"></i></button>
                     <form method="POST" class="d-inline" onsubmit="return confirm('Supprimer cet enregistrement ?')">
                         <input type="hidden" name="action" value="admin_delete">
                         <input type="hidden" name="table" value="<?= $selectedModule ?>">
@@ -588,7 +644,111 @@ $selectedModule = $_GET['module'] ?? '';
     </table>
 </div>
 
-<script>filterTable('searchData', 'tableData');</script>
+<!-- Modal Détail Enregistrement -->
+<div class="modal fade modal-fullscreen-custom" id="recordDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-info-circle"></i> Détails de l'enregistrement</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="recordDetailContent">
+                <div class="text-center py-4"><i class="fas fa-spinner fa-spin fa-2x"></i></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+filterTable('searchData', 'tableData');
+
+const fieldLabels = {
+    id: 'ID', user_id: 'ID utilisateur', user_nom: 'Nom utilisateur', user_prenom: 'Prénom utilisateur',
+    numero_personne: 'N° personne', type_client: 'Type client', type_occupation: 'Occupation',
+    type_residence: 'Résidence', type_bien: 'Type bien', adresse_bien: 'Adresse bien',
+    montant_acquisition: 'Montant acquisition', frais_notaire: 'Frais notaire', frais_agence: 'Frais agence',
+    frais_courtage: 'Frais courtage', frais_dossier: 'Frais dossier', taux_emprunt: 'Taux emprunt',
+    duree_emprunt: 'Durée emprunt', apport: 'Apport', revenus_mensuels: 'Revenus mensuels',
+    charges_fixes: 'Charges fixes', credits_en_cours: 'Crédits en cours', epargne: 'Épargne',
+    nom: 'Nom', prenom: 'Prénom', titre: 'Titre', texte: 'Texte', details: 'Détails',
+    date_debut: 'Date début', date_fin: 'Date fin', date_ajout: 'Date ajout',
+    date_courrier: 'Date courrier', objet: 'Objet', corps: 'Corps',
+    nom_modele: 'Nom modèle', nom_prenom_dest: 'Destinataire',
+    telephone: 'Téléphone', mail: 'Mail', service: 'Service', a_contacter_pour: 'À contacter pour',
+    code: 'Code', fonction: 'Fonction', raison: 'Raison', montant: 'Montant',
+    categorie: 'Catégorie', nb_appels: 'Nb appels', date_seance: 'Date séance',
+    mise_en_avant: 'Mise en avant', lien_partage: 'Lien partage',
+    approved: 'Approuvé', approved_by: 'Approuvé par', workflow_status: 'Statut workflow',
+    notes: 'Notes', created_at: 'Créé le', updated_at: 'Modifié le',
+    loyer: 'Loyer', cegc: 'CEGC', ade: 'ADE', travaux: 'Travaux',
+    salaire: 'Salaire', salaire_conjoint: 'Salaire conjoint',
+    proprietaire_logement: 'Propriétaire logement', avec_travaux: 'Avec travaux',
+    nom_dest: 'Nom dest.', prenom_dest: 'Prénom dest.', civilite_dest: 'Civilité dest.',
+    adresse_dest: 'Adresse dest.', cp_ville_dest: 'CP/Ville dest.', lieu: 'Lieu',
+    suivi_offre_signee: 'Offre signée', suivi_offre_signee_date: 'Date signature offre',
+    contenu: 'Contenu', date_seance: 'Date séance',
+};
+
+const hiddenFields = ['password', 'variables'];
+const boolFields = ['approved', 'proprietaire_logement', 'avec_travaux', 'mise_en_avant',
+    'doc_ji','doc_jd','doc_ir','doc_contrat_travail','doc_bulletins_salaire',
+    'doc_justif_propriete','doc_releves_externes','doc_epargnes_externes',
+    'eco_ademe_emprunteur','eco_ademe_entreprises','eco_dpe','eco_audit','eco_devis_travaux',
+    'suivi_synthese_envoyee','suivi_controle_conformite','suivi_edition_offres',
+    'suivi_envoi_signature','suivi_offre_signee','is_admin'];
+const moneyFields = ['montant','montant_acquisition','frais_notaire','frais_agence','frais_courtage',
+    'frais_dossier','cegc','ade','travaux','apport','revenus_mensuels','charges_fixes',
+    'loyer','credits_en_cours','epargne','dont_ecoptz_ptz','salaire','salaire_conjoint'];
+
+function showRecordDetail(table, id) {
+    const content = document.getElementById('recordDetailContent');
+    content.innerHTML = '<div class="text-center py-4"><i class="fas fa-spinner fa-spin fa-2x"></i> Chargement...</div>';
+    new bootstrap.Modal(document.getElementById('recordDetailModal')).show();
+
+    fetch(`index.php?ajax=detail&table=${encodeURIComponent(table)}&id=${id}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                content.innerHTML = '<div class="alert alert-danger">Enregistrement non trouvé.</div>';
+                return;
+            }
+            let html = '<table class="table table-sm table-striped"><tbody>';
+            // Show user first if available
+            if (data.user_prenom || data.user_nom) {
+                html += `<tr><td style="width:35%"><strong>Utilisateur</strong></td><td><span class="badge bg-secondary">${esc(data.user_prenom || '')} ${esc(data.user_nom || '')}</span></td></tr>`;
+            }
+            for (const [key, val] of Object.entries(data)) {
+                if (key === 'user_nom' || key === 'user_prenom' || hiddenFields.includes(key)) continue;
+                if (val === null || val === '') continue;
+                const label = fieldLabels[key] || key.replace(/_/g, ' ');
+                let display;
+                if (boolFields.includes(key)) {
+                    display = val == 1 ? '<span class="badge bg-success">Oui</span>' : '<span class="badge bg-secondary">Non</span>';
+                } else if (moneyFields.includes(key)) {
+                    display = parseFloat(val).toLocaleString('fr-FR', {minimumFractionDigits: 2}) + ' €';
+                } else if (key === 'corps' || key === 'texte' || key === 'details' || key === 'contenu' || key === 'a_contacter_pour' || key === 'notes') {
+                    const strVal = String(val);
+                    display = '<div class="p-2 bg-light rounded" style="max-height:300px;overflow-y:auto;white-space:pre-wrap;">' + (key === 'corps' ? val : esc(strVal)) + '</div>';
+                } else {
+                    display = esc(String(val));
+                }
+                html += `<tr><td style="width:35%"><strong>${esc(label)}</strong></td><td>${display}</td></tr>`;
+            }
+            html += '</tbody></table>';
+            content.innerHTML = html;
+        })
+        .catch(() => {
+            content.innerHTML = '<div class="alert alert-danger">Erreur lors du chargement.</div>';
+        });
+}
+
+function esc(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+</script>
 
 <?php else: ?>
 <div class="alert alert-info"><i class="fas fa-hand-pointer"></i> Sélectionnez un module ci-dessus pour voir les données de tous les utilisateurs.</div>
