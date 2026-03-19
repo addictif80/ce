@@ -4,6 +4,24 @@ require_once __DIR__ . '/../../templates/header.php';
 $db = getDB();
 $userId = getCurrentUserId();
 
+// Auto-add columns if missing (notes, workflow_status)
+try {
+    $db->exec("ALTER TABLE credit_immobilier ADD COLUMN notes TEXT DEFAULT NULL");
+} catch (Exception $e) {}
+try {
+    $db->exec("ALTER TABLE credit_immobilier ADD COLUMN workflow_status VARCHAR(50) DEFAULT 'etude'");
+} catch (Exception $e) {}
+
+// AJAX: fetch budget data for pre-fill
+if (isset($_GET['ajax']) && $_GET['ajax'] === 'budget') {
+    $stmt = $db->prepare("SELECT * FROM calculateur_budget WHERE user_id = ?");
+    $stmt->execute([$userId]);
+    $budget = $stmt->fetch();
+    header('Content-Type: application/json');
+    echo json_encode($budget ?: ['error' => 'no_budget']);
+    exit;
+}
+
 // AJAX toggle checkbox
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['field']) && isset($_POST['id']) && isset($_POST['value'])) {
     $allowed = ['doc_ji','doc_jd','doc_ir','doc_contrat_travail','doc_bulletins_salaire','doc_justif_propriete',
@@ -25,8 +43,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $stmt = $db->prepare("INSERT INTO credit_immobilier (user_id, numero_personne, type_client, type_occupation, type_residence, type_bien, proprietaire_logement, adresse_bien,
         type_credit, avec_travaux, montant_acquisition, frais_notaire, frais_agence, frais_courtage, frais_dossier, cegc, ade, travaux, dont_ecoptz_ptz, taux_emprunt, duree_emprunt, apport,
         ptz_demande, ptz_type, ptz_nombre_bouquets,
-        revenus_mensuels, charges_fixes, loyer, credits_en_cours, epargne)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        revenus_mensuels, charges_fixes, loyer, credits_en_cours, epargne, notes, workflow_status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     $stmt->execute([
         $userId,
         $_POST['numero_personne'] ?? '',
@@ -57,7 +75,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         (float)($_POST['charges_fixes'] ?? 0),
         (float)($_POST['loyer'] ?? 0),
         (float)($_POST['credits_en_cours'] ?? 0),
-        (float)($_POST['epargne'] ?? 0)
+        (float)($_POST['epargne'] ?? 0),
+        $_POST['notes'] ?? '',
+        $_POST['workflow_status'] ?? 'etude'
     ]);
     header('Location: index.php');
     exit;
@@ -74,6 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         doc_ji = ?, doc_jd = ?, doc_ir = ?, doc_contrat_travail = ?, doc_bulletins_salaire = ?, doc_justif_propriete = ?, doc_releves_externes = ?, doc_epargnes_externes = ?,
         eco_ademe_emprunteur = ?, eco_ademe_entreprises = ?, eco_dpe = ?, eco_audit = ?, eco_devis_travaux = ?,
         suivi_synthese_envoyee = ?, suivi_controle_conformite = ?, suivi_edition_offres = ?, suivi_envoi_signature = ?, suivi_offre_signee = ?,
+        notes = ?, workflow_status = ?,
         suivi_offre_signee_date = ?,
         updated_at = NOW() WHERE id = ? AND user_id = ?");
     $stmt->execute([
@@ -124,6 +145,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         isset($_POST['suivi_edition_offres']) ? 1 : 0,
         isset($_POST['suivi_envoi_signature']) ? 1 : 0,
         isset($_POST['suivi_offre_signee']) ? 1 : 0,
+        $_POST['notes'] ?? '',
+        $_POST['workflow_status'] ?? 'etude',
         !empty($_POST['suivi_offre_signee_date']) ? $_POST['suivi_offre_signee_date'] : null,
         $id, $userId
     ]);
@@ -145,22 +168,52 @@ $stmt->execute([$userId]);
 $dossiers = $stmt->fetchAll();
 ?>
 
+<?php
+$workflowLabels = [
+    'etude' => ['Étude en cours', 'secondary'],
+    'dossier_complet' => ['Dossier complet', 'info'],
+    'synthese_envoyee' => ['Synthèse envoyée', 'primary'],
+    'controle' => ['Contrôle conformité', 'primary'],
+    'edition_offres' => ['Édition offres', 'warning'],
+    'envoi_signature' => ['Envoi signature', 'warning'],
+    'offre_signee' => ['Offre signée', 'success'],
+    'deblocage' => ['Déblocage fonds', 'success'],
+    'termine' => ['Terminé', 'dark'],
+    'refuse' => ['Refusé', 'danger'],
+];
+$countEnCours = count(array_filter($dossiers, fn($d) => !in_array($d['workflow_status'] ?? 'etude', ['termine', 'refuse', 'offre_signee', 'deblocage'])));
+$countSignees = count(array_filter($dossiers, fn($d) => in_array($d['workflow_status'] ?? '', ['offre_signee', 'deblocage', 'termine'])));
+$countRefusees = count(array_filter($dossiers, fn($d) => ($d['workflow_status'] ?? '') === 'refuse'));
+?>
 <!-- Stats -->
 <div class="row g-3 mb-4">
-    <div class="col-md-3">
+    <div class="col-md-2">
         <div class="stat-card">
             <div class="stat-number"><?= count($dossiers) ?></div>
-            <div class="stat-label">Dossiers crédit immo</div>
+            <div class="stat-label">Total dossiers</div>
         </div>
     </div>
-    <div class="col-md-3">
+    <div class="col-md-2">
+        <div class="stat-card" style="border-left-color:#0d6efd;">
+            <div class="stat-number"><?= $countEnCours ?></div>
+            <div class="stat-label">En cours</div>
+        </div>
+    </div>
+    <div class="col-md-2">
         <div class="stat-card stat-success">
-            <div class="stat-number"><?= count(array_filter($dossiers, fn($d) => $d['suivi_offre_signee'])) ?></div>
-            <div class="stat-label">Offres signées</div>
+            <div class="stat-number"><?= $countSignees ?></div>
+            <div class="stat-label">Signées/Terminées</div>
         </div>
     </div>
-    <div class="col-md-4 d-flex align-items-center">
+    <div class="col-md-2">
+        <div class="stat-card" style="border-left-color:#dc3545;">
+            <div class="stat-number"><?= $countRefusees ?></div>
+            <div class="stat-label">Refusées</div>
+        </div>
+    </div>
+    <div class="col-md-4 d-flex align-items-center gap-2">
         <button class="btn btn-ce" data-bs-toggle="modal" data-bs-target="#addModal"><i class="fas fa-plus"></i> Nouveau dossier</button>
+        <button class="btn btn-ce-outline" onclick="showCompareSelect()"><i class="fas fa-balance-scale"></i> Comparer</button>
     </div>
 </div>
 
@@ -178,33 +231,32 @@ $dossiers = $stmt->fetchAll();
             <tr>
                 <th>Date</th>
                 <th>N° personne</th>
-                <th>Type client</th>
                 <th>Type crédit</th>
                 <th>Montant</th>
-                <th>Durée</th>
                 <th>Taux</th>
-                <th>Offre signée</th>
+                <th>Durée</th>
+                <th>Statut</th>
                 <th>Actions</th>
             </tr>
         </thead>
         <tbody>
-        <?php foreach ($dossiers as $d): ?>
+        <?php foreach ($dossiers as $d):
+            $wf = $d['workflow_status'] ?? 'etude';
+            $wfInfo = $workflowLabels[$wf] ?? ['Inconnu', 'secondary'];
+        ?>
             <tr>
                 <td><?= formatDate($d['date_ajout']) ?></td>
                 <td><?= e($d['numero_personne']) ?></td>
-                <td><?= e($d['type_client']) ?></td>
                 <td><?= e($d['type_credit']) ?></td>
                 <td><?= number_format((float)$d['montant_acquisition'], 0, ',', ' ') ?> &euro;</td>
-                <td><?= $d['duree_emprunt'] ?> mois</td>
                 <td><?= $d['taux_emprunt'] ?> %</td>
-                <td>
-                    <input type="checkbox" class="form-check-input" <?= $d['suivi_offre_signee'] ? 'checked' : '' ?>
-                        onchange="toggleStatus('index.php', <?= $d['id'] ?>, 'suivi_offre_signee', this)">
-                </td>
+                <td><?= $d['duree_emprunt'] ?> mois</td>
+                <td><span class="badge bg-<?= $wfInfo[1] ?>"><?= $wfInfo[0] ?></span></td>
                 <td class="actions">
                     <button class="btn btn-sm btn-ce-outline" onclick="showDetail(<?= $d['id'] ?>)" title="Voir"><i class="fas fa-eye"></i></button>
                     <button class="btn btn-sm btn-ce-outline" onclick="editDossier(<?= $d['id'] ?>)" title="Modifier"><i class="fas fa-edit"></i></button>
                     <button class="btn btn-sm btn-ce-outline" onclick="showAmortissement(<?= $d['id'] ?>)" title="Amortissement"><i class="fas fa-table"></i></button>
+                    <button class="btn btn-sm btn-ce-outline" onclick="showSimulation(<?= $d['id'] ?>)" title="Simulation"><i class="fas fa-calculator"></i></button>
                     <button class="btn btn-sm btn-ce-outline" onclick="printDossier(<?= $d['id'] ?>)" title="Imprimer"><i class="fas fa-print"></i></button>
                     <form method="POST" class="d-inline" onsubmit="return confirm('Supprimer ce dossier ?')">
                         <input type="hidden" name="action" value="delete">
@@ -394,26 +446,29 @@ $dossiers = $stmt->fetchAll();
                         </div>
                         <!-- Situation financière -->
                         <div class="tab-pane fade" id="tabSituation">
+                            <div class="mb-3">
+                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="prefillFromBudget('add')"><i class="fas fa-link"></i> Pré-remplir depuis le calculateur budget</button>
+                            </div>
                             <div class="row g-3">
                                 <div class="col-md-4">
                                     <label class="form-label">Revenus mensuels</label>
-                                    <input type="number" step="0.01" name="revenus_mensuels" class="form-control" value="0">
+                                    <input type="number" step="0.01" name="revenus_mensuels" class="form-control" id="addRevenus" value="0">
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label">Charges fixes</label>
-                                    <input type="number" step="0.01" name="charges_fixes" class="form-control" value="0">
+                                    <input type="number" step="0.01" name="charges_fixes" class="form-control" id="addCharges" value="0">
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label">Loyer actuel</label>
-                                    <input type="number" step="0.01" name="loyer" class="form-control" value="0">
+                                    <input type="number" step="0.01" name="loyer" class="form-control" id="addLoyer" value="0">
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label">Crédits en cours</label>
-                                    <input type="number" step="0.01" name="credits_en_cours" class="form-control" value="0">
+                                    <input type="number" step="0.01" name="credits_en_cours" class="form-control" id="addCredits" value="0">
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label">Épargne</label>
-                                    <input type="number" step="0.01" name="epargne" class="form-control" value="0">
+                                    <input type="number" step="0.01" name="epargne" class="form-control" id="addEpargne" value="0">
                                 </div>
                             </div>
                         </div>
@@ -448,6 +503,20 @@ $dossiers = $stmt->fetchAll();
                                 <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_envoi_signature" value="1" id="addSuiviES"><label class="form-check-label" for="addSuiviES">Envoi signature</label></div></div>
                                 <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_offre_signee" value="1" id="addSuiviOS"><label class="form-check-label" for="addSuiviOS">Offre signée</label></div></div>
                             </div>
+                        </div>
+                    </div>
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-4">
+                            <label class="form-label">Statut du dossier</label>
+                            <select name="workflow_status" class="form-select">
+                                <?php foreach ($workflowLabels as $k => $v): ?>
+                                    <option value="<?= $k ?>"><?= $v[0] ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label">Notes du conseiller</label>
+                            <textarea name="notes" class="form-control" rows="2" placeholder="Observations, points d'attention..."></textarea>
                         </div>
                     </div>
                     <div class="mt-3">
@@ -507,6 +576,19 @@ $dossiers = $stmt->fetchAll();
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body" id="compareContent"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Simulation -->
+<div class="modal fade modal-fullscreen-custom" id="simulModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-calculator"></i> Simulation "Et si..."</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="simulContent"></div>
         </div>
     </div>
 </div>
@@ -585,28 +667,101 @@ function initAddConditionalLogic() {
     updateProprioVisibility();
 }
 
+// Workflow labels
+const workflowLabels = {
+    'etude': ['Étude en cours', 'secondary'],
+    'dossier_complet': ['Dossier complet', 'info'],
+    'synthese_envoyee': ['Synthèse envoyée', 'primary'],
+    'controle': ['Contrôle conformité', 'primary'],
+    'edition_offres': ['Édition offres', 'warning'],
+    'envoi_signature': ['Envoi signature', 'warning'],
+    'offre_signee': ['Offre signée', 'success'],
+    'deblocage': ['Déblocage fonds', 'success'],
+    'termine': ['Terminé', 'dark'],
+    'refuse': ['Refusé', 'danger']
+};
+const workflowSteps = ['etude','dossier_complet','synthese_envoyee','controle','edition_offres','envoi_signature','offre_signee','deblocage','termine'];
+
+function getEndettementBadge(taux) {
+    if (taux === 'N/A') return '<span class="badge bg-secondary">N/A</span>';
+    const t = parseFloat(taux);
+    if (t <= 25) return `<span class="badge bg-success" style="font-size:1em;">${taux}%</span>`;
+    if (t <= 33) return `<span class="badge bg-warning text-dark" style="font-size:1em;">${taux}%</span>`;
+    if (t <= 35) return `<span class="badge bg-orange text-white" style="font-size:1em;">${taux}% <i class="fas fa-exclamation-triangle"></i></span>`;
+    return `<span class="badge bg-danger" style="font-size:1em;">${taux}% <i class="fas fa-exclamation-circle"></i> ALERTE</span>`;
+}
+
+function getEndettementAlert(taux) {
+    if (taux === 'N/A') return '';
+    const t = parseFloat(taux);
+    if (t <= 33) return '';
+    if (t <= 35) return '<div class="alert alert-warning mt-2"><i class="fas fa-exclamation-triangle"></i> <strong>Attention :</strong> Taux d\'endettement proche du seuil HCSF de 35%.</div>';
+    return '<div class="alert alert-danger mt-2"><i class="fas fa-exclamation-circle"></i> <strong>ALERTE :</strong> Taux d\'endettement supérieur au seuil HCSF de 35%. Le dossier risque d\'être refusé.</div>';
+}
+
+function calcMensualite(capital, tauxAnnuel, duree) {
+    const tm = tauxAnnuel / 100 / 12;
+    if (tm > 0 && duree > 0) return capital * tm / (1 - Math.pow(1 + tm, -duree));
+    if (duree > 0) return capital / duree;
+    return 0;
+}
+
+function getTotalFinancement(d) {
+    return parseFloat(d.montant_acquisition||0) + parseFloat(d.frais_notaire||0) + parseFloat(d.frais_agence||0)
+        + parseFloat(d.frais_courtage||0) + parseFloat(d.frais_dossier||0) + parseFloat(d.cegc||0) + parseFloat(d.ade||0)
+        + parseFloat(d.travaux||0);
+}
+
+function getCapital(d) {
+    return getTotalFinancement(d) - parseFloat(d.apport||0);
+}
+
+function calcPTZMontant(d) {
+    const bouquet = d.ptz_nombre_bouquets || '';
+    const match = bouquet.match(/(\d+)$/);
+    return match ? parseInt(match[1]) : 0;
+}
+
+function buildWorkflowProgress(status) {
+    const idx = workflowSteps.indexOf(status);
+    if (status === 'refuse') return '<div class="alert alert-danger text-center mb-0"><i class="fas fa-times-circle"></i> Dossier refusé</div>';
+    let html = '<div class="d-flex justify-content-between align-items-center" style="font-size:0.75rem;">';
+    workflowSteps.forEach((step, i) => {
+        const label = workflowLabels[step] ? workflowLabels[step][0] : step;
+        const active = i <= idx;
+        const current = i === idx;
+        const color = active ? (current ? 'var(--ce-primary)' : '#28a745') : '#dee2e6';
+        html += `<div class="text-center flex-fill">
+            <div style="width:24px;height:24px;border-radius:50%;background:${color};color:#fff;margin:0 auto 2px;line-height:24px;font-size:0.7rem;">${active ? '<i class="fas fa-check"></i>' : (i+1)}</div>
+            <div style="color:${current ? 'var(--ce-primary)' : '#888'};font-weight:${current ? 'bold' : 'normal'}">${label}</div>
+        </div>`;
+        if (i < workflowSteps.length - 1) html += `<div style="flex:1;height:2px;background:${i < idx ? '#28a745' : '#dee2e6'};margin-top:-12px;"></div>`;
+    });
+    return html + '</div>';
+}
+
 function showDetail(id) {
     const d = dossiersData.find(x => x.id == id);
     if (!d) return;
 
-    const totalFinancement = parseFloat(d.montant_acquisition||0) + parseFloat(d.frais_notaire||0) + parseFloat(d.frais_agence||0)
-        + parseFloat(d.frais_courtage||0) + parseFloat(d.frais_dossier||0) + parseFloat(d.cegc||0) + parseFloat(d.ade||0)
-        + parseFloat(d.travaux||0);
-    const montantEmprunte = totalFinancement - parseFloat(d.apport||0);
-    const tauxMensuel = parseFloat(d.taux_emprunt||0) / 100 / 12;
+    const totalFinancement = getTotalFinancement(d);
+    const montantEmprunte = getCapital(d);
+    const taux = parseFloat(d.taux_emprunt||0);
     const duree = parseInt(d.duree_emprunt||0);
-    let mensualite = 0;
-    if (tauxMensuel > 0 && duree > 0) {
-        mensualite = montantEmprunte * tauxMensuel / (1 - Math.pow(1 + tauxMensuel, -duree));
-    } else if (duree > 0) {
-        mensualite = montantEmprunte / duree;
-    }
+    const mensualite = calcMensualite(montantEmprunte, taux, duree);
+    const coutTotal = mensualite * duree;
+    const totalInterets = coutTotal - montantEmprunte;
     const tauxEndettement = parseFloat(d.revenus_mensuels||0) > 0
         ? ((mensualite + parseFloat(d.credits_en_cours||0)) / parseFloat(d.revenus_mensuels) * 100).toFixed(1)
         : 'N/A';
     const resteAVivre = parseFloat(d.revenus_mensuels||0) - mensualite - parseFloat(d.charges_fixes||0) - parseFloat(d.credits_en_cours||0);
+    const ptzMontant = calcPTZMontant(d);
+    const wf = d.workflow_status || 'etude';
+    const wfInfo = workflowLabels[wf] || ['Inconnu', 'secondary'];
 
     document.getElementById('detailContent').innerHTML = `
+        <div class="mb-3">${buildWorkflowProgress(wf)}</div>
+        ${getEndettementAlert(tauxEndettement)}
         <div class="row g-3">
             <div class="col-md-6">
                 <h5>Client</h5>
@@ -634,7 +789,10 @@ function showDetail(id) {
                     <tr><td>Taux / Durée</td><td>${d.taux_emprunt}% / ${d.duree_emprunt} mois</td></tr>
                     <tr class="table-info"><td><strong>Total financement</strong></td><td><strong>${fmt(totalFinancement)} &euro;</strong></td></tr>
                     <tr class="table-info"><td><strong>Montant emprunté</strong></td><td><strong>${fmt(montantEmprunte)} &euro;</strong></td></tr>
-                    <tr class="table-warning"><td><strong>Mensualité estimée</strong></td><td><strong>${fmt(mensualite)} &euro;</strong></td></tr>
+                    <tr class="table-warning"><td><strong>Mensualité</strong></td><td><strong>${fmt(mensualite)} &euro;</strong></td></tr>
+                    <tr class="table-secondary"><td><strong>Coût total intérêts</strong></td><td><strong>${fmt(totalInterets)} &euro;</strong></td></tr>
+                    <tr class="table-secondary"><td><strong>Coût total crédit</strong></td><td><strong>${fmt(coutTotal)} &euro;</strong></td></tr>
+                    ${ptzMontant > 0 ? `<tr class="table-success"><td><strong>Montant PTZ/EcoPTZ</strong></td><td><strong>${fmt(ptzMontant)} &euro;</strong></td></tr>` : ''}
                 </tbody></table>
             </div>
             <div class="col-md-6">
@@ -645,7 +803,7 @@ function showDetail(id) {
                     <tr><td>Loyer actuel</td><td>${fmt(d.loyer)} &euro;</td></tr>
                     <tr><td>Crédits en cours</td><td>${fmt(d.credits_en_cours)} &euro;</td></tr>
                     <tr><td>Épargne</td><td>${fmt(d.epargne)} &euro;</td></tr>
-                    <tr class="table-warning"><td><strong>Taux d'endettement</strong></td><td><strong>${tauxEndettement}%</strong></td></tr>
+                    <tr><td><strong>Taux d'endettement</strong></td><td>${getEndettementBadge(tauxEndettement)}</td></tr>
                     <tr class="table-info"><td><strong>Reste à vivre</strong></td><td><strong>${fmt(resteAVivre)} &euro;</strong></td></tr>
                 </tbody></table>
             </div>
@@ -672,6 +830,7 @@ function showDetail(id) {
                     <tr><td>Offre signée</td><td>${chk(d.suivi_offre_signee)} ${d.suivi_offre_signee_date ? '(' + d.suivi_offre_signee_date + ')' : ''}</td></tr>
                 </tbody></table>
             </div>
+            ${d.notes ? `<div class="col-12"><h5>Notes du conseiller</h5><div class="alert alert-light">${escapeHtml(d.notes)}</div></div>` : ''}
         </div>`;
     new bootstrap.Modal(document.getElementById('detailModal')).show();
 }
@@ -753,12 +912,13 @@ function editDossier(id) {
                     </div>
                 </div>
                 <div class="tab-pane fade" id="eTabSituation">
+                    <div class="mb-3"><button type="button" class="btn btn-sm btn-outline-primary" onclick="prefillFromBudget('edit')"><i class="fas fa-link"></i> Pré-remplir depuis le calculateur budget</button></div>
                     <div class="row g-3">
-                        <div class="col-md-4"><label class="form-label">Revenus mensuels</label><input type="number" step="0.01" name="revenus_mensuels" class="form-control" value="${d.revenus_mensuels}"></div>
-                        <div class="col-md-4"><label class="form-label">Charges fixes</label><input type="number" step="0.01" name="charges_fixes" class="form-control" value="${d.charges_fixes}"></div>
-                        <div class="col-md-4"><label class="form-label">Loyer actuel</label><input type="number" step="0.01" name="loyer" class="form-control" value="${d.loyer}"></div>
-                        <div class="col-md-4"><label class="form-label">Crédits en cours</label><input type="number" step="0.01" name="credits_en_cours" class="form-control" value="${d.credits_en_cours}"></div>
-                        <div class="col-md-4"><label class="form-label">Épargne</label><input type="number" step="0.01" name="epargne" class="form-control" value="${d.epargne}"></div>
+                        <div class="col-md-4"><label class="form-label">Revenus mensuels</label><input type="number" step="0.01" name="revenus_mensuels" class="form-control" id="editRevenus" value="${d.revenus_mensuels}"></div>
+                        <div class="col-md-4"><label class="form-label">Charges fixes</label><input type="number" step="0.01" name="charges_fixes" class="form-control" id="editCharges" value="${d.charges_fixes}"></div>
+                        <div class="col-md-4"><label class="form-label">Loyer actuel</label><input type="number" step="0.01" name="loyer" class="form-control" id="editLoyer" value="${d.loyer}"></div>
+                        <div class="col-md-4"><label class="form-label">Crédits en cours</label><input type="number" step="0.01" name="credits_en_cours" class="form-control" id="editCredits" value="${d.credits_en_cours}"></div>
+                        <div class="col-md-4"><label class="form-label">Épargne</label><input type="number" step="0.01" name="epargne" class="form-control" id="editEpargne" value="${d.epargne}"></div>
                     </div>
                 </div>
                 <div class="tab-pane fade" id="eTabSuivi">
@@ -792,6 +952,18 @@ function editDossier(id) {
                         <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_offre_signee" value="1" ${d.suivi_offre_signee==1?'checked':''}><label class="form-check-label">Offre signée</label></div></div>
                         <div class="col-md-3"><label class="form-label">Date offre signée</label><input type="date" name="suivi_offre_signee_date" class="form-control" value="${d.suivi_offre_signee_date || ''}"></div>
                     </div>
+                </div>
+            </div>
+            <div class="row g-3 mt-2">
+                <div class="col-md-4">
+                    <label class="form-label">Statut du dossier</label>
+                    <select name="workflow_status" class="form-select">
+                        ${Object.entries(workflowLabels).map(([k,v]) => '<option value="'+k+'" '+(d.workflow_status===k?'selected':'')+'>'+v[0]+'</option>').join('')}
+                    </select>
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label">Notes du conseiller</label>
+                    <textarea name="notes" class="form-control" rows="2">${escapeHtml(d.notes || '')}</textarea>
                 </div>
             </div>
             <div class="mt-3">
@@ -973,11 +1145,195 @@ function printDossier(id) {
     window.print();
 }
 
+// Simulation "Et si..."
+function showSimulation(id) {
+    const d = dossiersData.find(x => x.id == id);
+    if (!d) return;
+    const capital = getCapital(d);
+    const taux = parseFloat(d.taux_emprunt||0);
+    const duree = parseInt(d.duree_emprunt||0);
+    const revenus = parseFloat(d.revenus_mensuels||0);
+    const creditsEnCours = parseFloat(d.credits_en_cours||0);
+
+    document.getElementById('simulContent').innerHTML = `
+        <div class="row g-3 mb-3">
+            <div class="col-md-12"><h6>Dossier : ${escapeHtml(d.numero_personne)} - Capital emprunté : ${fmt(capital)} &euro;</h6></div>
+            <div class="col-md-4">
+                <label class="form-label">Taux d'emprunt (%)</label>
+                <input type="range" class="form-range" id="simTaux" min="0.5" max="8" step="0.1" value="${taux}" oninput="updateSimulation(${id})">
+                <div class="text-center fw-bold" id="simTauxVal">${taux}%</div>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Durée (mois)</label>
+                <input type="range" class="form-range" id="simDuree" min="60" max="360" step="12" value="${duree}" oninput="updateSimulation(${id})">
+                <div class="text-center fw-bold" id="simDureeVal">${duree} mois (${(duree/12).toFixed(0)} ans)</div>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Remboursement anticipé</label>
+                <input type="number" class="form-control" id="simRembAnticipe" value="0" step="1000" min="0" oninput="updateSimulation(${id})">
+            </div>
+        </div>
+        <div id="simResults"></div>
+        <hr>
+        <h6>Hausse de taux : impact sur la mensualité</h6>
+        <div id="simTauxTable"></div>
+    `;
+    updateSimulation(id);
+    new bootstrap.Modal(document.getElementById('simulModal')).show();
+}
+
+function updateSimulation(id) {
+    const d = dossiersData.find(x => x.id == id);
+    const capitalBase = getCapital(d);
+    const rembAnticipe = parseFloat(document.getElementById('simRembAnticipe').value || 0);
+    const capital = capitalBase - rembAnticipe;
+    const taux = parseFloat(document.getElementById('simTaux').value);
+    const duree = parseInt(document.getElementById('simDuree').value);
+    const revenus = parseFloat(d.revenus_mensuels||0);
+    const creditsEnCours = parseFloat(d.credits_en_cours||0);
+
+    document.getElementById('simTauxVal').textContent = taux + '%';
+    document.getElementById('simDureeVal').textContent = duree + ' mois (' + (duree/12).toFixed(0) + ' ans)';
+
+    const mensualite = calcMensualite(capital > 0 ? capital : 0, taux, duree);
+    const coutTotal = mensualite * duree;
+    const totalInterets = coutTotal - (capital > 0 ? capital : 0);
+    const tauxEnd = revenus > 0 ? ((mensualite + creditsEnCours) / revenus * 100).toFixed(1) : 'N/A';
+
+    // Comparaison avec l'original
+    const origMens = calcMensualite(capitalBase, parseFloat(d.taux_emprunt||0), parseInt(d.duree_emprunt||0));
+    const origCout = origMens * parseInt(d.duree_emprunt||0);
+    const diffMens = mensualite - origMens;
+    const diffCout = (mensualite * duree) - origCout;
+
+    document.getElementById('simResults').innerHTML = `
+        <div class="row g-3">
+            <div class="col-md-3"><div class="stat-card"><div class="stat-number">${fmt(mensualite)} &euro;</div><div class="stat-label">Mensualité</div></div></div>
+            <div class="col-md-3"><div class="stat-card"><div class="stat-number">${fmt(totalInterets)} &euro;</div><div class="stat-label">Total intérêts</div></div></div>
+            <div class="col-md-3"><div class="stat-card"><div class="stat-number">${getEndettementBadge(tauxEnd)}</div><div class="stat-label">Endettement</div></div></div>
+            <div class="col-md-3"><div class="stat-card"><div class="stat-number" style="color:${diffMens > 0 ? '#dc3545' : '#28a745'}">${diffMens > 0 ? '+' : ''}${fmt(diffMens)} &euro;</div><div class="stat-label">Diff. mensualité</div></div></div>
+        </div>
+        ${getEndettementAlert(tauxEnd)}
+        ${rembAnticipe > 0 ? '<div class="alert alert-info mt-2"><i class="fas fa-info-circle"></i> Économie avec remboursement anticipé de ' + fmt(rembAnticipe) + ' € : <strong>' + fmt(-diffCout) + ' €</strong> sur le coût total.</div>' : ''}
+    `;
+
+    // Tableau hausse de taux
+    let tauxRows = '';
+    for (let t = taux; t <= taux + 2; t += 0.5) {
+        const m = calcMensualite(capital > 0 ? capital : 0, t, duree);
+        const te = revenus > 0 ? ((m + creditsEnCours) / revenus * 100).toFixed(1) : 'N/A';
+        tauxRows += `<tr><td>${t.toFixed(1)}%</td><td>${fmt(m)} &euro;</td><td>${fmt(m * duree)} &euro;</td><td>${getEndettementBadge(te)}</td></tr>`;
+    }
+    document.getElementById('simTauxTable').innerHTML = `
+        <table class="table table-sm table-striped">
+            <thead><tr><th>Taux</th><th>Mensualité</th><th>Coût total</th><th>Endettement</th></tr></thead>
+            <tbody>${tauxRows}</tbody>
+        </table>
+    `;
+}
+
+// Comparaison de scénarios
+function showCompareSelect() {
+    if (dossiersData.length < 2) {
+        alert('Il faut au moins 2 dossiers pour comparer.');
+        return;
+    }
+    let opts = dossiersData.map(d => `<div class="form-check"><input class="form-check-input compare-check" type="checkbox" value="${d.id}" id="cmp_${d.id}"><label class="form-check-label" for="cmp_${d.id}">${escapeHtml(d.numero_personne)} - ${fmt(d.montant_acquisition)} € @ ${d.taux_emprunt}% / ${d.duree_emprunt} mois</label></div>`).join('');
+    document.getElementById('compareContent').innerHTML = `
+        <p>Sélectionnez les dossiers à comparer :</p>
+        ${opts}
+        <button class="btn btn-ce mt-3" onclick="runComparison()"><i class="fas fa-balance-scale"></i> Comparer</button>
+        <div id="compareResults" class="mt-3"></div>
+    `;
+    new bootstrap.Modal(document.getElementById('compareModal')).show();
+}
+
+function runComparison() {
+    const ids = Array.from(document.querySelectorAll('.compare-check:checked')).map(c => parseInt(c.value));
+    if (ids.length < 2) { alert('Sélectionnez au moins 2 dossiers.'); return; }
+
+    const dossiers = ids.map(id => dossiersData.find(d => d.id == id)).filter(Boolean);
+    let headers = '<th>Critère</th>' + dossiers.map(d => `<th>${escapeHtml(d.numero_personne)}<br><small>${escapeHtml(d.type_credit)}</small></th>`).join('');
+
+    function row(label, values, highlight) {
+        const vals = values.map(v => typeof v === 'number' ? v : 0);
+        const best = highlight === 'min' ? Math.min(...vals) : highlight === 'max' ? Math.max(...vals) : null;
+        return '<tr><td><strong>' + label + '</strong></td>' + values.map((v, i) => {
+            const isBest = best !== null && vals[i] === best;
+            return `<td${isBest ? ' class="table-success"' : ''}>${typeof v === 'number' ? fmt(v) + ' €' : v}</td>`;
+        }).join('') + '</tr>';
+    }
+
+    const data = dossiers.map(d => {
+        const capital = getCapital(d);
+        const taux = parseFloat(d.taux_emprunt||0);
+        const duree = parseInt(d.duree_emprunt||0);
+        const mens = calcMensualite(capital, taux, duree);
+        const coutTotal = mens * duree;
+        const interets = coutTotal - capital;
+        const revenus = parseFloat(d.revenus_mensuels||0);
+        const te = revenus > 0 ? ((mens + parseFloat(d.credits_en_cours||0)) / revenus * 100).toFixed(1) : 'N/A';
+        return { capital, taux, duree, mens, coutTotal, interets, te };
+    });
+
+    let tableRows = row('Capital emprunté', data.map(r => r.capital), null);
+    tableRows += '<tr><td><strong>Taux</strong></td>' + data.map(r => `<td>${r.taux}%</td>`).join('') + '</tr>';
+    tableRows += '<tr><td><strong>Durée</strong></td>' + data.map(r => `<td>${r.duree} mois</td>`).join('') + '</tr>';
+    tableRows += row('Mensualité', data.map(r => r.mens), 'min');
+    tableRows += row('Total intérêts', data.map(r => r.interets), 'min');
+    tableRows += row('Coût total', data.map(r => r.coutTotal), 'min');
+    tableRows += '<tr><td><strong>Endettement</strong></td>' + data.map(r => `<td>${getEndettementBadge(r.te)}</td>`).join('') + '</tr>';
+
+    document.getElementById('compareResults').innerHTML = `
+        <table class="table table-sm table-bordered table-hover">
+            <thead class="table-dark"><tr>${headers}</tr></thead>
+            <tbody>${tableRows}</tbody>
+        </table>
+        <p class="text-muted"><small><i class="fas fa-check-circle text-success"></i> = meilleure valeur</small></p>
+    `;
+}
+
+// Pré-remplissage depuis calculateur budget
+function prefillFromBudget(mode) {
+    fetch('index.php?ajax=budget')
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) { alert('Aucun budget trouvé. Veuillez d\'abord remplir le calculateur budget.'); return; }
+            const prefix = mode === 'edit' ? 'edit' : 'add';
+            const revenus = parseFloat(data.salaire||0) + parseFloat(data.salaire_conjoint||0)
+                + parseFloat(data.autres_revenus||0) + parseFloat(data.autres_revenus_conjoint||0)
+                + parseFloat(data.allocations||0) + parseFloat(data.pensions||0)
+                + parseFloat(data.pensions_conjoint||0) + parseFloat(data.revenus_fonciers||0)
+                + parseFloat(data.revenus_fonciers_conjoint||0);
+            const charges = parseFloat(data.assurance_habitation||0) + parseFloat(data.assurance_auto||0)
+                + parseFloat(data.assurance_sante||0) + parseFloat(data.impots||0)
+                + parseFloat(data.taxe_fonciere||0) + parseFloat(data.taxe_habitation||0)
+                + parseFloat(data.electricite_gaz||0) + parseFloat(data.eau||0)
+                + parseFloat(data.telephone_internet||0) + parseFloat(data.transport||0)
+                + parseFloat(data.alimentation||0) + parseFloat(data.habillement||0)
+                + parseFloat(data.sante||0) + parseFloat(data.loisirs||0) + parseFloat(data.divers||0);
+            const loyer = parseFloat(data.loyer_charges||0);
+            const credits = parseFloat(data.credit_immo||0) + parseFloat(data.credits_conso||0);
+            const epargne = parseFloat(data.epargne_mensuelle||0);
+
+            const el = (id) => document.getElementById(id);
+            if (el(prefix + 'Revenus')) el(prefix + 'Revenus').value = revenus.toFixed(2);
+            if (el(prefix + 'Charges')) el(prefix + 'Charges').value = charges.toFixed(2);
+            if (el(prefix + 'Loyer')) el(prefix + 'Loyer').value = loyer.toFixed(2);
+            if (el(prefix + 'Credits')) el(prefix + 'Credits').value = credits.toFixed(2);
+            if (el(prefix + 'Epargne')) el(prefix + 'Epargne').value = epargne.toFixed(2);
+
+            alert('Données importées du calculateur budget !');
+        })
+        .catch(() => alert('Erreur lors du chargement des données budget.'));
+}
+
 // Initialize conditional logic for add modal
 document.addEventListener('DOMContentLoaded', initAddConditionalLogic);
 </script>
 
 <style>
+.bg-orange { background-color: #fd7e14 !important; }
 @media print {
     body * { visibility: hidden !important; }
     #printArea, #printArea * { visibility: visible !important; }
