@@ -49,6 +49,19 @@ $B = rtrim(str_replace($relativeScript, '', $_SERVER['SCRIPT_NAME']), '/');
             else { location.reload(); }
         });
     }
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.sidebar-nav .nav-section').forEach(function(section) {
+            section.addEventListener('click', function() {
+                var group = this.nextElementSibling;
+                if (!group || !group.classList.contains('nav-group')) return;
+                if (this.classList.contains('open')) {
+                    group.style.display = '';
+                } else {
+                    group.style.display = 'none';
+                }
+            });
+        });
+    });
     </script>
 </head>
 <body>
@@ -58,48 +71,88 @@ $B = rtrim(str_replace($relativeScript, '', $_SERVER['SCRIPT_NAME']), '/');
             <img src="https://www.img.caisse-epargne.fr/app/uploads/sites/16/2021/05/31152836/ce-logo-midi-pyrennees.png" alt="Caisse d'Épargne Midi-Pyrénées" style="max-width:180px;">
             <h3>Gestion d'Activités</h3>
         </div>
+        <?php
+        // Helper: check if URI matches any pattern in the list
+        $uri = $_SERVER['REQUEST_URI'];
+        function uriMatch($patterns) {
+            global $uri;
+            foreach ((array)$patterns as $p) {
+                if (strpos($uri, $p) !== false) return true;
+            }
+            return false;
+        }
+        ?>
         <nav class="sidebar-nav">
             <a href="<?= $B ?>/index.php" class="<?= $currentPage === 'index' ? 'active' : '' ?>"><i class="fas fa-home"></i> Accueil</a>
 
-            <div class="nav-section">Mon activité</div>
-            <a href="<?= $B ?>/modules/instances/index.php" class="<?= strpos($_SERVER['REQUEST_URI'], 'instances') !== false ? 'active' : '' ?>"><i class="fas fa-tasks"></i> Mes instances</a>
-            <a href="<?= $B ?>/modules/rappels/index.php" class="<?= strpos($_SERVER['REQUEST_URI'], 'rappels') !== false ? 'active' : '' ?>"><i class="fas fa-phone-alt"></i> Demandes de rappel</a>
-            <a href="<?= $B ?>/modules/demandes_clients/index.php" class="<?= strpos($_SERVER['REQUEST_URI'], 'demandes_clients') !== false ? 'active' : '' ?>"><i class="fas fa-headset"></i> Suivi demandes clients</a>
-            <a href="<?= $B ?>/modules/offres/index.php" class="<?= strpos($_SERVER['REQUEST_URI'], 'offres') !== false ? 'active' : '' ?>"><i class="fas fa-tags"></i> Offres en cours</a>
-            <a href="<?= $B ?>/modules/instances/calendrier.php" class="<?= strpos($_SERVER['REQUEST_URI'], 'instances/calendrier') !== false ? 'active' : '' ?>"><i class="fas fa-calendar"></i> Calendrier instances</a>
+            <?php $open = uriMatch(['instances','rappels','demandes_clients','offres']); ?>
+            <div class="nav-section <?= $open ? 'open' : '' ?>" onclick="this.classList.toggle('open')">
+                <span>Mon activité</span><i class="fas fa-chevron-right nav-chevron"></i>
+            </div>
+            <div class="nav-group" <?= $open ? '' : 'style="display:none"' ?>>
+                <a href="<?= $B ?>/modules/instances/index.php" class="<?= uriMatch('instances') && !uriMatch('instances/calendrier') ? 'active' : '' ?>"><i class="fas fa-tasks"></i> Mes instances</a>
+                <a href="<?= $B ?>/modules/rappels/index.php" class="<?= uriMatch('rappels') ? 'active' : '' ?>"><i class="fas fa-phone-alt"></i> Demandes de rappel</a>
+                <a href="<?= $B ?>/modules/demandes_clients/index.php" class="<?= uriMatch('demandes_clients') ? 'active' : '' ?>"><i class="fas fa-headset"></i> Suivi demandes clients</a>
+                <a href="<?= $B ?>/modules/offres/index.php" class="<?= uriMatch('offres') ? 'active' : '' ?>"><i class="fas fa-tags"></i> Offres en cours</a>
+                <a href="<?= $B ?>/modules/instances/calendrier.php" class="<?= uriMatch('instances/calendrier') ? 'active' : '' ?>"><i class="fas fa-calendar"></i> Calendrier instances</a>
+            </div>
 
-            <div class="nav-section">Formation</div>
-            <a href="<?= $B ?>/modules/formations/index.php" class="<?= strpos($_SERVER['REQUEST_URI'], 'formations/index') !== false || (strpos($_SERVER['REQUEST_URI'], 'formations') !== false && strpos($_SERVER['REQUEST_URI'], 'calendrier') === false && strpos($_SERVER['REQUEST_URI'], 'caldav') === false) ? 'active' : '' ?>"><i class="fas fa-graduation-cap"></i> Formations</a>
-            <a href="<?= $B ?>/modules/formations/calendrier.php" class="<?= strpos($_SERVER['REQUEST_URI'], 'formations/calendrier') !== false ? 'active' : '' ?>"><i class="fas fa-calendar-alt"></i> Calendrier formations</a>
+            <?php $open = uriMatch('formations'); ?>
+            <div class="nav-section <?= $open ? 'open' : '' ?>" onclick="this.classList.toggle('open')">
+                <span>Formation</span><i class="fas fa-chevron-right nav-chevron"></i>
+            </div>
+            <div class="nav-group" <?= $open ? '' : 'style="display:none"' ?>>
+                <a href="<?= $B ?>/modules/formations/index.php" class="<?= uriMatch('formations') && !uriMatch('formations/calendrier') && !uriMatch('caldav') ? 'active' : '' ?>"><i class="fas fa-graduation-cap"></i> Formations</a>
+                <a href="<?= $B ?>/modules/formations/calendrier.php" class="<?= uriMatch('formations/calendrier') ? 'active' : '' ?>"><i class="fas fa-calendar-alt"></i> Calendrier formations</a>
+            </div>
 
-            <div class="nav-section">Commercial</div>
-            <a href="<?= $B ?>/modules/production/index.php" class="<?= strpos($_SERVER['REQUEST_URI'], 'production') !== false ? 'active' : '' ?>"><i class="fas fa-chart-line"></i> Suivi production</a>
-            <a href="<?= $B ?>/modules/phoning/index.php" class="<?= strpos($_SERVER['REQUEST_URI'], 'phoning') !== false ? 'active' : '' ?>"><i class="fas fa-phone-volume"></i> Séances phoning</a>
-            <a href="<?= $B ?>/modules/eai/index.php" class="<?= strpos($_SERVER['REQUEST_URI'], 'eai') !== false ? 'active' : '' ?>"><i class="fas fa-bullseye"></i> EAI</a>
+            <?php $open = uriMatch(['production','phoning','eai']); ?>
+            <div class="nav-section <?= $open ? 'open' : '' ?>" onclick="this.classList.toggle('open')">
+                <span>Commercial</span><i class="fas fa-chevron-right nav-chevron"></i>
+            </div>
+            <div class="nav-group" <?= $open ? '' : 'style="display:none"' ?>>
+                <a href="<?= $B ?>/modules/production/index.php" class="<?= uriMatch('production') ? 'active' : '' ?>"><i class="fas fa-chart-line"></i> Suivi production</a>
+                <a href="<?= $B ?>/modules/phoning/index.php" class="<?= uriMatch('phoning') ? 'active' : '' ?>"><i class="fas fa-phone-volume"></i> Séances phoning</a>
+                <a href="<?= $B ?>/modules/eai/index.php" class="<?= uriMatch('eai') ? 'active' : '' ?>"><i class="fas fa-bullseye"></i> EAI</a>
+            </div>
 
-            <div class="nav-section">Outils</div>
-            <a href="<?= $B ?>/modules/credit_immo/index.php" class="<?= strpos($_SERVER['REQUEST_URI'], 'credit_immo') !== false ? 'active' : '' ?>"><i class="fas fa-house-chimney"></i> Crédit immobilier</a>
-            <a href="<?= $B ?>/modules/calculateur/index.php" class="<?= strpos($_SERVER['REQUEST_URI'], 'calculateur') !== false ? 'active' : '' ?>"><i class="fas fa-calculator"></i> Calculateur budget</a>
-            <a href="<?= $B ?>/modules/courriers/index.php" class="<?= strpos($_SERVER['REQUEST_URI'], 'courriers') !== false ? 'active' : '' ?>"><i class="fas fa-envelope"></i> Générateur courriers</a>
-            <a href="<?= $B ?>/modules/blocnotes/index.php" class="<?= strpos($_SERVER['REQUEST_URI'], 'blocnotes') !== false ? 'active' : '' ?>"><i class="fas fa-sticky-note"></i> Bloc-notes</a>
-            <a href="<?= $B ?>/modules/procedures/index.php" class="<?= strpos($_SERVER['REQUEST_URI'], 'procedures') !== false ? 'active' : '' ?>"><i class="fas fa-book"></i> Procédures</a>
+            <?php $open = uriMatch(['credit_immo','calculateur','courriers','blocnotes','procedures']); ?>
+            <div class="nav-section <?= $open ? 'open' : '' ?>" onclick="this.classList.toggle('open')">
+                <span>Outils</span><i class="fas fa-chevron-right nav-chevron"></i>
+            </div>
+            <div class="nav-group" <?= $open ? '' : 'style="display:none"' ?>>
+                <a href="<?= $B ?>/modules/credit_immo/index.php" class="<?= uriMatch('credit_immo') ? 'active' : '' ?>"><i class="fas fa-house-chimney"></i> Crédit immobilier</a>
+                <a href="<?= $B ?>/modules/calculateur/index.php" class="<?= uriMatch('calculateur') ? 'active' : '' ?>"><i class="fas fa-calculator"></i> Calculateur budget</a>
+                <a href="<?= $B ?>/modules/courriers/index.php" class="<?= uriMatch('courriers') ? 'active' : '' ?>"><i class="fas fa-envelope"></i> Générateur courriers</a>
+                <a href="<?= $B ?>/modules/blocnotes/index.php" class="<?= uriMatch('blocnotes') ? 'active' : '' ?>"><i class="fas fa-sticky-note"></i> Bloc-notes</a>
+                <a href="<?= $B ?>/modules/procedures/index.php" class="<?= uriMatch('procedures') ? 'active' : '' ?>"><i class="fas fa-book"></i> Procédures</a>
+            </div>
 
-            <div class="nav-section">Références</div>
-            <a href="<?= $B ?>/modules/codes/index.php" class="<?= strpos($_SERVER['REQUEST_URI'], '/codes/') !== false ? 'active' : '' ?>"><i class="fas fa-key"></i> Codes utiles</a>
-            <a href="<?= $B ?>/modules/contacts/index.php" class="<?= strpos($_SERVER['REQUEST_URI'], '/contacts/') !== false ? 'active' : '' ?>"><i class="fas fa-address-book"></i> Contacts utiles</a>
+            <?php $open = uriMatch(['/codes/','/contacts/']); ?>
+            <div class="nav-section <?= $open ? 'open' : '' ?>" onclick="this.classList.toggle('open')">
+                <span>Références</span><i class="fas fa-chevron-right nav-chevron"></i>
+            </div>
+            <div class="nav-group" <?= $open ? '' : 'style="display:none"' ?>>
+                <a href="<?= $B ?>/modules/codes/index.php" class="<?= uriMatch('/codes/') ? 'active' : '' ?>"><i class="fas fa-key"></i> Codes utiles</a>
+                <a href="<?= $B ?>/modules/contacts/index.php" class="<?= uriMatch('/contacts/') ? 'active' : '' ?>"><i class="fas fa-address-book"></i> Contacts utiles</a>
+            </div>
 
             <?php if (!empty($liensExternes)): ?>
-                <div class="nav-section">Liens</div>
-                <?php foreach ($liensExternes as $lien): ?>
-                    <a href="<?= e($lien['url']) ?>" target="_blank"><i class="fas fa-external-link-alt"></i> <?= e($lien['nom']) ?></a>
-                <?php endforeach; ?>
+                <div class="nav-section open">
+                    <span>Liens</span><i class="fas fa-chevron-right nav-chevron"></i>
+                </div>
+                <div class="nav-group">
+                    <?php foreach ($liensExternes as $lien): ?>
+                        <a href="<?= e($lien['url']) ?>" target="_blank"><i class="fas fa-external-link-alt"></i> <?= e($lien['nom']) ?></a>
+                    <?php endforeach; ?>
+                </div>
             <?php endif; ?>
 
             <div class="nav-divider"></div>
             <?php if (isAdmin()): ?>
-                <a href="<?= $B ?>/modules/admin/index.php" class="<?= strpos($_SERVER['REQUEST_URI'], 'admin') !== false ? 'active' : '' ?>"><i class="fas fa-cog"></i> Administration</a>
+                <a href="<?= $B ?>/modules/admin/index.php" class="<?= uriMatch('admin') ? 'active' : '' ?>"><i class="fas fa-cog"></i> Administration</a>
             <?php endif; ?>
-            <a href="<?= $B ?>/modules/profil/index.php" class="<?= strpos($_SERVER['REQUEST_URI'], 'profil') !== false ? 'active' : '' ?>"><i class="fas fa-user"></i> Mon profil</a>
+            <a href="<?= $B ?>/modules/profil/index.php" class="<?= uriMatch('profil') ? 'active' : '' ?>"><i class="fas fa-user"></i> Mon profil</a>
             <a href="<?= $B ?>/logout.php"><i class="fas fa-sign-out-alt"></i> Déconnexion</a>
         </nav>
     </div>

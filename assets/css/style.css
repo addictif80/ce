@@ -171,7 +171,28 @@ body {
     text-transform: uppercase;
     letter-spacing: 1px;
     padding: 12px 20px 5px;
-    opacity: 0.5;
+    opacity: 0.6;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    user-select: none;
+    transition: opacity 0.2s;
+    color: rgba(255,255,255,0.85);
+}
+.sidebar-nav .nav-section:hover {
+    opacity: 1;
+}
+.sidebar-nav .nav-section .nav-chevron {
+    font-size: 9px;
+    transition: transform 0.25s ease;
+}
+.sidebar-nav .nav-section.open .nav-chevron {
+    transform: rotate(90deg);
+}
+.sidebar-nav .nav-group {
+    overflow: hidden;
+    transition: max-height 0.3s ease;
 }
 
 /* MAIN CONTENT */
