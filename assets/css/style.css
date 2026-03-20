@@ -107,11 +107,10 @@ body {
     height: 100vh;
     background: linear-gradient(180deg, var(--ce-red-dark) 0%, var(--ce-red) 100%);
     color: white;
-    overflow: hidden;
     z-index: 1000;
     transition: transform 0.3s;
-    display: flex;
-    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .sidebar-header {
@@ -135,8 +134,6 @@ body {
 
 .sidebar-nav {
     padding: 10px 0;
-    flex: 1;
-    overflow-y: auto;
 }
 
 .sidebar-nav a {
@@ -200,12 +197,13 @@ body {
 }
 
 .sidebar-user-info {
-    flex-shrink: 0;
     padding: 12px 20px;
     border-top: 1px solid rgba(255,255,255,0.15);
     font-size: 11px;
     color: rgba(255,255,255,0.7);
     background: rgba(0,0,0,0.1);
+    position: sticky;
+    bottom: 0;
 }
 .sidebar-user-name {
     font-weight: 700;
