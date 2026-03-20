@@ -57,14 +57,24 @@ $stmt = $db->prepare("SELECT c.*, u.nom AS author_nom, u.prenom AS author_prenom
     ORDER BY c.service ASC");
 $stmt->execute([$userId]);
 $contacts = $stmt->fetchAll();
+
+// Utilisateurs de l'application (contacts automatiques)
+$stmtUsers = $db->query("SELECT id, nom, prenom, email_pro, tel_pro, ligne_interne FROM users ORDER BY nom, prenom");
+$userContacts = $stmtUsers->fetchAll();
 ?>
 
 <!-- Barre d'actions -->
 <div class="row g-3 mb-4">
-    <div class="col-md-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-number"><?= count($userContacts) ?></div>
+            <div class="stat-label">Collaborateurs</div>
+        </div>
+    </div>
+    <div class="col-md-3">
         <div class="stat-card">
             <div class="stat-number"><?= count($contacts) ?></div>
-            <div class="stat-label">Contacts disponibles</div>
+            <div class="stat-label">Contacts utiles</div>
         </div>
     </div>
     <div class="col-md-4 d-flex align-items-center">
@@ -72,10 +82,43 @@ $contacts = $stmt->fetchAll();
     </div>
 </div>
 
-<!-- Tableau -->
+<!-- Tableau Équipe -->
+<div class="data-table-container mb-4">
+    <div class="data-table-header">
+        <h3><i class="fas fa-users"></i> Équipe</h3>
+        <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" id="searchEquipe" placeholder="Rechercher un collaborateur...">
+        </div>
+    </div>
+    <table class="data-table" id="tableEquipe">
+        <thead>
+            <tr>
+                <th>Nom</th>
+                <th>Prénom</th>
+                <th>Mail</th>
+                <th>Téléphone</th>
+                <th>Ligne directe</th>
+            </tr>
+        </thead>
+        <tbody>
+        <?php foreach ($userContacts as $uc): ?>
+            <tr>
+                <td><strong><?= e($uc['nom']) ?></strong></td>
+                <td><?= e($uc['prenom']) ?></td>
+                <td><?= $uc['email_pro'] ? '<a href="mailto:' . e($uc['email_pro']) . '">' . e($uc['email_pro']) . '</a>' : '<span class="text-muted">-</span>' ?></td>
+                <td><?= $uc['tel_pro'] ? e($uc['tel_pro']) : '<span class="text-muted">-</span>' ?></td>
+                <td><?= $uc['ligne_interne'] ? e($uc['ligne_interne']) : '<span class="text-muted">-</span>' ?></td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+</div>
+
+<!-- Tableau Contacts manuels -->
 <div class="data-table-container">
     <div class="data-table-header">
-        <h3>Tous les contacts</h3>
+        <h3><i class="fas fa-address-book"></i> Contacts utiles</h3>
         <div class="search-box">
             <i class="fas fa-search"></i>
             <input type="text" id="searchContacts" placeholder="Rechercher...">
@@ -205,6 +248,7 @@ $contacts = $stmt->fetchAll();
 </div>
 
 <script>
+filterTable('searchEquipe', 'tableEquipe');
 filterTable('searchContacts', 'tableContacts');
 
 const contactsData = <?= json_encode($contacts) ?>;
