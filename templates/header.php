@@ -138,10 +138,10 @@ $B = rtrim(str_replace($relativeScript, '', $_SERVER['SCRIPT_NAME']), '/');
             </div>
 
             <?php if (!empty($liensExternes)): ?>
-                <div class="nav-section open">
+                <div class="nav-section" onclick="this.classList.toggle('open')">
                     <span>Liens</span><i class="fas fa-chevron-right nav-chevron"></i>
                 </div>
-                <div class="nav-group">
+                <div class="nav-group" style="display:none">
                     <?php foreach ($liensExternes as $lien): ?>
                         <a href="<?= e($lien['url']) ?>" target="_blank"><i class="fas fa-external-link-alt"></i> <?= e($lien['nom']) ?></a>
                     <?php endforeach; ?>
