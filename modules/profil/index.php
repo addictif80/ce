@@ -7,19 +7,14 @@ $user = getCurrentUser();
 $message = '';
 $error = '';
 
-// Mise à jour du profil
+// Mise à jour du profil (seuls tel_pro et ligne_interne sont modifiables)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_profile') {
-    $stmt = $db->prepare("UPDATE users SET nom = ?, prenom = ?, email_pro = ?, tel_pro = ?, ligne_interne = ?, updated_at = NOW() WHERE id = ?");
+    $stmt = $db->prepare("UPDATE users SET tel_pro = ?, ligne_interne = ?, updated_at = NOW() WHERE id = ?");
     $stmt->execute([
-        trim($_POST['nom']),
-        trim($_POST['prenom']),
-        trim($_POST['email_pro'] ?? ''),
         trim($_POST['tel_pro'] ?? ''),
         trim($_POST['ligne_interne'] ?? ''),
         $userId
     ]);
-    $_SESSION['nom'] = trim($_POST['nom']);
-    $_SESSION['prenom'] = trim($_POST['prenom']);
     $message = 'Profil mis à jour avec succès.';
     $user = getCurrentUser();
 }
@@ -80,16 +75,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         <input type="text" class="form-control" value="<?= $user['is_admin'] ? 'Administrateur' : 'Utilisateur' ?>" disabled>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Nom *</label>
-                        <input type="text" name="nom" class="form-control" value="<?= e($user['nom']) ?>" required>
+                        <label class="form-label">Nom</label>
+                        <input type="text" class="form-control" value="<?= e($user['nom']) ?>" disabled>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Prénom *</label>
-                        <input type="text" name="prenom" class="form-control" value="<?= e($user['prenom']) ?>" required>
+                        <label class="form-label">Prénom</label>
+                        <input type="text" class="form-control" value="<?= e($user['prenom']) ?>" disabled>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Email professionnel</label>
-                        <input type="email" name="email_pro" class="form-control" value="<?= e($user['email_pro']) ?>">
+                        <input type="email" class="form-control" value="<?= e($user['email_pro']) ?>" disabled>
+                        <small class="text-muted">Contactez un administrateur pour modifier ces informations.</small>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Tél. professionnel</label>

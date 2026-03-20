@@ -155,6 +155,18 @@ $B = rtrim(str_replace($relativeScript, '', $_SERVER['SCRIPT_NAME']), '/');
             <a href="<?= $B ?>/modules/profil/index.php" class="<?= uriMatch('profil') ? 'active' : '' ?>"><i class="fas fa-user"></i> Mon profil</a>
             <a href="<?= $B ?>/logout.php"><i class="fas fa-sign-out-alt"></i> Déconnexion</a>
         </nav>
+        <div class="sidebar-user-info">
+            <div class="sidebar-user-name"><?= e($currentUser['prenom'] . ' ' . $currentUser['nom']) ?></div>
+            <?php if (!empty($currentUser['email_pro'])): ?>
+                <div class="sidebar-user-detail"><?= e($currentUser['email_pro']) ?></div>
+            <?php endif; ?>
+            <?php if (!empty($currentUser['tel_pro'])): ?>
+                <div class="sidebar-user-detail"><?= e($currentUser['tel_pro']) ?></div>
+            <?php endif; ?>
+            <?php if (!empty($currentUser['ligne_interne'])): ?>
+                <div class="sidebar-user-detail">Ligne : <?= e($currentUser['ligne_interne']) ?></div>
+            <?php endif; ?>
+        </div>
     </div>
 
     <!-- MAIN CONTENT -->
