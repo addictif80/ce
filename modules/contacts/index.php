@@ -58,6 +58,18 @@ $stmt = $db->prepare("SELECT c.*, u.nom AS author_nom, u.prenom AS author_prenom
 $stmt->execute([$userId]);
 $contacts = $stmt->fetchAll();
 
+// Helper: lien tel: avec préfixe 0 si nécessaire
+function telLink($number, $addZero = true) {
+    if (empty($number)) return '<span class="text-muted">-</span>';
+    $clean = preg_replace('/[^0-9+]/', '', $number);
+    $dial = $addZero ? '0' . $clean : $clean;
+    return '<a href="tel:' . e($dial) . '"><i class="fas fa-phone-alt fa-sm"></i> ' . e($number) . '</a>';
+}
+function mailLink($mail) {
+    if (empty($mail)) return '<span class="text-muted">-</span>';
+    return '<a href="mailto:' . e($mail) . '"><i class="fas fa-envelope fa-sm"></i> ' . e($mail) . '</a>';
+}
+
 // Utilisateurs de l'application (contacts automatiques)
 $stmtUsers = $db->query("SELECT id, nom, prenom, email_pro, tel_pro, ligne_interne FROM users ORDER BY nom, prenom");
 $userContacts = $stmtUsers->fetchAll();
@@ -106,9 +118,9 @@ $userContacts = $stmtUsers->fetchAll();
             <tr>
                 <td><strong><?= e($uc['nom']) ?></strong></td>
                 <td><?= e($uc['prenom']) ?></td>
-                <td><?= $uc['email_pro'] ? '<a href="mailto:' . e($uc['email_pro']) . '">' . e($uc['email_pro']) . '</a>' : '<span class="text-muted">-</span>' ?></td>
-                <td><?= $uc['tel_pro'] ? e($uc['tel_pro']) : '<span class="text-muted">-</span>' ?></td>
-                <td><?= $uc['ligne_interne'] ? e($uc['ligne_interne']) : '<span class="text-muted">-</span>' ?></td>
+                <td><?= mailLink($uc['email_pro']) ?></td>
+                <td><?= telLink($uc['tel_pro'], true) ?></td>
+                <td><?= telLink($uc['ligne_interne'], false) ?></td>
             </tr>
         <?php endforeach; ?>
         </tbody>
@@ -142,8 +154,8 @@ $userContacts = $stmtUsers->fetchAll();
         ?>
             <tr>
                 <td><strong><?= e($contact['service']) ?></strong></td>
-                <td><?= e($contact['telephone']) ?></td>
-                <td><?= e($contact['mail']) ?></td>
+                <td><?= telLink($contact['telephone'], true) ?></td>
+                <td><?= mailLink($contact['mail']) ?></td>
                 <td><?= e(excerpt($contact['a_contacter_pour'])) ?></td>
                 <td>
                     <?php if ($isOwn): ?>
@@ -253,6 +265,17 @@ filterTable('searchContacts', 'tableContacts');
 
 const contactsData = <?= json_encode($contacts) ?>;
 
+function telHtml(num, addZero) {
+    if (!num) return '-';
+    var clean = num.replace(/[^0-9+]/g, '');
+    var dial = addZero ? '0' + clean : clean;
+    return `<a href="tel:${dial}"><i class="fas fa-phone-alt fa-sm"></i> ${num}</a>`;
+}
+function mailHtml(m) {
+    if (!m) return '-';
+    return `<a href="mailto:${m}"><i class="fas fa-envelope fa-sm"></i> ${m}</a>`;
+}
+
 function showDetail(id) {
     const contact = contactsData.find(c => c.id == id);
     if (!contact) return;
@@ -260,8 +283,8 @@ function showDetail(id) {
         <div class="row">
             <div class="col-md-6">
                 <p><strong>Service :</strong> ${contact.service || '-'}</p>
-                <p><strong>Téléphone :</strong> ${contact.telephone || '-'}</p>
-                <p><strong>Mail :</strong> ${contact.mail || '-'}</p>
+                <p><strong>Téléphone :</strong> ${telHtml(contact.telephone, true)}</p>
+                <p><strong>Mail :</strong> ${mailHtml(contact.mail)}</p>
             </div>
             <div class="col-md-6">
                 <p><strong>À contacter pour :</strong></p>
