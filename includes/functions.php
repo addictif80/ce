@@ -151,6 +151,17 @@ function searchGlobal($query, $userId) {
     $stmt->execute([$userId, $like, $like]);
     $results = array_merge($results, $stmt->fetchAll());
 
+    // Équipe (utilisateurs + contacts équipe manuels)
+    $stmt = $db->prepare("SELECT id, CONCAT(prenom, ' ', nom) AS titre, CONCAT(COALESCE(email_pro,''), ' ', COALESCE(tel_pro,''), ' ', COALESCE(ligne_interne,'')) AS detail, 'equipe' AS type FROM users WHERE (nom LIKE ? OR prenom LIKE ? OR email_pro LIKE ? OR tel_pro LIKE ? OR ligne_interne LIKE ?)");
+    $stmt->execute([$like, $like, $like, $like, $like]);
+    $results = array_merge($results, $stmt->fetchAll());
+
+    try {
+        $stmt = $db->prepare("SELECT id, CONCAT(prenom, ' ', nom) AS titre, CONCAT(COALESCE(email,''), ' ', COALESCE(telephone,''), ' ', COALESCE(ligne_interne,'')) AS detail, 'equipe' AS type FROM contacts_equipe WHERE (nom LIKE ? OR prenom LIKE ? OR email LIKE ? OR telephone LIKE ? OR ligne_interne LIKE ?)");
+        $stmt->execute([$like, $like, $like, $like, $like]);
+        $results = array_merge($results, $stmt->fetchAll());
+    } catch (Exception $e) {}
+
     return $results;
 }
 

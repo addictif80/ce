@@ -28,14 +28,15 @@ $proceduresEnAvant = $stmtProc->fetchAll();
             'instances' => 'Instance', 'rappels' => 'Rappel', 'offres' => 'Offre',
             'codes' => 'Code utile', 'contacts' => 'Contact', 'demandes_clients' => 'Demande client',
             'blocnotes' => 'Bloc-notes', 'procedures' => 'Procédure', 'courriers' => 'Courrier',
-            'formations' => 'Formation'
+            'formations' => 'Formation', 'equipe' => 'Équipe'
         ];
         $typeLinks = [
             'instances' => 'modules/instances/index.php', 'rappels' => 'modules/rappels/index.php',
             'offres' => 'modules/offres/index.php', 'codes' => 'modules/codes/index.php',
             'contacts' => 'modules/contacts/index.php', 'demandes_clients' => 'modules/demandes_clients/index.php',
             'blocnotes' => 'modules/blocnotes/index.php', 'procedures' => 'modules/procedures/index.php',
-            'courriers' => 'modules/courriers/index.php', 'formations' => 'modules/formations/index.php'
+            'courriers' => 'modules/courriers/index.php', 'formations' => 'modules/formations/index.php',
+            'equipe' => 'modules/contacts/index.php'
         ];
         foreach ($searchResults as $r): ?>
             <div class="search-result-item">

@@ -9,6 +9,43 @@ $isUserAdmin = isAdmin();
 try { $db->exec("ALTER TABLE contacts_utiles ADD COLUMN approved TINYINT(1) DEFAULT 0"); } catch (Exception $e) {}
 try { $db->exec("ALTER TABLE contacts_utiles ADD COLUMN approved_by INT DEFAULT NULL"); } catch (Exception $e) {}
 
+// Auto-create contacts_equipe table
+$db->exec("CREATE TABLE IF NOT EXISTS contacts_equipe (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nom VARCHAR(100) NOT NULL,
+    prenom VARCHAR(100) NOT NULL,
+    email VARCHAR(150) DEFAULT NULL,
+    telephone VARCHAR(20) DEFAULT NULL,
+    ligne_interne VARCHAR(20) DEFAULT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+// Ajout contact équipe
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_equipe') {
+    $stmt = $db->prepare("INSERT INTO contacts_equipe (nom, prenom, email, telephone, ligne_interne) VALUES (?, ?, ?, ?, ?)");
+    $stmt->execute([trim($_POST['nom']), trim($_POST['prenom']), trim($_POST['email'] ?? ''), trim($_POST['telephone'] ?? ''), trim($_POST['ligne_interne'] ?? '')]);
+    header('Location: index.php');
+    exit;
+}
+
+// Edition contact équipe
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'edit_equipe') {
+    $id = (int)$_POST['id'];
+    $stmt = $db->prepare("UPDATE contacts_equipe SET nom = ?, prenom = ?, email = ?, telephone = ?, ligne_interne = ? WHERE id = ?");
+    $stmt->execute([trim($_POST['nom']), trim($_POST['prenom']), trim($_POST['email'] ?? ''), trim($_POST['telephone'] ?? ''), trim($_POST['ligne_interne'] ?? ''), $id]);
+    header('Location: index.php');
+    exit;
+}
+
+// Suppression contact équipe
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_equipe') {
+    $id = (int)$_POST['id'];
+    $stmt = $db->prepare("DELETE FROM contacts_equipe WHERE id = ?");
+    $stmt->execute([$id]);
+    header('Location: index.php');
+    exit;
+}
+
 // Ajout
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add') {
     $stmt = $db->prepare("INSERT INTO contacts_utiles (user_id, telephone, mail, service, a_contacter_pour, approved, approved_by) VALUES (?, ?, ?, ?, ?, ?, ?)");
@@ -70,9 +107,16 @@ function mailLink($mail) {
     return '<a href="mailto:' . e($mail) . '"><i class="fas fa-envelope fa-sm"></i> ' . e($mail) . '</a>';
 }
 
-// Utilisateurs de l'application (contacts automatiques)
-$stmtUsers = $db->query("SELECT id, nom, prenom, email_pro, tel_pro, ligne_interne FROM users ORDER BY nom, prenom");
+// Utilisateurs de l'application (contacts automatiques) + contacts équipe manuels
+$stmtUsers = $db->query("SELECT id, nom, prenom, email_pro AS email, tel_pro AS telephone, ligne_interne, 'auto' AS source FROM users
+    UNION ALL
+    SELECT id, nom, prenom, email, telephone, ligne_interne, 'manual' AS source FROM contacts_equipe
+    ORDER BY nom, prenom");
 $userContacts = $stmtUsers->fetchAll();
+
+// Contacts équipe manuels seuls (pour le JS edit)
+$stmtManualEquipe = $db->query("SELECT * FROM contacts_equipe ORDER BY nom, prenom");
+$manualEquipe = $stmtManualEquipe->fetchAll();
 ?>
 
 <!-- Barre d'actions -->
@@ -98,9 +142,12 @@ $userContacts = $stmtUsers->fetchAll();
 <div class="data-table-container mb-4">
     <div class="data-table-header">
         <h3><i class="fas fa-users"></i> Équipe</h3>
-        <div class="search-box">
-            <i class="fas fa-search"></i>
-            <input type="text" id="searchEquipe" placeholder="Rechercher un collaborateur...">
+        <div class="d-flex gap-2 align-items-center">
+            <button class="btn btn-sm btn-ce" data-bs-toggle="modal" data-bs-target="#addEquipeModal"><i class="fas fa-plus"></i> Ajouter</button>
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchEquipe" placeholder="Rechercher un collaborateur...">
+            </div>
         </div>
     </div>
     <table class="data-table" id="tableEquipe">
@@ -111,6 +158,7 @@ $userContacts = $stmtUsers->fetchAll();
                 <th>Mail</th>
                 <th>Téléphone</th>
                 <th>Ligne directe</th>
+                <th>Actions</th>
             </tr>
         </thead>
         <tbody>
@@ -118,9 +166,21 @@ $userContacts = $stmtUsers->fetchAll();
             <tr>
                 <td><strong><?= e($uc['nom']) ?></strong></td>
                 <td><?= e($uc['prenom']) ?></td>
-                <td><?= mailLink($uc['email_pro']) ?></td>
-                <td><?= telLink($uc['tel_pro'], true) ?></td>
+                <td><?= mailLink($uc['email']) ?></td>
+                <td><?= telLink($uc['telephone'], true) ?></td>
                 <td><?= telLink($uc['ligne_interne'], false) ?></td>
+                <td class="actions">
+                    <?php if ($uc['source'] === 'manual'): ?>
+                        <button class="btn btn-sm btn-ce-outline" onclick="editEquipe(<?= $uc['id'] ?>)" title="Modifier"><i class="fas fa-edit"></i></button>
+                        <form method="POST" class="d-inline" onsubmit="return confirm('Supprimer ce contact équipe ?')">
+                            <input type="hidden" name="action" value="delete_equipe">
+                            <input type="hidden" name="id" value="<?= $uc['id'] ?>">
+                            <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                        </form>
+                    <?php else: ?>
+                        <span class="badge bg-secondary"><i class="fas fa-user-shield"></i> Utilisateur</span>
+                    <?php endif; ?>
+                </td>
             </tr>
         <?php endforeach; ?>
         </tbody>
@@ -231,6 +291,62 @@ $userContacts = $stmtUsers->fetchAll();
     </div>
 </div>
 
+<!-- Modal Ajout Équipe -->
+<div class="modal fade modal-fullscreen-custom" id="addEquipeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-user-plus"></i> Nouveau contact équipe</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form method="POST">
+                    <input type="hidden" name="action" value="add_equipe">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Nom *</label>
+                            <input type="text" name="nom" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Prénom *</label>
+                            <input type="text" name="prenom" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Mail</label>
+                            <input type="email" name="email" class="form-control">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Téléphone</label>
+                            <input type="text" name="telephone" class="form-control">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Ligne directe</label>
+                            <input type="text" name="ligne_interne" class="form-control">
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Enregistrer</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Edit Équipe -->
+<div class="modal fade modal-fullscreen-custom" id="editEquipeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-edit"></i> Modifier le contact équipe</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="editEquipeContent">
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal Détail -->
 <div class="modal fade modal-fullscreen-custom" id="detailModal" tabindex="-1">
     <div class="modal-dialog">
@@ -324,6 +440,44 @@ function editContact(id) {
             </div>
         </form>`;
     new bootstrap.Modal(document.getElementById('editModal')).show();
+}
+
+const equipeData = <?= json_encode($manualEquipe) ?>;
+
+function editEquipe(id) {
+    const c = equipeData.find(e => e.id == id);
+    if (!c) return;
+    document.getElementById('editEquipeContent').innerHTML = `
+        <form method="POST">
+            <input type="hidden" name="action" value="edit_equipe">
+            <input type="hidden" name="id" value="${id}">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Nom *</label>
+                    <input type="text" name="nom" class="form-control" value="${c.nom || ''}" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Prénom *</label>
+                    <input type="text" name="prenom" class="form-control" value="${c.prenom || ''}" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Mail</label>
+                    <input type="email" name="email" class="form-control" value="${c.email || ''}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Téléphone</label>
+                    <input type="text" name="telephone" class="form-control" value="${c.telephone || ''}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Ligne directe</label>
+                    <input type="text" name="ligne_interne" class="form-control" value="${c.ligne_interne || ''}">
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Enregistrer</button>
+                </div>
+            </div>
+        </form>`;
+    new bootstrap.Modal(document.getElementById('editEquipeModal')).show();
 }
 </script>
 
