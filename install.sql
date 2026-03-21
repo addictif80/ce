@@ -371,6 +371,7 @@ CREATE TABLE IF NOT EXISTS `mobilites` (
   `doc_justif_domicile` TINYINT(1) DEFAULT 0,
   `doc_avis_imposition` TINYINT(1) DEFAULT 0,
   `doc_releves_externes` TINYINT(1) DEFAULT 0,
+  `doc_rib` TINYINT(1) DEFAULT 0,
   -- Étape 2 : Synthèse client
   `synthese_faite` TINYINT(1) DEFAULT 0,
   -- Étape 3 : Ouverture du compte

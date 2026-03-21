@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $stmt = $db->prepare("UPDATE procedures SET nom = ?, texte = ?, mise_en_avant = ? WHERE id = ? AND user_id = ?");
         $stmt->execute([$_POST['nom'], $_POST['texte'], $miseEnAvant, $id, $userId]);
     }
-    header('Location: index.php');
+    header('Location: index.php?open=' . $id);
     exit;
 }
 
@@ -297,6 +297,14 @@ function editProcedure(id) {
             </div>
         </form>`;
     new bootstrap.Modal(document.getElementById('editModal')).show();
+}
+
+// Auto-ouverture du dossier après enregistrement
+const urlParams = new URLSearchParams(window.location.search);
+const openId = urlParams.get('open');
+if (openId) {
+    showDetail(parseInt(openId));
+    history.replaceState(null, '', 'index.php');
 }
 </script>
 

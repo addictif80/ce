@@ -89,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         (int)$_POST['id'],
         $userId
     ]);
-    header('Location: index.php');
+    header('Location: index.php?open=' . (int)$_POST['id']);
     exit;
 }
 
@@ -988,6 +988,14 @@ function printCourrier(id) {
         window.print();
         printArea.style.display = 'none';
     }, 300);
+}
+
+// Auto-ouverture du dossier après enregistrement
+const urlParams = new URLSearchParams(window.location.search);
+const openId = urlParams.get('open');
+if (openId) {
+    showDetail(parseInt(openId));
+    history.replaceState(null, '', 'index.php');
 }
 </script>
 

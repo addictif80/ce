@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'edit') {
     $stmt = $db->prepare("UPDATE blocnotes SET nom_note = ?, contenu = ?, updated_at = NOW() WHERE id = ? AND user_id = ?");
     $stmt->execute([$_POST['nom_note'], $_POST['contenu'], (int)$_POST['id'], $userId]);
-    header('Location: index.php');
+    header('Location: index.php?open=' . (int)$_POST['id']);
     exit;
 }
 
@@ -199,6 +199,14 @@ function editNote(id) {
             </div>
         </form>`;
     new bootstrap.Modal(document.getElementById('editModal')).show();
+}
+
+// Auto-ouverture du dossier après enregistrement
+const urlParams = new URLSearchParams(window.location.search);
+const openId = urlParams.get('open');
+if (openId) {
+    showDetail(parseInt(openId));
+    history.replaceState(null, '', 'index.php');
 }
 </script>
 

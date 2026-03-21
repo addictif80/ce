@@ -9,7 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $id = (int)$_POST['id'];
     $stmt = $db->prepare("UPDATE demandes_rappel SET traitee = IF(traitee=1,0,1) WHERE id = ? AND user_id = ?");
     $stmt->execute([$id, $userId]);
-    header('Location: index.php');
+    header('Location: index.php?open=' . $id);
     exit;
 }
 
@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'edit') {
     $stmt = $db->prepare("UPDATE demandes_rappel SET numero_personne = ?, motif = ?, traitee = ? WHERE id = ? AND user_id = ?");
     $stmt->execute([$_POST['numero_personne'], $_POST['motif'], (int)$_POST['traitee'], (int)$_POST['id'], $userId]);
-    header('Location: index.php');
+    header('Location: index.php?open=' . (int)$_POST['id']);
     exit;
 }
 
@@ -43,14 +43,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_tentative') {
     $stmt = $db->prepare("INSERT INTO tentatives_appel (demande_rappel_id, user_id, commentaire) VALUES (?, ?, ?)");
     $stmt->execute([(int)$_POST['demande_rappel_id'], $userId, $_POST['commentaire'] ?? '']);
-    header('Location: index.php');
+    header('Location: index.php?open=' . (int)$_POST['demande_rappel_id']);
     exit;
 }
 
 // Ajout note
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_note') {
     addNote('demandes_rappel', (int)$_POST['record_id'], $_POST['message'], $userId);
-    header('Location: index.php');
+    header('Location: index.php?open=' . (int)$_POST['record_id']);
     exit;
 }
 
@@ -317,6 +317,14 @@ function editRecord(id) {
             </div>
         </form>`;
     new bootstrap.Modal(document.getElementById('editModal')).show();
+}
+
+// Auto-ouverture du dossier après enregistrement
+const urlParams = new URLSearchParams(window.location.search);
+const openId = urlParams.get('open');
+if (openId) {
+    showDetail(parseInt(openId));
+    history.replaceState(null, '', 'index.php');
 }
 </script>
 

@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'edit') {
     $stmt = $db->prepare("UPDATE suivi_production SET date_rdv = ?, categorie = ?, produit_vendu = ?, montant_nombre = ?, details = ? WHERE id = ? AND user_id = ?");
     $stmt->execute([$_POST['date_rdv'] ?: null, $_POST['categorie'], $_POST['produit_vendu'], $_POST['montant_nombre'], $_POST['details'], (int)$_POST['id'], $userId]);
-    header('Location: index.php');
+    header('Location: index.php?open=' . (int)$_POST['id']);
     exit;
 }
 
@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 // Ajout note
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_note') {
     addNote('suivi_production', (int)$_POST['record_id'], $_POST['message'], $userId);
-    header('Location: index.php');
+    header('Location: index.php?open=' . (int)$_POST['record_id']);
     exit;
 }
 
@@ -295,6 +295,14 @@ function editProduction(id) {
             </div>
         </form>`;
     new bootstrap.Modal(document.getElementById('editModal')).show();
+}
+
+// Auto-ouverture du dossier après enregistrement
+const urlParams = new URLSearchParams(window.location.search);
+const openId = urlParams.get('open');
+if (openId) {
+    showDetail(parseInt(openId));
+    history.replaceState(null, '', 'index.php');
 }
 </script>
 

@@ -150,7 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         !empty($_POST['suivi_offre_signee_date']) ? $_POST['suivi_offre_signee_date'] : null,
         $id, $userId
     ]);
-    header('Location: index.php');
+    header('Location: index.php?open=' . $id);
     exit;
 }
 
@@ -1330,6 +1330,14 @@ function prefillFromBudget(mode) {
 
 // Initialize conditional logic for add modal
 document.addEventListener('DOMContentLoaded', initAddConditionalLogic);
+
+// Auto-ouverture du dossier après enregistrement
+const urlParams = new URLSearchParams(window.location.search);
+const openId = urlParams.get('open');
+if (openId) {
+    showDetail(parseInt(openId));
+    history.replaceState(null, '', 'index.php');
+}
 </script>
 
 <style>

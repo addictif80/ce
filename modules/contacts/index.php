@@ -68,7 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $stmt = $db->prepare("UPDATE contacts_utiles SET telephone = ?, mail = ?, service = ?, a_contacter_pour = ? WHERE id = ? AND user_id = ?");
         $stmt->execute([$_POST['telephone'], $_POST['mail'], $_POST['service'], $_POST['a_contacter_pour'], $id, $userId]);
     }
-    header('Location: index.php');
+    header('Location: index.php?open=' . $id);
     exit;
 }
 
@@ -478,6 +478,14 @@ function editEquipe(id) {
             </div>
         </form>`;
     new bootstrap.Modal(document.getElementById('editEquipeModal')).show();
+}
+
+// Auto-ouverture du dossier après enregistrement
+const urlParams = new URLSearchParams(window.location.search);
+const openId = urlParams.get('open');
+if (openId) {
+    showDetail(parseInt(openId));
+    history.replaceState(null, '', 'index.php');
 }
 </script>
 

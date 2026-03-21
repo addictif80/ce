@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $stmt = $db->prepare("UPDATE codes_utiles SET code = ?, fonction = ? WHERE id = ? AND user_id = ?");
         $stmt->execute([$_POST['code'], $_POST['fonction'], $id, $userId]);
     }
-    header('Location: index.php');
+    header('Location: index.php?open=' . $id);
     exit;
 }
 
@@ -236,6 +236,14 @@ function editCode(id) {
             </div>
         </form>`;
     new bootstrap.Modal(document.getElementById('editModal')).show();
+}
+
+// Auto-ouverture du dossier après enregistrement
+const urlParams = new URLSearchParams(window.location.search);
+const openId = urlParams.get('open');
+if (openId) {
+    showDetail(parseInt(openId));
+    history.replaceState(null, '', 'index.php');
 }
 </script>
 

@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $stmt = $db->prepare("UPDATE offres SET nom = ?, date_debut = ?, date_fin = ?, details = ? WHERE id = ? AND user_id = ?");
         $stmt->execute([$_POST['nom'], $_POST['date_debut'] ?: null, $_POST['date_fin'] ?: null, $_POST['details'], $id, $userId]);
     }
-    header('Location: index.php');
+    header('Location: index.php?open=' . $id);
     exit;
 }
 
@@ -52,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 // Ajout note
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_note') {
     addNote('offres', (int)$_POST['record_id'], $_POST['message'], $userId);
-    header('Location: index.php');
+    header('Location: index.php?open=' . (int)$_POST['record_id']);
     exit;
 }
 
@@ -308,6 +308,14 @@ function editOffre(id) {
             </div>
         </form>`;
     new bootstrap.Modal(document.getElementById('editModal')).show();
+}
+
+// Auto-ouverture du dossier après enregistrement
+const urlParams = new URLSearchParams(window.location.search);
+const openId = urlParams.get('open');
+if (openId) {
+    showDetail(parseInt(openId));
+    history.replaceState(null, '', 'index.php');
 }
 </script>
 

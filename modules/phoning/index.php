@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         (int)$_POST['id'],
         $userId
     ]);
-    header('Location: index.php');
+    header('Location: index.php?open=' . (int)$_POST['id']);
     exit;
 }
 
@@ -270,6 +270,14 @@ function editSeance(id) {
             </div>
         </form>`;
     new bootstrap.Modal(document.getElementById('editModal')).show();
+}
+
+// Auto-ouverture du dossier après enregistrement
+const urlParams = new URLSearchParams(window.location.search);
+const openId = urlParams.get('open');
+if (openId) {
+    editSeance(parseInt(openId));
+    history.replaceState(null, '', 'index.php');
 }
 </script>
 

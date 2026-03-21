@@ -18,13 +18,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $id = (int)$_POST['id'];
         $fields = [
             'numero_personne','nom_client','banque_depart','etape','notes',
-            'doc_carte_identite','doc_justif_domicile','doc_avis_imposition','doc_releves_externes',
+            'doc_carte_identite','doc_justif_domicile','doc_avis_imposition','doc_releves_externes','doc_rib',
             'synthese_faite',
             'type_compte','compte_joint','montant_decouvert','izicarte',
             'mandat_signe','date_fin_mobilite','cloture_demandee','date_cloture_depart',
             'mobiliz_mail_envoye','mobiliz_synthese_recue','mobiliz_04_ouvert','mobiliz_tel_fait','mobiliz_epargnes_a_transferer'
         ];
-        $checkboxes = ['doc_carte_identite','doc_justif_domicile','doc_avis_imposition','doc_releves_externes',
+        $checkboxes = ['doc_carte_identite','doc_justif_domicile','doc_avis_imposition','doc_releves_externes','doc_rib',
                         'synthese_faite','compte_joint','izicarte','mandat_signe','cloture_demandee',
                         'is_ce_hors_mp','mobiliz_mail_envoye','mobiliz_synthese_recue','mobiliz_04_ouvert','mobiliz_tel_fait'];
         $nullableFields = ['type_compte','date_fin_mobilite','date_cloture_depart','montant_decouvert'];
@@ -385,6 +385,7 @@ function openDetail(id) {
                     <div class="col-md-6"><div class="form-check"><input type="checkbox" name="doc_justif_domicile" class="form-check-input" ${chk(m.doc_justif_domicile)}><label class="form-check-label">Justificatif de domicile</label></div></div>
                     <div class="col-md-6"><div class="form-check"><input type="checkbox" name="doc_avis_imposition" class="form-check-input" ${chk(m.doc_avis_imposition)}><label class="form-check-label">Avis d'imposition</label></div></div>
                     <div class="col-md-6"><div class="form-check"><input type="checkbox" name="doc_releves_externes" class="form-check-input" ${chk(m.doc_releves_externes)}><label class="form-check-label">Relevés comptes externes</label></div></div>
+                    <div class="col-md-6"><div class="form-check"><input type="checkbox" name="doc_rib" class="form-check-input" ${chk(m.doc_rib)}><label class="form-check-label">RIB</label></div></div>
                 </div>
             </div>
         </div>
