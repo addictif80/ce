@@ -43,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $vals[] = $id;
         $vals[] = $userId;
         $db->prepare("UPDATE mobilites SET " . implode(', ', $sets) . " WHERE id = ? AND user_id = ?")->execute($vals);
-        header('Location: index.php');
+        header('Location: index.php?open=' . $id);
         exit;
     }
 
@@ -59,11 +59,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $mid = (int)$_POST['mobilite_id'];
         $stmt = $db->prepare("INSERT INTO mobilites_cartes (mobilite_id, titulaire, type_carte, type_debit) VALUES (?, ?, ?, ?)");
         $stmt->execute([$mid, trim($_POST['titulaire']), $_POST['type_carte'], $_POST['type_debit']]);
-        header('Location: index.php');
+        header('Location: index.php?open=' . $mid);
         exit;
     }
     if ($_POST['action'] === 'update_carte') {
         $id = (int)$_POST['id'];
+        $mid = (int)$_POST['mobilite_id'];
         $stmt = $db->prepare("UPDATE mobilites_cartes SET titulaire=?, type_carte=?, type_debit=?, commandee=?, date_commande=?, recue=?, date_reception=?, remise_client=?, date_remise=? WHERE id=?");
         $stmt->execute([
             trim($_POST['titulaire']), $_POST['type_carte'], $_POST['type_debit'],
@@ -72,12 +73,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             isset($_POST['remise_client']) ? 1 : 0, $_POST['date_remise'] ?: null,
             $id
         ]);
-        header('Location: index.php');
+        header('Location: index.php?open=' . $mid);
         exit;
     }
     if ($_POST['action'] === 'delete_carte') {
+        $mid = $db->query("SELECT mobilite_id FROM mobilites_cartes WHERE id = " . (int)$_POST['id'])->fetchColumn();
         $db->prepare("DELETE FROM mobilites_cartes WHERE id = ?")->execute([(int)$_POST['id']]);
-        header('Location: index.php');
+        header('Location: index.php?open=' . (int)$mid);
         exit;
     }
 
@@ -86,11 +88,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $mid = (int)$_POST['mobilite_id'];
         $stmt = $db->prepare("INSERT INTO mobilites_chequiers (mobilite_id, titulaire) VALUES (?, ?)");
         $stmt->execute([$mid, trim($_POST['titulaire'])]);
-        header('Location: index.php');
+        header('Location: index.php?open=' . $mid);
         exit;
     }
     if ($_POST['action'] === 'update_chequier') {
         $id = (int)$_POST['id'];
+        $mid = (int)$_POST['mobilite_id'];
         $stmt = $db->prepare("UPDATE mobilites_chequiers SET titulaire=?, commande=?, date_commande=?, recu=?, date_reception=?, remis_client=?, date_remise=? WHERE id=?");
         $stmt->execute([
             trim($_POST['titulaire']),
@@ -99,12 +102,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             isset($_POST['remis_client']) ? 1 : 0, $_POST['date_remise'] ?: null,
             $id
         ]);
-        header('Location: index.php');
+        header('Location: index.php?open=' . $mid);
         exit;
     }
     if ($_POST['action'] === 'delete_chequier') {
+        $mid = $db->query("SELECT mobilite_id FROM mobilites_chequiers WHERE id = " . (int)$_POST['id'])->fetchColumn();
         $db->prepare("DELETE FROM mobilites_chequiers WHERE id = ?")->execute([(int)$_POST['id']]);
-        header('Location: index.php');
+        header('Location: index.php?open=' . (int)$mid);
         exit;
     }
 }
@@ -475,6 +479,7 @@ function editCarte(id) {
     <form method="POST">
         <input type="hidden" name="action" value="update_carte">
         <input type="hidden" name="id" value="${c.id}">
+        <input type="hidden" name="mobilite_id" value="${c.mobilite_id}">
         <h5 class="mb-3">Modifier la carte</h5>
         <div class="row g-3">
             <div class="col-md-4"><label class="form-label">Titulaire</label><input type="text" name="titulaire" class="form-control" value="${esc(c.titulaire)}"></div>
@@ -496,6 +501,7 @@ function editChequier(id) {
     <form method="POST">
         <input type="hidden" name="action" value="update_chequier">
         <input type="hidden" name="id" value="${c.id}">
+        <input type="hidden" name="mobilite_id" value="${c.mobilite_id}">
         <h5 class="mb-3">Modifier le chéquier</h5>
         <div class="row g-3">
             <div class="col-md-6"><label class="form-label">Titulaire</label><input type="text" name="titulaire" class="form-control" value="${esc(c.titulaire)}"></div>
@@ -505,6 +511,14 @@ function editChequier(id) {
             <div class="col-12"><button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Enregistrer</button></div>
         </div>
     </form>`;
+}
+
+// Auto-ouverture du dossier après enregistrement
+const urlParams = new URLSearchParams(window.location.search);
+const openId = urlParams.get('open');
+if (openId) {
+    openDetail(parseInt(openId));
+    history.replaceState(null, '', 'index.php');
 }
 </script>
 
