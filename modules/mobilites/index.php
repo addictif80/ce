@@ -27,6 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $checkboxes = ['doc_carte_identite','doc_justif_domicile','doc_avis_imposition','doc_releves_externes',
                         'synthese_faite','compte_joint','izicarte','mandat_signe','cloture_demandee',
                         'is_ce_hors_mp','mobiliz_mail_envoye','mobiliz_synthese_recue','mobiliz_04_ouvert','mobiliz_tel_fait'];
+        $nullableFields = ['type_compte','date_fin_mobilite','date_cloture_depart','montant_decouvert'];
         $sets = ['is_ce_hors_mp = ?'];
         $vals = [isset($_POST['is_ce_hors_mp']) ? 1 : 0];
         foreach ($fields as $f) {
@@ -35,7 +36,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $vals[] = isset($_POST[$f]) ? 1 : 0;
             } else {
                 $sets[] = "$f = ?";
-                $vals[] = $_POST[$f] ?? null;
+                $val = $_POST[$f] ?? null;
+                $vals[] = (in_array($f, $nullableFields) && $val === '') ? null : $val;
             }
         }
         $vals[] = $id;
