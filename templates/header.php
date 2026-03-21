@@ -106,7 +106,7 @@ $B = rtrim(str_replace($relativeScript, '', $_SERVER['SCRIPT_NAME']), '/');
                 <a href="<?= $B ?>/modules/formations/calendrier.php" class="<?= uriMatch('formations/calendrier') ? 'active' : '' ?>"><i class="fas fa-calendar-alt"></i> Calendrier formations</a>
             </div>
 
-            <?php $open = uriMatch(['production','phoning','eai']); ?>
+            <?php $open = uriMatch(['production','phoning','eai','mobilites']); ?>
             <div class="nav-section <?= $open ? 'open' : '' ?>" onclick="this.classList.toggle('open')">
                 <span>Commercial</span><i class="fas fa-chevron-right nav-chevron"></i>
             </div>
@@ -114,6 +114,7 @@ $B = rtrim(str_replace($relativeScript, '', $_SERVER['SCRIPT_NAME']), '/');
                 <a href="<?= $B ?>/modules/production/index.php" class="<?= uriMatch('production') ? 'active' : '' ?>"><i class="fas fa-chart-line"></i> Suivi production</a>
                 <a href="<?= $B ?>/modules/phoning/index.php" class="<?= uriMatch('phoning') ? 'active' : '' ?>"><i class="fas fa-phone-volume"></i> Séances phoning</a>
                 <a href="<?= $B ?>/modules/eai/index.php" class="<?= uriMatch('eai') ? 'active' : '' ?>"><i class="fas fa-bullseye"></i> EAI</a>
+                <a href="<?= $B ?>/modules/mobilites/index.php" class="<?= uriMatch('mobilites') ? 'active' : '' ?>"><i class="fas fa-exchange-alt"></i> Mobilités</a>
             </div>
 
             <?php $open = uriMatch(['credit_immo','calculateur','courriers','blocnotes','procedures']); ?>

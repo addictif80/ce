@@ -356,4 +356,75 @@ CREATE TABLE IF NOT EXISTS `liens_externes` (
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Table mobilités entrantes
+CREATE TABLE IF NOT EXISTS `mobilites` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` INT NOT NULL,
+  `date_ajout` DATE NOT NULL DEFAULT (CURRENT_DATE),
+  `numero_personne` VARCHAR(100) DEFAULT NULL,
+  `nom_client` VARCHAR(255) DEFAULT NULL,
+  `banque_depart` VARCHAR(255) DEFAULT NULL,
+  `is_ce_hors_mp` TINYINT(1) DEFAULT 0,
+  `etape` ENUM('rdv','synthese','ouverture','mobilite','termine') DEFAULT 'rdv',
+  -- Étape 1 : RDV - Documents
+  `doc_carte_identite` TINYINT(1) DEFAULT 0,
+  `doc_justif_domicile` TINYINT(1) DEFAULT 0,
+  `doc_avis_imposition` TINYINT(1) DEFAULT 0,
+  `doc_releves_externes` TINYINT(1) DEFAULT 0,
+  -- Étape 2 : Synthèse client
+  `synthese_faite` TINYINT(1) DEFAULT 0,
+  -- Étape 3 : Ouverture du compte
+  `type_compte` ENUM('CDD','OCF','Initial','Confort','Optimal') DEFAULT NULL,
+  `compte_joint` TINYINT(1) DEFAULT 0,
+  `montant_decouvert` DECIMAL(10,2) DEFAULT 0,
+  `izicarte` TINYINT(1) DEFAULT 0,
+  -- Étape 4 : Demande de mobilité
+  `mandat_signe` TINYINT(1) DEFAULT 0,
+  `date_fin_mobilite` DATE DEFAULT NULL,
+  `cloture_demandee` TINYINT(1) DEFAULT 0,
+  `date_cloture_depart` DATE DEFAULT NULL,
+  -- Spécificités Mobiliz (CE hors MP)
+  `mobiliz_mail_envoye` TINYINT(1) DEFAULT 0,
+  `mobiliz_synthese_recue` TINYINT(1) DEFAULT 0,
+  `mobiliz_04_ouvert` TINYINT(1) DEFAULT 0,
+  `mobiliz_tel_fait` TINYINT(1) DEFAULT 0,
+  `mobiliz_epargnes_a_transferer` TEXT DEFAULT NULL,
+  `notes` TEXT DEFAULT NULL,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table cartes bancaires liées aux mobilités
+CREATE TABLE IF NOT EXISTS `mobilites_cartes` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `mobilite_id` INT NOT NULL,
+  `titulaire` VARCHAR(255) DEFAULT NULL,
+  `type_carte` ENUM('VCTRL_Syst','VCTRL_casiSyst','VClassic','V1er','VPlatinium') DEFAULT NULL,
+  `type_debit` ENUM('immediat','differe') DEFAULT 'immediat',
+  `commandee` TINYINT(1) DEFAULT 0,
+  `date_commande` DATE DEFAULT NULL,
+  `recue` TINYINT(1) DEFAULT 0,
+  `date_reception` DATE DEFAULT NULL,
+  `remise_client` TINYINT(1) DEFAULT 0,
+  `date_remise` DATE DEFAULT NULL,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (`mobilite_id`) REFERENCES `mobilites`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table chéquiers liés aux mobilités
+CREATE TABLE IF NOT EXISTS `mobilites_chequiers` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `mobilite_id` INT NOT NULL,
+  `titulaire` VARCHAR(255) DEFAULT NULL,
+  `commande` TINYINT(1) DEFAULT 0,
+  `date_commande` DATE DEFAULT NULL,
+  `recu` TINYINT(1) DEFAULT 0,
+  `date_reception` DATE DEFAULT NULL,
+  `remis_client` TINYINT(1) DEFAULT 0,
+  `date_remise` DATE DEFAULT NULL,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (`mobilite_id`) REFERENCES `mobilites`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 SET FOREIGN_KEY_CHECKS = 1;
