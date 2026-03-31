@@ -5,6 +5,7 @@ require_once __DIR__ . '/../includes/functions.php';
 requireLogin();
 $currentUser = getCurrentUser();
 $liensExternes = getLiensExternes();
+$menuConfig = getMenuConfig();
 $currentPage = basename($_SERVER['PHP_SELF'], '.php');
 
 // Calcul du chemin de base pour les URLs (fonctionne depuis n'importe quel sous-dossier)
@@ -85,60 +86,36 @@ $B = rtrim(str_replace($relativeScript, '', $_SERVER['SCRIPT_NAME']), '/');
         <nav class="sidebar-nav">
             <a href="<?= $B ?>/index.php" class="<?= $currentPage === 'index' ? 'active' : '' ?>"><i class="fas fa-home"></i> Accueil</a>
 
-            <?php $open = uriMatch(['instances','rappels','demandes_clients','offres']); ?>
+            <?php foreach ($menuConfig as $section):
+                $patterns = array_map('trim', explode(',', $section['uri_patterns'] ?? ''));
+                $open = uriMatch($patterns);
+            ?>
             <div class="nav-section <?= $open ? 'open' : '' ?>" onclick="this.classList.toggle('open')">
-                <span>Mon activité</span><i class="fas fa-chevron-right nav-chevron"></i>
+                <span><?= e($section['label']) ?></span><i class="fas fa-chevron-right nav-chevron"></i>
             </div>
             <div class="nav-group" <?= $open ? '' : 'style="display:none"' ?>>
-                <a href="<?= $B ?>/modules/instances/index.php" class="<?= uriMatch('instances') && !uriMatch('instances/calendrier') ? 'active' : '' ?>"><i class="fas fa-tasks"></i> Mes instances</a>
-                <a href="<?= $B ?>/modules/rappels/index.php" class="<?= uriMatch('rappels') ? 'active' : '' ?>"><i class="fas fa-phone-alt"></i> Demandes de rappel</a>
-                <a href="<?= $B ?>/modules/demandes_clients/index.php" class="<?= uriMatch('demandes_clients') ? 'active' : '' ?>"><i class="fas fa-headset"></i> Suivi demandes clients</a>
-                <a href="<?= $B ?>/modules/offres/index.php" class="<?= uriMatch('offres') ? 'active' : '' ?>"><i class="fas fa-tags"></i> Offres en cours</a>
-                <a href="<?= $B ?>/modules/instances/calendrier.php" class="<?= uriMatch('instances/calendrier') ? 'active' : '' ?>"><i class="fas fa-calendar"></i> Calendrier instances</a>
+                <?php foreach ($section['items'] as $item):
+                    $itemPatterns = array_map('trim', explode(',', $item['uri_patterns'] ?? ''));
+                    $isActive = uriMatch($itemPatterns);
+                    // Exclude sub-pages (calendrier) from parent match
+                    if ($item['item_key'] === 'formations' && uriMatch(['formations/calendrier','caldav'])) $isActive = false;
+                    if ($item['item_key'] === 'instances' && uriMatch('instances/calendrier')) $isActive = false;
+                ?>
+                    <a href="<?= $B . e($item['url']) ?>" class="<?= $isActive ? 'active' : '' ?>"><i class="fas <?= e($item['icon']) ?>"></i> <?= e($item['label']) ?></a>
+                <?php endforeach; ?>
             </div>
+            <?php endforeach; ?>
 
-            <?php $open = uriMatch('formations'); ?>
-            <div class="nav-section <?= $open ? 'open' : '' ?>" onclick="this.classList.toggle('open')">
-                <span>Formation</span><i class="fas fa-chevron-right nav-chevron"></i>
-            </div>
-            <div class="nav-group" <?= $open ? '' : 'style="display:none"' ?>>
-                <a href="<?= $B ?>/modules/formations/index.php" class="<?= uriMatch('formations') && !uriMatch('formations/calendrier') && !uriMatch('caldav') ? 'active' : '' ?>"><i class="fas fa-graduation-cap"></i> Formations</a>
-                <a href="<?= $B ?>/modules/formations/calendrier.php" class="<?= uriMatch('formations/calendrier') ? 'active' : '' ?>"><i class="fas fa-calendar-alt"></i> Calendrier formations</a>
-            </div>
-
-            <?php $open = uriMatch(['production','phoning','eai','mobilites']); ?>
-            <div class="nav-section <?= $open ? 'open' : '' ?>" onclick="this.classList.toggle('open')">
-                <span>Commercial</span><i class="fas fa-chevron-right nav-chevron"></i>
-            </div>
-            <div class="nav-group" <?= $open ? '' : 'style="display:none"' ?>>
-                <a href="<?= $B ?>/modules/production/index.php" class="<?= uriMatch('production') ? 'active' : '' ?>"><i class="fas fa-chart-line"></i> Suivi production</a>
-                <a href="<?= $B ?>/modules/phoning/index.php" class="<?= uriMatch('phoning') ? 'active' : '' ?>"><i class="fas fa-phone-volume"></i> Séances phoning</a>
-                <a href="<?= $B ?>/modules/eai/index.php" class="<?= uriMatch('eai') ? 'active' : '' ?>"><i class="fas fa-bullseye"></i> EAI</a>
-                <a href="<?= $B ?>/modules/mobilites/index.php" class="<?= uriMatch('mobilites') ? 'active' : '' ?>"><i class="fas fa-exchange-alt"></i> Mobilités</a>
-            </div>
-
-            <?php $open = uriMatch(['credit_immo','calculateur','courriers','blocnotes','procedures']); ?>
-            <div class="nav-section <?= $open ? 'open' : '' ?>" onclick="this.classList.toggle('open')">
-                <span>Outils</span><i class="fas fa-chevron-right nav-chevron"></i>
-            </div>
-            <div class="nav-group" <?= $open ? '' : 'style="display:none"' ?>>
-                <a href="<?= $B ?>/modules/credit_immo/index.php" class="<?= uriMatch('credit_immo') ? 'active' : '' ?>"><i class="fas fa-house-chimney"></i> Crédit immobilier</a>
-                <a href="<?= $B ?>/modules/calculateur/index.php" class="<?= uriMatch('calculateur') ? 'active' : '' ?>"><i class="fas fa-calculator"></i> Calculateur budget</a>
-                <a href="<?= $B ?>/modules/courriers/index.php" class="<?= uriMatch('courriers') ? 'active' : '' ?>"><i class="fas fa-envelope"></i> Générateur courriers</a>
-                <a href="<?= $B ?>/modules/blocnotes/index.php" class="<?= uriMatch('blocnotes') ? 'active' : '' ?>"><i class="fas fa-sticky-note"></i> Bloc-notes</a>
-                <a href="<?= $B ?>/modules/procedures/index.php" class="<?= uriMatch('procedures') ? 'active' : '' ?>"><i class="fas fa-book"></i> Procédures</a>
-            </div>
-
-            <?php $open = uriMatch(['/codes/','/contacts/']); ?>
-            <div class="nav-section <?= $open ? 'open' : '' ?>" onclick="this.classList.toggle('open')">
-                <span>Références</span><i class="fas fa-chevron-right nav-chevron"></i>
-            </div>
-            <div class="nav-group" <?= $open ? '' : 'style="display:none"' ?>>
-                <a href="<?= $B ?>/modules/codes/index.php" class="<?= uriMatch('/codes/') ? 'active' : '' ?>"><i class="fas fa-key"></i> Codes utiles</a>
-                <a href="<?= $B ?>/modules/contacts/index.php" class="<?= uriMatch('/contacts/') ? 'active' : '' ?>"><i class="fas fa-address-book"></i> Contacts utiles</a>
-            </div>
-
-            <?php if (!empty($liensExternes)): ?>
+            <?php if (!empty($liensExternes)):
+                // Grouper les liens par catégorie
+                $liensParCategorie = [];
+                foreach ($liensExternes as $lien) {
+                    $cat = $lien['categorie_nom'] ?? null;
+                    $liensParCategorie[$cat ?? ''][] = $lien;
+                }
+                if (count($liensParCategorie) === 1 && array_key_exists('', $liensParCategorie)):
+                    // Pas de catégories, afficher comme avant
+            ?>
                 <div class="nav-section" onclick="this.classList.toggle('open')">
                     <span>Liens</span><i class="fas fa-chevron-right nav-chevron"></i>
                 </div>
@@ -147,7 +124,20 @@ $B = rtrim(str_replace($relativeScript, '', $_SERVER['SCRIPT_NAME']), '/');
                         <a href="<?= e($lien['url']) ?>" target="_blank"><i class="fas fa-external-link-alt"></i> <?= e($lien['nom']) ?></a>
                     <?php endforeach; ?>
                 </div>
-            <?php endif; ?>
+            <?php else:
+                    // Liens groupés par catégorie
+                    foreach ($liensParCategorie as $catNom => $catLiens):
+                        $labelCat = $catNom ?: 'Liens';
+            ?>
+                <div class="nav-section" onclick="this.classList.toggle('open')">
+                    <span><?= e($labelCat) ?></span><i class="fas fa-chevron-right nav-chevron"></i>
+                </div>
+                <div class="nav-group" style="display:none">
+                    <?php foreach ($catLiens as $lien): ?>
+                        <a href="<?= e($lien['url']) ?>" target="_blank"><i class="fas fa-external-link-alt"></i> <?= e($lien['nom']) ?></a>
+                    <?php endforeach; ?>
+                </div>
+            <?php endforeach; endif; endif; ?>
 
             <div class="nav-divider"></div>
             <?php if (isAdmin()): ?>

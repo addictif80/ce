@@ -123,15 +123,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
     // --- Liens externes ---
     if ($action === 'add_link') {
-        $stmt = $db->prepare("INSERT INTO liens_externes (nom, url, ordre) VALUES (?, ?, ?)");
-        $stmt->execute([trim($_POST['nom']), trim($_POST['url']), (int)($_POST['ordre'] ?? 0)]);
+        $catId = !empty($_POST['categorie_id']) ? (int)$_POST['categorie_id'] : null;
+        $stmt = $db->prepare("INSERT INTO liens_externes (nom, url, categorie_id, ordre) VALUES (?, ?, ?, ?)");
+        $stmt->execute([trim($_POST['nom']), trim($_POST['url']), $catId, (int)($_POST['ordre'] ?? 0)]);
         header('Location: index.php?tab=liens&msg=link_added');
         exit;
     }
 
     if ($action === 'edit_link') {
-        $stmt = $db->prepare("UPDATE liens_externes SET nom = ?, url = ?, ordre = ? WHERE id = ?");
-        $stmt->execute([trim($_POST['nom']), trim($_POST['url']), (int)($_POST['ordre'] ?? 0), (int)$_POST['id']]);
+        $catId = !empty($_POST['categorie_id']) ? (int)$_POST['categorie_id'] : null;
+        $stmt = $db->prepare("UPDATE liens_externes SET nom = ?, url = ?, categorie_id = ?, ordre = ? WHERE id = ?");
+        $stmt->execute([trim($_POST['nom']), trim($_POST['url']), $catId, (int)($_POST['ordre'] ?? 0), (int)$_POST['id']]);
         header('Location: index.php?tab=liens&msg=link_updated');
         exit;
     }
@@ -140,6 +142,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $stmt = $db->prepare("DELETE FROM liens_externes WHERE id = ?");
         $stmt->execute([(int)$_POST['id']]);
         header('Location: index.php?tab=liens&msg=link_deleted');
+        exit;
+    }
+
+    // --- Catégories de liens ---
+    if ($action === 'add_categorie_lien') {
+        $stmt = $db->prepare("INSERT INTO categories_liens (nom, ordre) VALUES (?, ?)");
+        $stmt->execute([trim($_POST['nom']), (int)($_POST['ordre'] ?? 0)]);
+        header('Location: index.php?tab=liens&msg=cat_added');
+        exit;
+    }
+
+    if ($action === 'edit_categorie_lien') {
+        $stmt = $db->prepare("UPDATE categories_liens SET nom = ?, ordre = ? WHERE id = ?");
+        $stmt->execute([trim($_POST['nom']), (int)($_POST['ordre'] ?? 0), (int)$_POST['id']]);
+        header('Location: index.php?tab=liens&msg=cat_updated');
+        exit;
+    }
+
+    if ($action === 'delete_categorie_lien') {
+        $id = (int)$_POST['id'];
+        // Détacher les liens de cette catégorie
+        $db->prepare("UPDATE liens_externes SET categorie_id = NULL WHERE categorie_id = ?")->execute([$id]);
+        $db->prepare("DELETE FROM categories_liens WHERE id = ?")->execute([$id]);
+        header('Location: index.php?tab=liens&msg=cat_deleted');
+        exit;
+    }
+
+    // --- Menu ---
+    if ($action === 'save_menu_order') {
+        $items = json_decode($_POST['menu_order'] ?? '[]', true);
+        if (is_array($items)) {
+            $stmt = $db->prepare("UPDATE menu_config SET ordre = ?, parent_key = ? WHERE item_key = ?");
+            foreach ($items as $item) {
+                $stmt->execute([(int)$item['ordre'], $item['parent_key'] ?? null, $item['item_key']]);
+            }
+        }
+        header('Location: index.php?tab=menu&msg=menu_saved');
+        exit;
+    }
+
+    if ($action === 'edit_menu_item') {
+        $stmt = $db->prepare("UPDATE menu_config SET label = ?, icon = ?, visible = ? WHERE id = ?");
+        $stmt->execute([trim($_POST['label']), trim($_POST['icon']), isset($_POST['visible']) ? 1 : 0, (int)$_POST['id']]);
+        header('Location: index.php?tab=menu&msg=menu_updated');
+        exit;
+    }
+
+    if ($action === 'reset_menu') {
+        $db->exec("DELETE FROM menu_config");
+        // Will be re-seeded on next getMenuConfig() call
+        getMenuConfig();
+        header('Location: index.php?tab=menu&msg=menu_reset');
         exit;
     }
 
@@ -220,7 +274,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
 // Données
 $users = $db->query("SELECT * FROM users ORDER BY nom, prenom")->fetchAll();
-$liens = $db->query("SELECT * FROM liens_externes ORDER BY ordre ASC, nom ASC")->fetchAll();
+$categoriesLiens = getCategoriesLiens();
+$liens = $db->query("SELECT l.*, c.nom AS categorie_nom FROM liens_externes l LEFT JOIN categories_liens c ON l.categorie_id = c.id ORDER BY l.ordre ASC, l.nom ASC")->fetchAll();
+$menuItems = $db->query("SELECT * FROM menu_config ORDER BY ordre ASC")->fetchAll();
 
 // Pending approvals
 $pendingModeles = $db->query("SELECT m.*, u.nom AS author_nom, u.prenom AS author_prenom FROM modeles_courriers m LEFT JOIN users u ON m.user_id = u.id WHERE m.approved = 0 ORDER BY m.id DESC")->fetchAll();
@@ -243,6 +299,12 @@ $activeTab = $_GET['tab'] ?? 'users';
         'link_added' => 'Lien ajouté avec succès.',
         'link_updated' => 'Lien modifié avec succès.',
         'link_deleted' => 'Lien supprimé.',
+        'cat_added' => 'Catégorie ajoutée avec succès.',
+        'cat_updated' => 'Catégorie modifiée avec succès.',
+        'cat_deleted' => 'Catégorie supprimée.',
+        'menu_saved' => 'Ordre du menu enregistré.',
+        'menu_updated' => 'Élément du menu modifié.',
+        'menu_reset' => 'Menu réinitialisé aux valeurs par défaut.',
         'approved' => 'Élément approuvé avec succès.',
         'rejected' => 'Élément refusé et supprimé.',
         'deleted' => 'Enregistrement supprimé.',
@@ -272,6 +334,9 @@ $activeTab = $_GET['tab'] ?? 'users';
     </li>
     <li class="nav-item">
         <a class="nav-link <?= $activeTab === 'liens' ? 'active' : '' ?>" href="?tab=liens"><i class="fas fa-external-link-alt"></i> Liens externes</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link <?= $activeTab === 'menu' ? 'active' : '' ?>" href="?tab=menu"><i class="fas fa-bars"></i> Menu</a>
     </li>
 </ul>
 
@@ -965,17 +1030,66 @@ function esc(str) {
 <?php elseif ($activeTab === 'liens'): ?>
 <!-- =============== LIENS EXTERNES =============== -->
 <div class="row g-3 mb-4">
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="stat-card">
             <div class="stat-number"><?= count($liens) ?></div>
             <div class="stat-label">Liens configurés</div>
         </div>
     </div>
-    <div class="col-md-4 d-flex align-items-center">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-number"><?= count($categoriesLiens) ?></div>
+            <div class="stat-label">Catégories</div>
+        </div>
+    </div>
+    <div class="col-md-3 d-flex align-items-center">
         <button class="btn btn-ce" data-bs-toggle="modal" data-bs-target="#addLinkModal"><i class="fas fa-plus"></i> Nouveau lien</button>
+    </div>
+    <div class="col-md-3 d-flex align-items-center">
+        <button class="btn btn-ce-outline" data-bs-toggle="modal" data-bs-target="#addCatModal"><i class="fas fa-folder-plus"></i> Nouvelle catégorie</button>
     </div>
 </div>
 
+<!-- Catégories -->
+<?php if (!empty($categoriesLiens)): ?>
+<div class="data-table-container mb-4">
+    <div class="data-table-header">
+        <h3>Catégories de liens</h3>
+    </div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Ordre</th>
+                <th>Nom</th>
+                <th>Nb liens</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        <?php foreach ($categoriesLiens as $cat):
+            $nbLiensCat = 0;
+            foreach ($liens as $l) { if (($l['categorie_id'] ?? null) == $cat['id']) $nbLiensCat++; }
+        ?>
+            <tr>
+                <td><?= $cat['ordre'] ?></td>
+                <td><?= e($cat['nom']) ?></td>
+                <td><?= $nbLiensCat ?></td>
+                <td class="actions">
+                    <button class="btn btn-sm btn-ce-outline" onclick="editCategorie(<?= $cat['id'] ?>)" title="Modifier"><i class="fas fa-edit"></i></button>
+                    <form method="POST" class="d-inline" onsubmit="return confirm('Supprimer cette catégorie ? Les liens seront détachés mais pas supprimés.')">
+                        <input type="hidden" name="action" value="delete_categorie_lien">
+                        <input type="hidden" name="id" value="<?= $cat['id'] ?>">
+                        <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                    </form>
+                </td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+</div>
+<?php endif; ?>
+
+<!-- Liens -->
 <div class="data-table-container">
     <div class="data-table-header">
         <h3>Liens externes</h3>
@@ -986,6 +1100,7 @@ function esc(str) {
                 <th>Ordre</th>
                 <th>Nom</th>
                 <th>URL</th>
+                <th>Catégorie</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -994,7 +1109,8 @@ function esc(str) {
             <tr>
                 <td><?= $l['ordre'] ?></td>
                 <td><?= e($l['nom']) ?></td>
-                <td><a href="<?= e($l['url']) ?>" target="_blank"><?= e(excerpt($l['url'], 60)) ?></a></td>
+                <td><a href="<?= e($l['url']) ?>" target="_blank"><?= e(excerpt($l['url'], 50)) ?></a></td>
+                <td><?= e($l['categorie_nom'] ?? '-') ?></td>
                 <td class="actions">
                     <button class="btn btn-sm btn-ce-outline" onclick="editLink(<?= $l['id'] ?>)" title="Modifier"><i class="fas fa-edit"></i></button>
                     <form method="POST" class="d-inline" onsubmit="return confirm('Supprimer ce lien ?')">
@@ -1009,6 +1125,41 @@ function esc(str) {
     </table>
 </div>
 
+<!-- Modal Ajout Catégorie -->
+<div class="modal fade modal-fullscreen-custom" id="addCatModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-folder-plus"></i> Nouvelle catégorie</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form method="POST">
+                    <input type="hidden" name="action" value="add_categorie_lien">
+                    <div class="row g-3">
+                        <div class="col-md-6"><label class="form-label">Nom *</label><input type="text" name="nom" class="form-control" required></div>
+                        <div class="col-md-3"><label class="form-label">Ordre</label><input type="number" name="ordre" class="form-control" value="0"></div>
+                        <div class="col-12"><button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Ajouter</button></div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Edition Catégorie -->
+<div class="modal fade modal-fullscreen-custom" id="editCatModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-edit"></i> Modifier la catégorie</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="editCatContent"></div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal Ajout Lien -->
 <div class="modal fade modal-fullscreen-custom" id="addLinkModal" tabindex="-1">
     <div class="modal-dialog">
@@ -1021,9 +1172,17 @@ function esc(str) {
                 <form method="POST">
                     <input type="hidden" name="action" value="add_link">
                     <div class="row g-3">
-                        <div class="col-md-6"><label class="form-label">Nom *</label><input type="text" name="nom" class="form-control" required></div>
-                        <div class="col-md-6"><label class="form-label">URL *</label><input type="url" name="url" class="form-control" required></div>
-                        <div class="col-md-3"><label class="form-label">Ordre d'affichage</label><input type="number" name="ordre" class="form-control" value="0"></div>
+                        <div class="col-md-5"><label class="form-label">Nom *</label><input type="text" name="nom" class="form-control" required></div>
+                        <div class="col-md-5"><label class="form-label">URL *</label><input type="url" name="url" class="form-control" required></div>
+                        <div class="col-md-4"><label class="form-label">Catégorie</label>
+                            <select name="categorie_id" class="form-select">
+                                <option value="">-- Aucune --</option>
+                                <?php foreach ($categoriesLiens as $cat): ?>
+                                    <option value="<?= $cat['id'] ?>"><?= e($cat['nom']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-2"><label class="form-label">Ordre</label><input type="number" name="ordre" class="form-control" value="0"></div>
                         <div class="col-12"><button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Ajouter</button></div>
                     </div>
                 </form>
@@ -1047,6 +1206,7 @@ function esc(str) {
 
 <script>
 const liensData = <?= json_encode($liens) ?>;
+const categoriesData = <?= json_encode($categoriesLiens) ?>;
 
 function escapeHtml(str) {
     if (!str) return '';
@@ -1058,18 +1218,176 @@ function escapeHtml(str) {
 function editLink(id) {
     const l = liensData.find(x => x.id == id);
     if (!l) return;
+    let catOptions = '<option value="">-- Aucune --</option>';
+    categoriesData.forEach(c => {
+        catOptions += `<option value="${c.id}" ${l.categorie_id == c.id ? 'selected' : ''}>${escapeHtml(c.nom)}</option>`;
+    });
     document.getElementById('editLinkContent').innerHTML = `
         <form method="POST">
             <input type="hidden" name="action" value="edit_link">
             <input type="hidden" name="id" value="${id}">
             <div class="row g-3">
-                <div class="col-md-6"><label class="form-label">Nom *</label><input type="text" name="nom" class="form-control" value="${escapeHtml(l.nom)}" required></div>
-                <div class="col-md-6"><label class="form-label">URL *</label><input type="url" name="url" class="form-control" value="${escapeHtml(l.url)}" required></div>
-                <div class="col-md-3"><label class="form-label">Ordre d'affichage</label><input type="number" name="ordre" class="form-control" value="${l.ordre}"></div>
+                <div class="col-md-5"><label class="form-label">Nom *</label><input type="text" name="nom" class="form-control" value="${escapeHtml(l.nom)}" required></div>
+                <div class="col-md-5"><label class="form-label">URL *</label><input type="url" name="url" class="form-control" value="${escapeHtml(l.url)}" required></div>
+                <div class="col-md-4"><label class="form-label">Catégorie</label><select name="categorie_id" class="form-select">${catOptions}</select></div>
+                <div class="col-md-2"><label class="form-label">Ordre</label><input type="number" name="ordre" class="form-control" value="${l.ordre}"></div>
                 <div class="col-12"><button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Enregistrer</button></div>
             </div>
         </form>`;
     new bootstrap.Modal(document.getElementById('editLinkModal')).show();
+}
+
+function editCategorie(id) {
+    const c = categoriesData.find(x => x.id == id);
+    if (!c) return;
+    document.getElementById('editCatContent').innerHTML = `
+        <form method="POST">
+            <input type="hidden" name="action" value="edit_categorie_lien">
+            <input type="hidden" name="id" value="${id}">
+            <div class="row g-3">
+                <div class="col-md-6"><label class="form-label">Nom *</label><input type="text" name="nom" class="form-control" value="${escapeHtml(c.nom)}" required></div>
+                <div class="col-md-3"><label class="form-label">Ordre</label><input type="number" name="ordre" class="form-control" value="${c.ordre}"></div>
+                <div class="col-12"><button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Enregistrer</button></div>
+            </div>
+        </form>`;
+    new bootstrap.Modal(document.getElementById('editCatModal')).show();
+}
+</script>
+
+<?php elseif ($activeTab === 'menu'): ?>
+<!-- =============== ORGANISATION DU MENU =============== -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4 d-flex align-items-center">
+        <h4 class="mb-0"><i class="fas fa-bars"></i> Organisation du menu</h4>
+    </div>
+    <div class="col-md-4 d-flex align-items-center">
+        <form method="POST" onsubmit="return confirm('Réinitialiser le menu aux valeurs par défaut ?')">
+            <input type="hidden" name="action" value="reset_menu">
+            <button class="btn btn-outline-warning"><i class="fas fa-undo"></i> Réinitialiser</button>
+        </form>
+    </div>
+</div>
+
+<p class="text-muted mb-3">Glissez-déposez les sections et les éléments pour réorganiser le menu. Cliquez sur un élément pour le modifier.</p>
+
+<?php
+$menuSections = array_filter($menuItems, fn($i) => $i['parent_key'] === null);
+$menuChildren = [];
+foreach ($menuItems as $i) {
+    if ($i['parent_key'] !== null) {
+        $menuChildren[$i['parent_key']][] = $i;
+    }
+}
+?>
+
+<form method="POST" id="menuOrderForm">
+    <input type="hidden" name="action" value="save_menu_order">
+    <input type="hidden" name="menu_order" id="menuOrderInput">
+
+    <div id="menuSortable">
+    <?php foreach ($menuSections as $section): ?>
+        <div class="card mb-3 menu-section" data-key="<?= e($section['item_key']) ?>">
+            <div class="card-header d-flex justify-content-between align-items-center" style="cursor: grab; background: #f0f4f8;">
+                <span>
+                    <i class="fas fa-grip-vertical text-muted me-2"></i>
+                    <i class="fas <?= e($section['icon']) ?> me-1"></i>
+                    <strong><?= e($section['label']) ?></strong>
+                    <?php if (!$section['visible']): ?><span class="badge bg-secondary ms-2">Masqué</span><?php endif; ?>
+                </span>
+                <button type="button" class="btn btn-sm btn-ce-outline" onclick="editMenuItem(<?= $section['id'] ?>)"><i class="fas fa-edit"></i></button>
+            </div>
+            <div class="card-body p-2">
+                <ul class="list-group menu-items-sortable" data-parent="<?= e($section['item_key']) ?>">
+                <?php foreach ($menuChildren[$section['item_key']] ?? [] as $child): ?>
+                    <li class="list-group-item d-flex justify-content-between align-items-center menu-item" data-key="<?= e($child['item_key']) ?>" style="cursor: grab;">
+                        <span>
+                            <i class="fas fa-grip-vertical text-muted me-2"></i>
+                            <i class="fas <?= e($child['icon']) ?> me-1"></i>
+                            <?= e($child['label']) ?>
+                            <?php if (!$child['visible']): ?><span class="badge bg-secondary ms-1">Masqué</span><?php endif; ?>
+                        </span>
+                        <button type="button" class="btn btn-sm btn-ce-outline" onclick="editMenuItem(<?= $child['id'] ?>)"><i class="fas fa-edit"></i></button>
+                    </li>
+                <?php endforeach; ?>
+                </ul>
+            </div>
+        </div>
+    <?php endforeach; ?>
+    </div>
+
+    <button type="submit" class="btn btn-ce btn-lg" onclick="prepareMenuOrder()"><i class="fas fa-save"></i> Enregistrer l'ordre</button>
+</form>
+
+<!-- Modal Edition Item Menu -->
+<div class="modal fade modal-fullscreen-custom" id="editMenuItemModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-edit"></i> Modifier l'élément</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="editMenuItemContent"></div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script>
+const menuItemsData = <?= json_encode($menuItems) ?>;
+
+// Sortable pour les sections
+new Sortable(document.getElementById('menuSortable'), {
+    animation: 150,
+    handle: '.card-header',
+    ghostClass: 'bg-light'
+});
+
+// Sortable pour les items dans chaque section
+document.querySelectorAll('.menu-items-sortable').forEach(el => {
+    new Sortable(el, {
+        animation: 150,
+        group: 'menu-items',
+        ghostClass: 'bg-light'
+    });
+});
+
+function prepareMenuOrder() {
+    const order = [];
+    let sectionOrdre = 1;
+    document.querySelectorAll('.menu-section').forEach(section => {
+        const sectionKey = section.dataset.key;
+        order.push({ item_key: sectionKey, parent_key: null, ordre: sectionOrdre++ });
+
+        let itemOrdre = 1;
+        const parentKey = section.querySelector('.menu-items-sortable').dataset.parent;
+        section.querySelectorAll('.menu-item').forEach(item => {
+            order.push({ item_key: item.dataset.key, parent_key: sectionKey, ordre: itemOrdre++ });
+        });
+    });
+    document.getElementById('menuOrderInput').value = JSON.stringify(order);
+}
+
+function editMenuItem(id) {
+    const item = menuItemsData.find(x => x.id == id);
+    if (!item) return;
+    const escHtml = s => { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; };
+    document.getElementById('editMenuItemContent').innerHTML = `
+        <form method="POST">
+            <input type="hidden" name="action" value="edit_menu_item">
+            <input type="hidden" name="id" value="${id}">
+            <div class="row g-3">
+                <div class="col-md-6"><label class="form-label">Libellé *</label><input type="text" name="label" class="form-control" value="${escHtml(item.label)}" required></div>
+                <div class="col-md-4"><label class="form-label">Icône Font Awesome</label><input type="text" name="icon" class="form-control" value="${escHtml(item.icon)}" placeholder="fa-home"></div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <div class="form-check">
+                        <input type="checkbox" name="visible" class="form-check-input" id="editVisible" ${item.visible == 1 ? 'checked' : ''}>
+                        <label class="form-check-label" for="editVisible">Visible</label>
+                    </div>
+                </div>
+                <div class="col-12"><button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Enregistrer</button></div>
+            </div>
+        </form>`;
+    new bootstrap.Modal(document.getElementById('editMenuItemModal')).show();
 }
 </script>
 

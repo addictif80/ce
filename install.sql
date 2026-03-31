@@ -352,8 +352,29 @@ CREATE TABLE IF NOT EXISTS `liens_externes` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `nom` VARCHAR(255) NOT NULL,
   `url` VARCHAR(500) NOT NULL,
+  `categorie_id` INT DEFAULT NULL,
   `ordre` INT DEFAULT 0,
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table catégories de liens
+CREATE TABLE IF NOT EXISTS `categories_liens` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `nom` VARCHAR(100) NOT NULL,
+  `ordre` INT DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table configuration du menu
+CREATE TABLE IF NOT EXISTS `menu_config` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `item_key` VARCHAR(50) NOT NULL UNIQUE,
+  `parent_key` VARCHAR(50) DEFAULT NULL,
+  `label` VARCHAR(100) NOT NULL,
+  `icon` VARCHAR(50) NOT NULL,
+  `url` VARCHAR(255) DEFAULT NULL,
+  `uri_patterns` VARCHAR(500) DEFAULT NULL,
+  `ordre` INT DEFAULT 0,
+  `visible` TINYINT(1) DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Table mobilités entrantes
