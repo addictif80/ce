@@ -172,6 +172,20 @@ body {
     margin: 8px 20px;
 }
 
+.sidebar-liens-info {
+    padding: 6px 20px 4px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.45);
+    line-height: 1.4;
+}
+.sidebar-liens-info strong {
+    color: rgba(255,255,255,0.7);
+}
+.sidebar-liens-info em {
+    color: rgba(255,255,255,0.55);
+    font-style: normal;
+}
+
 .sidebar-nav .nav-section {
     font-size: 11px;
     text-transform: uppercase;

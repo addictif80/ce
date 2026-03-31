@@ -107,6 +107,25 @@ $B = rtrim(str_replace($relativeScript, '', $_SERVER['SCRIPT_NAME']), '/');
             <?php endforeach; ?>
 
             <?php if (!empty($liensExternes)):
+                // Séparateur entre pages internes et liens externes
+                // Trouver le dernier lien ajouté
+                $dernierLien = null;
+                foreach ($liensExternes as $lien) {
+                    if (!$dernierLien || ($lien['created_at'] ?? '') > ($dernierLien['created_at'] ?? '')) {
+                        $dernierLien = $lien;
+                    }
+                }
+            ?>
+                <div class="nav-divider"></div>
+                <?php if ($dernierLien): ?>
+                    <div class="sidebar-liens-info">
+                        <i class="fas fa-clock"></i> Dernier lien : <strong><?= e(excerpt($dernierLien['nom'], 20)) ?></strong>
+                        <?php if (!empty($dernierLien['categorie_nom'])): ?>
+                            dans <em><?= e($dernierLien['categorie_nom']) ?></em>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
+            <?php
                 // Grouper les liens par catégorie
                 $liensParCategorie = [];
                 foreach ($liensExternes as $lien) {
