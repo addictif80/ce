@@ -113,11 +113,13 @@ CREATE TABLE IF NOT EXISTS `suivi_production` (
   FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Table séances phoning
+-- Table séances phoning (dossiers)
 CREATE TABLE IF NOT EXISTS `seances_phoning` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `user_id` INT NOT NULL,
   `date_ajout` DATE NOT NULL DEFAULT (CURRENT_DATE),
+  `titre` VARCHAR(255) DEFAULT NULL,
+  `notes` TEXT DEFAULT NULL,
   `nombre_appels` INT DEFAULT 0,
   `nombre_rdv` INT DEFAULT 0,
   `dont_s` INT DEFAULT 0,
@@ -126,6 +128,21 @@ CREATE TABLE IF NOT EXISTS `seances_phoning` (
   `nombre_repondeur` INT DEFAULT 0,
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table appels phoning (appels individuels dans un dossier)
+CREATE TABLE IF NOT EXISTS `appels_phoning` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `seance_id` INT NOT NULL,
+  `user_id` INT NOT NULL,
+  `numero_personne` VARCHAR(100) DEFAULT NULL,
+  `resultat` ENUM('repondu','repondeur','indisponible','rdv') NOT NULL DEFAULT 'repondu',
+  `date_rdv` DATE DEFAULT NULL,
+  `motif_rdv` ENUM('Banca','Epargne','Placement','Crédit','Assurances') DEFAULT NULL,
+  `commentaire` TEXT DEFAULT NULL,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (`seance_id`) REFERENCES `seances_phoning`(`id`) ON DELETE CASCADE,
   FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

@@ -4,40 +4,43 @@ require_once __DIR__ . '/../../templates/header.php';
 $db = getDB();
 $userId = getCurrentUserId();
 
-// Ajout
+// Auto-create appels_phoning table
+$db->exec("CREATE TABLE IF NOT EXISTS appels_phoning (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    seance_id INT NOT NULL,
+    user_id INT NOT NULL,
+    numero_personne VARCHAR(100) DEFAULT NULL,
+    resultat ENUM('repondu','repondeur','indisponible','rdv') NOT NULL DEFAULT 'repondu',
+    date_rdv DATE DEFAULT NULL,
+    motif_rdv ENUM('Banca','Epargne','Placement','Crédit','Assurances') DEFAULT NULL,
+    commentaire TEXT DEFAULT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (seance_id) REFERENCES seances_phoning(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+try { $db->exec("ALTER TABLE seances_phoning ADD COLUMN titre VARCHAR(255) DEFAULT NULL AFTER date_ajout"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE seances_phoning ADD COLUMN notes TEXT DEFAULT NULL AFTER titre"); } catch (Exception $e) {}
+
+// === ACTIONS ===
+
+// Ajout séance (dossier)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add') {
-    $stmt = $db->prepare("INSERT INTO seances_phoning (user_id, nombre_appels, nombre_rdv, dont_s, dont_s1, dont_anv, nombre_repondeur) VALUES (?, ?, ?, ?, ?, ?, ?)");
-    $stmt->execute([
-        $userId,
-        (int)$_POST['nombre_appels'],
-        (int)$_POST['nombre_rdv'],
-        (int)$_POST['dont_s'],
-        (int)$_POST['dont_s1'],
-        (int)$_POST['dont_anv'],
-        (int)$_POST['nombre_repondeur']
-    ]);
-    header('Location: index.php');
+    $stmt = $db->prepare("INSERT INTO seances_phoning (user_id, titre) VALUES (?, ?)");
+    $stmt->execute([$userId, trim($_POST['titre'] ?? '') ?: 'Séance du ' . date('d/m/Y')]);
+    $newId = $db->lastInsertId();
+    header('Location: index.php?open=' . $newId);
     exit;
 }
 
-// Edition
+// Edition séance
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'edit') {
-    $stmt = $db->prepare("UPDATE seances_phoning SET nombre_appels = ?, nombre_rdv = ?, dont_s = ?, dont_s1 = ?, dont_anv = ?, nombre_repondeur = ? WHERE id = ? AND user_id = ?");
-    $stmt->execute([
-        (int)$_POST['nombre_appels'],
-        (int)$_POST['nombre_rdv'],
-        (int)$_POST['dont_s'],
-        (int)$_POST['dont_s1'],
-        (int)$_POST['dont_anv'],
-        (int)$_POST['nombre_repondeur'],
-        (int)$_POST['id'],
-        $userId
-    ]);
-    header('Location: index.php?open=' . (int)$_POST['id']);
+    $id = (int)$_POST['id'];
+    $stmt = $db->prepare("UPDATE seances_phoning SET titre = ?, notes = ? WHERE id = ? AND user_id = ?");
+    $stmt->execute([trim($_POST['titre']), trim($_POST['notes'] ?? ''), $id, $userId]);
+    header('Location: index.php?open=' . $id);
     exit;
 }
 
-// Suppression
+// Suppression séance
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete') {
     $stmt = $db->prepare("DELETE FROM seances_phoning WHERE id = ? AND user_id = ?");
     $stmt->execute([(int)$_POST['id'], $userId]);
@@ -45,82 +48,123 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
+// Ajout appel
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_appel') {
+    $seanceId = (int)$_POST['seance_id'];
+    $resultat = $_POST['resultat'];
+    $dateRdv = ($resultat === 'rdv' && !empty($_POST['date_rdv'])) ? $_POST['date_rdv'] : null;
+    $motifRdv = ($resultat === 'rdv' && !empty($_POST['motif_rdv'])) ? $_POST['motif_rdv'] : null;
+    $stmt = $db->prepare("INSERT INTO appels_phoning (seance_id, user_id, numero_personne, resultat, date_rdv, motif_rdv, commentaire) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$seanceId, $userId, trim($_POST['numero_personne'] ?? ''), $resultat, $dateRdv, $motifRdv, trim($_POST['commentaire'] ?? '')]);
+    // Recalculer les compteurs
+    recalcSeance($db, $seanceId, $userId);
+    header('Location: index.php?open=' . $seanceId);
+    exit;
+}
+
+// Suppression appel
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_appel') {
+    $appelId = (int)$_POST['appel_id'];
+    $seanceId = (int)$_POST['seance_id'];
+    $db->prepare("DELETE FROM appels_phoning WHERE id = ? AND user_id = ?")->execute([$appelId, $userId]);
+    recalcSeance($db, $seanceId, $userId);
+    header('Location: index.php?open=' . $seanceId);
+    exit;
+}
+
+/**
+ * Recalcule les compteurs d'une séance à partir des appels
+ */
+function recalcSeance($db, $seanceId, $userId) {
+    $stmt = $db->prepare("SELECT
+        COUNT(*) as total,
+        SUM(resultat = 'repondeur') as repondeurs,
+        SUM(resultat = 'rdv') as rdv,
+        SUM(resultat = 'rdv' AND date_rdv IS NOT NULL AND YEARWEEK(date_rdv, 1) = YEARWEEK(CURDATE(), 1)) as rdv_s,
+        SUM(resultat = 'rdv' AND date_rdv IS NOT NULL AND YEARWEEK(date_rdv, 1) = YEARWEEK(CURDATE(), 1) + 1) as rdv_s1,
+        SUM(resultat = 'rdv' AND (date_rdv IS NULL OR (YEARWEEK(date_rdv, 1) != YEARWEEK(CURDATE(), 1) AND YEARWEEK(date_rdv, 1) != YEARWEEK(CURDATE(), 1) + 1))) as rdv_autres
+        FROM appels_phoning WHERE seance_id = ?");
+    $stmt->execute([$seanceId]);
+    $c = $stmt->fetch();
+    $db->prepare("UPDATE seances_phoning SET nombre_appels = ?, nombre_repondeur = ?, nombre_rdv = ?, dont_s = ?, dont_s1 = ?, dont_anv = ? WHERE id = ? AND user_id = ?")
+        ->execute([(int)$c['total'], (int)$c['repondeurs'], (int)$c['rdv'], (int)$c['rdv_s'], (int)$c['rdv_s1'], (int)$c['rdv_autres'], $seanceId, $userId]);
+}
+
 // Objectifs
 $objectifAppels = 60;
 $objectifRDV = 12;
 
-// Totaux semaine en cours
-$stmt = $db->prepare("SELECT COALESCE(SUM(nombre_appels),0) as appels, COALESCE(SUM(nombre_rdv),0) as rdv, COALESCE(SUM(dont_s),0) as s, COALESCE(SUM(dont_s1),0) as s1, COALESCE(SUM(dont_anv),0) as anv, COALESCE(SUM(nombre_repondeur),0) as repondeur FROM seances_phoning WHERE user_id = ? AND YEARWEEK(date_ajout, 1) = YEARWEEK(CURDATE(), 1)");
+// Totaux semaine en cours (toutes séances confondues)
+$stmt = $db->prepare("SELECT
+    COALESCE(SUM(nombre_appels),0) as appels,
+    COALESCE(SUM(nombre_rdv),0) as rdv,
+    COALESCE(SUM(dont_s),0) as s,
+    COALESCE(SUM(dont_s1),0) as s1,
+    COALESCE(SUM(dont_anv),0) as anv,
+    COALESCE(SUM(nombre_repondeur),0) as repondeur
+    FROM seances_phoning WHERE user_id = ? AND YEARWEEK(date_ajout, 1) = YEARWEEK(CURDATE(), 1)");
 $stmt->execute([$userId]);
 $semaine = $stmt->fetch();
 
 $resteAppels = max(0, $objectifAppels - $semaine['appels']);
 $resteRDV = max(0, $objectifRDV - $semaine['rdv']);
-$pctAppels = min(100, round(($semaine['appels'] / $objectifAppels) * 100));
-$pctRDV = min(100, round(($semaine['rdv'] / $objectifRDV) * 100));
+$pctAppels = $objectifAppels > 0 ? min(100, round(($semaine['appels'] / $objectifAppels) * 100)) : 0;
+$pctRDV = $objectifRDV > 0 ? min(100, round(($semaine['rdv'] / $objectifRDV) * 100)) : 0;
 
-// Liste complète
+// Liste des séances
 $stmt = $db->prepare("SELECT * FROM seances_phoning WHERE user_id = ? ORDER BY date_ajout DESC");
 $stmt->execute([$userId]);
 $seances = $stmt->fetchAll();
+
+// Appels par séance (pour le JS)
+$appelsParSeance = [];
+foreach ($seances as $s) {
+    $stmt = $db->prepare("SELECT * FROM appels_phoning WHERE seance_id = ? ORDER BY created_at DESC");
+    $stmt->execute([$s['id']]);
+    $appelsParSeance[$s['id']] = $stmt->fetchAll();
+}
 ?>
 
 <!-- Stats semaine -->
 <div class="row g-3 mb-4">
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="stat-card">
             <div class="stat-number"><?= $semaine['appels'] ?> / <?= $objectifAppels ?></div>
             <div class="stat-label">Appels cette semaine</div>
             <div class="progress mt-2" style="height: 8px;">
                 <div class="progress-bar progress-ce" role="progressbar" style="width: <?= $pctAppels ?>%"></div>
             </div>
-            <small class="text-muted mt-1 d-block">Reste : <strong><?= $resteAppels ?></strong> appels</small>
+            <small class="text-muted mt-1 d-block">Reste : <strong><?= $resteAppels ?></strong></small>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="stat-card">
             <div class="stat-number"><?= $semaine['rdv'] ?> / <?= $objectifRDV ?></div>
             <div class="stat-label">RDV cette semaine</div>
             <div class="progress mt-2" style="height: 8px;">
                 <div class="progress-bar progress-ce" role="progressbar" style="width: <?= $pctRDV ?>%"></div>
             </div>
-            <small class="text-muted mt-1 d-block">Reste : <strong><?= $resteRDV ?></strong> RDV</small>
+            <small class="text-muted mt-1 d-block">Reste : <strong><?= $resteRDV ?></strong></small>
         </div>
     </div>
-    <div class="col-md-4 d-flex align-items-center">
+    <div class="col-md-2">
+        <div class="stat-card">
+            <div class="stat-number"><?= $semaine['repondeur'] ?></div>
+            <div class="stat-label">Répondeurs</div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="stat-card">
+            <div class="stat-number"><?= $semaine['s'] ?> / <?= $semaine['s1'] ?> / <?= $semaine['anv'] ?></div>
+            <div class="stat-label">RDV S / S+1 / Autres</div>
+        </div>
+    </div>
+    <div class="col-md-2 d-flex align-items-center">
         <button class="btn btn-ce" data-bs-toggle="modal" data-bs-target="#addModal"><i class="fas fa-plus"></i> Nouvelle séance</button>
     </div>
 </div>
 
-<!-- Résumé semaine détaillé -->
-<div class="row g-3 mb-4">
-    <div class="col-md-3">
-        <div class="stat-card">
-            <div class="stat-number"><?= $semaine['s'] ?></div>
-            <div class="stat-label">Dont S (semaine)</div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="stat-card">
-            <div class="stat-number"><?= $semaine['s1'] ?></div>
-            <div class="stat-label">Dont S+1 (semaine)</div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="stat-card">
-            <div class="stat-number"><?= $semaine['anv'] ?></div>
-            <div class="stat-label">Dont ANV (semaine)</div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="stat-card">
-            <div class="stat-number"><?= $semaine['repondeur'] ?></div>
-            <div class="stat-label">Répondeurs (semaine)</div>
-        </div>
-    </div>
-</div>
-
-<!-- Tableau -->
+<!-- Tableau des séances -->
 <div class="data-table-container">
     <div class="data-table-header">
         <h3>Toutes les séances</h3>
@@ -133,12 +177,11 @@ $seances = $stmt->fetchAll();
         <thead>
             <tr>
                 <th>Date</th>
+                <th>Titre</th>
                 <th>Appels</th>
-                <th>RDV</th>
-                <th>Dont S</th>
-                <th>Dont S+1</th>
-                <th>Dont ANV</th>
                 <th>Répondeurs</th>
+                <th>RDV</th>
+                <th>S / S+1 / Autres</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -146,15 +189,14 @@ $seances = $stmt->fetchAll();
         <?php foreach ($seances as $seance): ?>
             <tr>
                 <td><?= formatDate($seance['date_ajout']) ?></td>
-                <td><strong><?= (int)$seance['nombre_appels'] ?></strong></td>
-                <td><strong><?= (int)$seance['nombre_rdv'] ?></strong></td>
-                <td><?= (int)$seance['dont_s'] ?></td>
-                <td><?= (int)$seance['dont_s1'] ?></td>
-                <td><?= (int)$seance['dont_anv'] ?></td>
+                <td><strong><?= e($seance['titre'] ?: 'Séance du ' . formatDate($seance['date_ajout'])) ?></strong></td>
+                <td><?= (int)$seance['nombre_appels'] ?></td>
                 <td><?= (int)$seance['nombre_repondeur'] ?></td>
+                <td><strong><?= (int)$seance['nombre_rdv'] ?></strong></td>
+                <td><?= (int)$seance['dont_s'] ?> / <?= (int)$seance['dont_s1'] ?> / <?= (int)$seance['dont_anv'] ?></td>
                 <td class="actions">
-                    <button class="btn btn-sm btn-ce-outline" onclick="editSeance(<?= $seance['id'] ?>)" title="Modifier"><i class="fas fa-edit"></i></button>
-                    <form method="POST" class="d-inline" onsubmit="return confirm('Supprimer cette séance ?')">
+                    <button class="btn btn-sm btn-ce-outline" onclick="openDossier(<?= $seance['id'] ?>)" title="Ouvrir le dossier"><i class="fas fa-folder-open"></i></button>
+                    <form method="POST" class="d-inline" onsubmit="return confirm('Supprimer cette séance et tous ses appels ?')">
                         <input type="hidden" name="action" value="delete">
                         <input type="hidden" name="id" value="<?= $seance['id'] ?>">
                         <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
@@ -166,7 +208,7 @@ $seances = $stmt->fetchAll();
     </table>
 </div>
 
-<!-- Modal Ajout -->
+<!-- Modal Nouvelle Séance -->
 <div class="modal fade modal-fullscreen-custom" id="addModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -178,32 +220,12 @@ $seances = $stmt->fetchAll();
                 <form method="POST">
                     <input type="hidden" name="action" value="add">
                     <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Nombre d'appels</label>
-                            <input type="number" name="nombre_appels" class="form-control" min="0" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Nombre de RDV obtenus</label>
-                            <input type="number" name="nombre_rdv" class="form-control" min="0" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Dont S</label>
-                            <input type="number" name="dont_s" class="form-control" min="0" value="0">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Dont S+1</label>
-                            <input type="number" name="dont_s1" class="form-control" min="0" value="0">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Dont ANV</label>
-                            <input type="number" name="dont_anv" class="form-control" min="0" value="0">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Nombre de répondeurs</label>
-                            <input type="number" name="nombre_repondeur" class="form-control" min="0" value="0">
+                        <div class="col-md-8">
+                            <label class="form-label">Titre (optionnel)</label>
+                            <input type="text" name="titre" class="form-control" placeholder="Séance du <?= date('d/m/Y') ?>">
                         </div>
                         <div class="col-12">
-                            <button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Enregistrer</button>
+                            <button type="submit" class="btn btn-ce"><i class="fas fa-folder-plus"></i> Créer la séance</button>
                         </div>
                     </div>
                 </form>
@@ -212,7 +234,20 @@ $seances = $stmt->fetchAll();
     </div>
 </div>
 
-<!-- Modal Edit -->
+<!-- Modal Dossier (détail séance) -->
+<div class="modal fade modal-fullscreen-custom" id="dossierModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="dossierTitle"><i class="fas fa-phone-volume"></i> Séance phoning</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="dossierContent"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Edit Séance -->
 <div class="modal fade modal-fullscreen-custom" id="editModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -220,8 +255,7 @@ $seances = $stmt->fetchAll();
                 <h5 class="modal-title"><i class="fas fa-edit"></i> Modifier la séance</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body" id="editContent">
-            </div>
+            <div class="modal-body" id="editContent"></div>
         </div>
     </div>
 </div>
@@ -230,53 +264,205 @@ $seances = $stmt->fetchAll();
 filterTable('searchPhoning', 'tablePhoning');
 
 const seancesData = <?= json_encode($seances) ?>;
+const appelsData = <?= json_encode($appelsParSeance) ?>;
+const motifs = ['Banca','Epargne','Placement','Crédit','Assurances'];
+
+function esc(str) {
+    if (!str) return '';
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+}
+
+const resultatLabels = {
+    'repondu': '<span class="badge bg-success">Répondu</span>',
+    'repondeur': '<span class="badge bg-warning text-dark">Répondeur</span>',
+    'indisponible': '<span class="badge bg-secondary">Indisponible</span>',
+    'rdv': '<span class="badge bg-primary">RDV programmé</span>'
+};
+
+function openDossier(id) {
+    const s = seancesData.find(x => x.id == id);
+    if (!s) return;
+    const appels = appelsData[id] || [];
+
+    // Stats du dossier
+    const totalAppels = appels.length;
+    const repondeurs = appels.filter(a => a.resultat === 'repondeur').length;
+    const indispos = appels.filter(a => a.resultat === 'indisponible').length;
+    const rdvs = appels.filter(a => a.resultat === 'rdv').length;
+    const repondus = appels.filter(a => a.resultat === 'repondu').length;
+
+    // Calculer S / S+1 / autres côté JS
+    const now = new Date();
+    const getWeek = (d) => {
+        const dt = new Date(d);
+        const onejan = new Date(dt.getFullYear(), 0, 1);
+        return Math.ceil(((dt - onejan) / 86400000 + onejan.getDay() + 1) / 7);
+    };
+    const currentWeek = getWeek(now);
+    const currentYear = now.getFullYear();
+    let rdvS = 0, rdvS1 = 0, rdvAutres = 0;
+    appels.filter(a => a.resultat === 'rdv' && a.date_rdv).forEach(a => {
+        const rd = new Date(a.date_rdv);
+        const w = getWeek(rd);
+        const y = rd.getFullYear();
+        if (y === currentYear && w === currentWeek) rdvS++;
+        else if ((y === currentYear && w === currentWeek + 1) || (currentWeek >= 52 && y === currentYear + 1 && w === 1)) rdvS1++;
+        else rdvAutres++;
+    });
+
+    // Liste des appels
+    let appelsHtml = '';
+    if (appels.length > 0) {
+        appelsHtml = `<table class="table table-sm table-bordered">
+            <thead class="table-light"><tr>
+                <th>Heure</th><th>N° / Nom</th><th>Résultat</th><th>Date RDV</th><th>Motif</th><th>Commentaire</th><th></th>
+            </tr></thead><tbody>`;
+        appels.forEach(a => {
+            const time = a.created_at ? a.created_at.substring(11, 16) : '';
+            appelsHtml += `<tr>
+                <td>${time}</td>
+                <td><strong>${esc(a.numero_personne)}</strong></td>
+                <td>${resultatLabels[a.resultat] || a.resultat}</td>
+                <td>${a.resultat === 'rdv' && a.date_rdv ? a.date_rdv.split('-').reverse().join('/') : '-'}</td>
+                <td>${a.resultat === 'rdv' && a.motif_rdv ? esc(a.motif_rdv) : '-'}</td>
+                <td>${esc(a.commentaire) || '-'}</td>
+                <td>
+                    <form method="POST" class="d-inline" onsubmit="return confirm('Supprimer cet appel ?')">
+                        <input type="hidden" name="action" value="delete_appel">
+                        <input type="hidden" name="appel_id" value="${a.id}">
+                        <input type="hidden" name="seance_id" value="${id}">
+                        <button class="btn btn-sm btn-outline-danger py-0 px-1"><i class="fas fa-times"></i></button>
+                    </form>
+                </td>
+            </tr>`;
+        });
+        appelsHtml += '</tbody></table>';
+    } else {
+        appelsHtml = '<p class="text-muted">Aucun appel enregistré. Utilisez le formulaire ci-dessous pour ajouter des appels.</p>';
+    }
+
+    let motifOptions = motifs.map(m => `<option value="${m}">${m}</option>`).join('');
+
+    document.getElementById('dossierTitle').innerHTML = `<i class="fas fa-phone-volume"></i> ${esc(s.titre || 'Séance du ' + (s.date_ajout || '').split('-').reverse().join('/'))}`;
+    document.getElementById('dossierContent').innerHTML = `
+        <!-- Stats du dossier -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-2"><div class="stat-card text-center"><div class="stat-number">${totalAppels}</div><div class="stat-label">Appels</div></div></div>
+            <div class="col-md-2"><div class="stat-card text-center"><div class="stat-number">${repondus}</div><div class="stat-label">Répondus</div></div></div>
+            <div class="col-md-2"><div class="stat-card text-center"><div class="stat-number">${repondeurs}</div><div class="stat-label">Répondeurs</div></div></div>
+            <div class="col-md-2"><div class="stat-card text-center"><div class="stat-number">${indispos}</div><div class="stat-label">Indisponibles</div></div></div>
+            <div class="col-md-2"><div class="stat-card text-center"><div class="stat-number">${rdvs}</div><div class="stat-label">RDV</div></div></div>
+            <div class="col-md-2"><div class="stat-card text-center"><div class="stat-number">${rdvS} / ${rdvS1} / ${rdvAutres}</div><div class="stat-label">S / S+1 / Autres</div></div></div>
+        </div>
+
+        <!-- Formulaire ajout appel -->
+        <div class="card mb-4">
+            <div class="card-header"><i class="fas fa-plus"></i> Nouvel appel</div>
+            <div class="card-body">
+                <form method="POST" id="formAppel">
+                    <input type="hidden" name="action" value="add_appel">
+                    <input type="hidden" name="seance_id" value="${id}">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-2">
+                            <label class="form-label">N° / Nom</label>
+                            <input type="text" name="numero_personne" class="form-control" placeholder="Client">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Résultat *</label>
+                            <select name="resultat" class="form-select" id="selectResultat" onchange="toggleRdvFields()" required>
+                                <option value="repondu">Répondu</option>
+                                <option value="repondeur">Répondeur</option>
+                                <option value="indisponible">Indisponible</option>
+                                <option value="rdv">RDV programmé</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2 rdv-fields" style="display:none">
+                            <label class="form-label">Date RDV</label>
+                            <input type="date" name="date_rdv" class="form-control">
+                        </div>
+                        <div class="col-md-2 rdv-fields" style="display:none">
+                            <label class="form-label">Motif RDV</label>
+                            <select name="motif_rdv" class="form-select">
+                                <option value="">--</option>
+                                ${motifOptions}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Commentaire</label>
+                            <input type="text" name="commentaire" class="form-control" placeholder="Optionnel">
+                        </div>
+                        <div class="col-md-1">
+                            <button type="submit" class="btn btn-ce w-100"><i class="fas fa-plus"></i></button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Liste des appels -->
+        <h5 class="mb-3"><i class="fas fa-list"></i> Appels (${totalAppels})</h5>
+        ${appelsHtml}
+
+        <hr>
+        <div class="d-flex gap-2">
+            <button class="btn btn-ce-outline" onclick="editSeance(${id})"><i class="fas fa-edit"></i> Modifier le titre / notes</button>
+        </div>
+    `;
+
+    new bootstrap.Modal(document.getElementById('dossierModal')).show();
+
+    // Re-bind toggle après injection
+    setTimeout(() => {
+        const sel = document.getElementById('selectResultat');
+        if (sel) toggleRdvFields();
+    }, 100);
+}
+
+function toggleRdvFields() {
+    const sel = document.getElementById('selectResultat');
+    if (!sel) return;
+    const show = sel.value === 'rdv';
+    document.querySelectorAll('.rdv-fields').forEach(el => el.style.display = show ? '' : 'none');
+}
 
 function editSeance(id) {
     const s = seancesData.find(x => x.id == id);
     if (!s) return;
+    // Fermer le dossier modal
+    const dossierModalEl = document.getElementById('dossierModal');
+    const dossierModal = bootstrap.Modal.getInstance(dossierModalEl);
+    if (dossierModal) dossierModal.hide();
 
     document.getElementById('editContent').innerHTML = `
         <form method="POST">
             <input type="hidden" name="action" value="edit">
             <input type="hidden" name="id" value="${id}">
             <div class="row g-3">
-                <div class="col-md-6">
-                    <label class="form-label">Nombre d'appels</label>
-                    <input type="number" name="nombre_appels" class="form-control" min="0" value="${s.nombre_appels}" required>
+                <div class="col-md-8">
+                    <label class="form-label">Titre</label>
+                    <input type="text" name="titre" class="form-control" value="${esc(s.titre || '')}">
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label">Nombre de RDV obtenus</label>
-                    <input type="number" name="nombre_rdv" class="form-control" min="0" value="${s.nombre_rdv}" required>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Dont S</label>
-                    <input type="number" name="dont_s" class="form-control" min="0" value="${s.dont_s}">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Dont S+1</label>
-                    <input type="number" name="dont_s1" class="form-control" min="0" value="${s.dont_s1}">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Dont ANV</label>
-                    <input type="number" name="dont_anv" class="form-control" min="0" value="${s.dont_anv}">
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Nombre de répondeurs</label>
-                    <input type="number" name="nombre_repondeur" class="form-control" min="0" value="${s.nombre_repondeur}">
+                <div class="col-12">
+                    <label class="form-label">Notes</label>
+                    <textarea name="notes" class="form-control" rows="4">${esc(s.notes || '')}</textarea>
                 </div>
                 <div class="col-12">
                     <button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Enregistrer</button>
                 </div>
             </div>
         </form>`;
-    new bootstrap.Modal(document.getElementById('editModal')).show();
+    setTimeout(() => {
+        new bootstrap.Modal(document.getElementById('editModal')).show();
+    }, 300);
 }
 
 // Auto-ouverture du dossier après enregistrement
 const urlParams = new URLSearchParams(window.location.search);
 const openId = urlParams.get('open');
 if (openId) {
-    editSeance(parseInt(openId));
+    openDossier(parseInt(openId));
     history.replaceState(null, '', 'index.php');
 }
 </script>
