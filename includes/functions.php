@@ -313,3 +313,38 @@ function getDashboardStats($userId) {
 
     return $stats;
 }
+
+/**
+ * Récupérer les éléments en retard (pour badges menu + modale alerte)
+ * Retard = non traité et datant de plus de 7 jours
+ */
+function getRetardsUrgents($userId) {
+    $db = getDB();
+    $retards = ['instances' => [], 'demandes_clients' => [], 'rappels' => []];
+
+    // Instances : statut a_faire ET échéance dépassée de 7 jours+
+    $stmt = $db->prepare("SELECT id, numero_personne, date_echeance, categories, details
+        FROM instances WHERE user_id = ? AND statut = 'a_faire'
+        AND date_echeance IS NOT NULL AND date_echeance <= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+        ORDER BY date_echeance ASC LIMIT 20");
+    $stmt->execute([$userId]);
+    $retards['instances'] = $stmt->fetchAll();
+
+    // Demandes clients : non traitée ET créée il y a plus de 7 jours
+    $stmt = $db->prepare("SELECT id, numero_personne, date_ajout, details_demande, service
+        FROM demandes_clients WHERE user_id = ? AND traitee = 0
+        AND date_ajout <= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+        ORDER BY date_ajout ASC LIMIT 20");
+    $stmt->execute([$userId]);
+    $retards['demandes_clients'] = $stmt->fetchAll();
+
+    // Rappels : non traité ET créé il y a plus de 7 jours
+    $stmt = $db->prepare("SELECT id, numero_personne, date_ajout, motif
+        FROM demandes_rappel WHERE user_id = ? AND traitee = 0
+        AND date_ajout <= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+        ORDER BY date_ajout ASC LIMIT 20");
+    $stmt->execute([$userId]);
+    $retards['rappels'] = $stmt->fetchAll();
+
+    return $retards;
+}

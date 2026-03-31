@@ -7,6 +7,13 @@ $currentUser = getCurrentUser();
 $liensExternes = getLiensExternes();
 $menuConfig = getMenuConfig();
 $currentPage = basename($_SERVER['PHP_SELF'], '.php');
+$retardsUrgents = getRetardsUrgents(getCurrentUserId());
+$badgeCounts = [
+    'instances' => count($retardsUrgents['instances']),
+    'rappels' => count($retardsUrgents['rappels']),
+    'demandes_clients' => count($retardsUrgents['demandes_clients']),
+];
+$totalRetards = array_sum($badgeCounts);
 
 // Calcul du chemin de base pour les URLs (fonctionne depuis n'importe quel sous-dossier)
 $projectRootFs = str_replace('\\', '/', realpath(__DIR__ . '/..'));
@@ -66,6 +73,96 @@ $B = rtrim(str_replace($relativeScript, '', $_SERVER['SCRIPT_NAME']), '/');
     </script>
 </head>
 <body>
+    <?php if ($totalRetards > 0): ?>
+    <!-- MODAL ALERTE RETARDS -->
+    <div class="modal fade" id="alerteRetardsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-danger">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title"><i class="fas fa-exclamation-triangle"></i> <?= $totalRetards ?> élément<?= $totalRetards > 1 ? 's' : '' ?> en retard depuis plus d'une semaine</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <?php if (!empty($retardsUrgents['instances'])): ?>
+                    <h6 class="text-danger mb-2"><i class="fas fa-tasks"></i> Instances (<?= count($retardsUrgents['instances']) ?>)</h6>
+                    <div class="table-responsive mb-3">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="table-light"><tr><th>N° personne</th><th>Échéance</th><th>Catégories</th><th>Retard</th></tr></thead>
+                            <tbody>
+                            <?php foreach ($retardsUrgents['instances'] as $r):
+                                $jours = (int)(new DateTime($r['date_echeance']))->diff(new DateTime())->format('%a');
+                            ?>
+                                <tr>
+                                    <td><strong><?= e($r['numero_personne']) ?></strong></td>
+                                    <td><?= formatDate($r['date_echeance']) ?></td>
+                                    <td><?= e(excerpt($r['categories'] ?? '', 30)) ?></td>
+                                    <td><span class="badge bg-danger"><?= $jours ?> jour<?= $jours > 1 ? 's' : '' ?></span></td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    <?php endif; ?>
+
+                    <?php if (!empty($retardsUrgents['demandes_clients'])): ?>
+                    <h6 class="text-danger mb-2"><i class="fas fa-headset"></i> Demandes clients (<?= count($retardsUrgents['demandes_clients']) ?>)</h6>
+                    <div class="table-responsive mb-3">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="table-light"><tr><th>N° personne</th><th>Créée le</th><th>Service</th><th>Retard</th></tr></thead>
+                            <tbody>
+                            <?php foreach ($retardsUrgents['demandes_clients'] as $r):
+                                $jours = (int)(new DateTime($r['date_ajout']))->diff(new DateTime())->format('%a');
+                            ?>
+                                <tr>
+                                    <td><strong><?= e($r['numero_personne']) ?></strong></td>
+                                    <td><?= formatDate($r['date_ajout']) ?></td>
+                                    <td><?= e($r['service'] ?? '') ?></td>
+                                    <td><span class="badge bg-danger"><?= $jours ?> jour<?= $jours > 1 ? 's' : '' ?></span></td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    <?php endif; ?>
+
+                    <?php if (!empty($retardsUrgents['rappels'])): ?>
+                    <h6 class="text-danger mb-2"><i class="fas fa-phone-alt"></i> Demandes de rappel (<?= count($retardsUrgents['rappels']) ?>)</h6>
+                    <div class="table-responsive mb-3">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="table-light"><tr><th>N° personne</th><th>Créée le</th><th>Motif</th><th>Retard</th></tr></thead>
+                            <tbody>
+                            <?php foreach ($retardsUrgents['rappels'] as $r):
+                                $jours = (int)(new DateTime($r['date_ajout']))->diff(new DateTime())->format('%a');
+                            ?>
+                                <tr>
+                                    <td><strong><?= e($r['numero_personne']) ?></strong></td>
+                                    <td><?= formatDate($r['date_ajout']) ?></td>
+                                    <td><?= e(excerpt($r['motif'] ?? '', 40)) ?></td>
+                                    <td><span class="badge bg-danger"><?= $jours ?> jour<?= $jours > 1 ? 's' : '' ?></span></td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    <?php endif; ?>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Afficher la modale une seule fois par session
+        if (!sessionStorage.getItem('alerteRetardsVue')) {
+            new bootstrap.Modal(document.getElementById('alerteRetardsModal')).show();
+            sessionStorage.setItem('alerteRetardsVue', '1');
+        }
+    });
+    </script>
+    <?php endif; ?>
+
     <!-- SIDEBAR -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
@@ -90,8 +187,17 @@ $B = rtrim(str_replace($relativeScript, '', $_SERVER['SCRIPT_NAME']), '/');
                 $patterns = array_map('trim', explode(',', $section['uri_patterns'] ?? ''));
                 $open = uriMatch($patterns);
             ?>
+            <?php
+                // Compter les retards dans cette section
+                $sectionRetards = 0;
+                foreach ($section['items'] as $_si) {
+                    $sectionRetards += $badgeCounts[$_si['item_key']] ?? 0;
+                }
+            ?>
             <div class="nav-section <?= $open ? 'open' : '' ?>" onclick="this.classList.toggle('open')">
-                <span><?= e($section['label']) ?></span><i class="fas fa-chevron-right nav-chevron"></i>
+                <span><?= e($section['label']) ?></span>
+                <?php if ($sectionRetards > 0): ?><span class="sidebar-badge-retard"><?= $sectionRetards ?></span><?php endif; ?>
+                <i class="fas fa-chevron-right nav-chevron"></i>
             </div>
             <div class="nav-group" <?= $open ? '' : 'style="display:none"' ?>>
                 <?php foreach ($section['items'] as $item):
@@ -101,7 +207,11 @@ $B = rtrim(str_replace($relativeScript, '', $_SERVER['SCRIPT_NAME']), '/');
                     if ($item['item_key'] === 'formations' && uriMatch(['formations/calendrier','caldav'])) $isActive = false;
                     if ($item['item_key'] === 'instances' && uriMatch('instances/calendrier')) $isActive = false;
                 ?>
-                    <a href="<?= $B . e($item['url']) ?>" class="<?= $isActive ? 'active' : '' ?>"><i class="fas <?= e($item['icon']) ?>"></i> <?= e($item['label']) ?></a>
+                    <a href="<?= $B . e($item['url']) ?>" class="<?= $isActive ? 'active' : '' ?>"><i class="fas <?= e($item['icon']) ?>"></i> <?= e($item['label']) ?><?php
+                        $bk = $item['item_key'];
+                        if (isset($badgeCounts[$bk]) && $badgeCounts[$bk] > 0): ?>
+                            <span class="sidebar-badge-retard"><?= $badgeCounts[$bk] ?></span>
+                        <?php endif; ?></a>
                 <?php endforeach; ?>
             </div>
             <?php endforeach; ?>

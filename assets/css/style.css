@@ -172,6 +172,22 @@ body {
     margin: 8px 20px;
 }
 
+.sidebar-badge-retard {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: #e74c3c;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    margin-left: 6px;
+    line-height: 1;
+}
+
 .sidebar-liens-info {
     padding: 6px 20px 4px;
     font-size: 11px;
