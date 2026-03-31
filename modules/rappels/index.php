@@ -113,9 +113,6 @@ foreach ($demandes as $d) {
                 <td><strong><?= e($d['numero_personne']) ?></strong></td>
                 <td>
                     <?= e(excerpt($d['motif'])) ?>
-                    <?php if (!empty($d['motif'])): ?>
-                        <button class="btn btn-sm btn-ce-outline ms-1" onclick="showDetail(<?= $d['id'] ?>)" title="Voir le motif complet"><i class="fas fa-eye"></i></button>
-                    <?php endif; ?>
                 </td>
                 <td>
                     <span class="badge bg-secondary"><?= count($tentativesParDemande[$d['id']] ?? []) ?></span>
@@ -246,7 +243,15 @@ function showDetail(id) {
             <div class="col-md-6">
                 <p><strong>Date d'ajout :</strong> ${d.date_ajout}</p>
                 <p><strong>N\u00b0 Personne / Nom :</strong> ${d.numero_personne}</p>
-                <p><strong>Statut :</strong> ${d.traitee == 1 ? '<span class="badge-fait">Traitee</span>' : '<span class="badge-afaire">A rappeler</span>'}</p>
+                <p><strong>Statut :</strong>
+                    <form method="POST" class="d-inline">
+                        <input type="hidden" name="action" value="toggle_traitee">
+                        <input type="hidden" name="id" value="${id}">
+                        ${d.traitee == 1
+                            ? '<button type="submit" class="badge-fait border-0" style="cursor:pointer"><i class="fas fa-check"></i> Traitée</button>'
+                            : '<button type="submit" class="badge-afaire border-0" style="cursor:pointer"><i class="fas fa-clock"></i> À rappeler</button>'}
+                    </form>
+                </p>
             </div>
             <div class="col-md-6">
                 <p><strong>Motif :</strong></p>

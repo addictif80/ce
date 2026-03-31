@@ -114,7 +114,6 @@ $categories = ['Bancarisation', 'Epargne', 'IARD', 'Prévoyance', 'Placement', '
                 <td><span class="<?= getEcheanceClass($inst['date_echeance']) ?> px-2 py-1 rounded"><?= formatDate($inst['date_echeance']) ?></span></td>
                 <td><?= e($inst['categories']) ?></td>
                 <td><?= e(excerpt($inst['details'])) ?>
-                    <button class="btn btn-sm btn-ce-outline ms-1" onclick="showDetail(<?= $inst['id'] ?>)"><i class="fas fa-eye"></i></button>
                 </td>
                 <td>
                     <form method="POST" class="d-inline">
@@ -242,7 +241,15 @@ function showDetail(id) {
                 <p><strong>N° Personne / Nom :</strong> ${inst.numero_personne}</p>
                 <p><strong>Échéance :</strong> ${inst.date_echeance || 'Non définie'}</p>
                 <p><strong>Catégorie :</strong> ${inst.categories || '-'}</p>
-                <p><strong>Statut :</strong> ${inst.statut === 'fait' ? '<span class="badge-fait">Fait</span>' : '<span class="badge-afaire">À faire</span>'}</p>
+                <p><strong>Statut :</strong>
+                    <form method="POST" class="d-inline">
+                        <input type="hidden" name="toggle_statut" value="1">
+                        <input type="hidden" name="id" value="${id}">
+                        ${inst.statut === 'fait'
+                            ? '<button type="submit" class="badge-fait border-0" style="cursor:pointer"><i class="fas fa-check"></i> Fait</button>'
+                            : '<button type="submit" class="badge-afaire border-0" style="cursor:pointer"><i class="fas fa-clock"></i> À faire</button>'}
+                    </form>
+                </p>
             </div>
             <div class="col-md-6">
                 <p><strong>Détails :</strong></p>

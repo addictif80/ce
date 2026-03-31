@@ -105,7 +105,6 @@ $demandes = $stmt->fetchAll();
                 <td><?= formatDate($dem['date_ajout']) ?></td>
                 <td><strong><?= e($dem['numero_personne']) ?></strong></td>
                 <td><?= e(excerpt($dem['details_demande'])) ?>
-                    <button class="btn btn-sm btn-ce-outline ms-1" onclick="showDetail(<?= $dem['id'] ?>)"><i class="fas fa-eye"></i></button>
                 </td>
                 <td><?= formatDate($dem['date_envoi']) ?></td>
                 <td><?= e($dem['service']) ?></td>
@@ -228,7 +227,15 @@ function showDetail(id) {
                 <p><strong>N° Personne :</strong> ${dem.numero_personne}</p>
                 <p><strong>Date d'envoi :</strong> ${dem.date_envoi || 'Non définie'}</p>
                 <p><strong>Service :</strong> ${dem.service || '-'}</p>
-                <p><strong>Statut :</strong> ${dem.traitee == 1 ? '<span class="badge-fait">Traitée</span>' : '<span class="badge-afaire">En cours</span>'}</p>
+                <p><strong>Statut :</strong>
+                    <form method="POST" class="d-inline">
+                        <input type="hidden" name="toggle_traitee" value="1">
+                        <input type="hidden" name="id" value="${id}">
+                        ${dem.traitee == 1
+                            ? '<button type="submit" class="badge-fait border-0" style="cursor:pointer"><i class="fas fa-check"></i> Traitée</button>'
+                            : '<button type="submit" class="badge-afaire border-0" style="cursor:pointer"><i class="fas fa-clock"></i> En cours</button>'}
+                    </form>
+                </p>
             </div>
             <div class="col-md-6">
                 <p><strong>Détails de la demande :</strong></p>

@@ -100,9 +100,6 @@ $categories = ['Banca', 'Epargne', 'Placement', 'Credit', 'Assurance'];
                 <td><?= e($prod['montant_nombre']) ?></td>
                 <td>
                     <?= e(excerpt($prod['details'])) ?>
-                    <?php if ($prod['details']): ?>
-                        <button class="btn btn-sm btn-ce-outline ms-1" onclick="showDetail(<?= $prod['id'] ?>)"><i class="fas fa-eye"></i></button>
-                    <?php endif; ?>
                 </td>
                 <td class="actions">
                     <button class="btn btn-sm btn-ce-outline" onclick="showDetail(<?= $prod['id'] ?>)" title="Voir"><i class="fas fa-eye"></i></button>
