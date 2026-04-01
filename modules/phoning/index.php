@@ -410,7 +410,7 @@ function openDossier(id) {
                                 ${motifOptions}
                             </select>
                         </div>
-                        <div class="col-md-1 rdv-fields d-flex align-items-end" style="display:none">
+                        <div class="col-md-1 rdv-fields align-items-end" style="display:none">
                             <div class="form-check mb-2">
                                 <input type="checkbox" name="is_anv" class="form-check-input" id="checkAnv" value="1">
                                 <label class="form-check-label" for="checkAnv"><strong>ANV</strong></label>
@@ -451,7 +451,7 @@ function toggleRdvFields() {
     const sel = document.getElementById('selectResultat');
     if (!sel) return;
     const show = sel.value === 'rdv';
-    document.querySelectorAll('.rdv-fields').forEach(el => el.style.display = show ? '' : 'none');
+    document.querySelectorAll('.rdv-fields').forEach(el => el.style.display = show ? 'flex' : 'none');
 }
 
 function editSeance(id) {
