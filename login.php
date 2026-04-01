@@ -11,6 +11,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
     if (login($username, $password)) {
+        require_once __DIR__ . '/includes/functions.php';
+        sendDailyReminderIfNeeded(getCurrentUserId());
         header('Location: index.php');
         exit;
     } else {

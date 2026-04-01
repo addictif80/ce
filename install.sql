@@ -501,4 +501,18 @@ CREATE TABLE IF NOT EXISTS `eai_valeurs` (
   FOREIGN KEY (`rapport_id`) REFERENCES `eai_rapports`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Table configuration SMTP
+CREATE TABLE IF NOT EXISTS `smtp_config` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `smtp_host` VARCHAR(255) NOT NULL DEFAULT '',
+  `smtp_port` INT DEFAULT 587,
+  `smtp_user` VARCHAR(255) DEFAULT '',
+  `smtp_pass` VARCHAR(255) DEFAULT '',
+  `smtp_secure` ENUM('tls','ssl','none') DEFAULT 'tls',
+  `mail_from` VARCHAR(255) DEFAULT '',
+  `mail_from_name` VARCHAR(255) DEFAULT 'Portail CE',
+  `rappel_enabled` TINYINT(1) DEFAULT 1,
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 SET FOREIGN_KEY_CHECKS = 1;

@@ -270,6 +270,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         header('Location: index.php?tab=donnees&module=' . urlencode($_POST['module'] ?? '') . '&msg=updated');
         exit;
     }
+
+    if ($action === 'save_smtp') {
+        $db->exec("CREATE TABLE IF NOT EXISTS smtp_config (
+            id INT AUTO_INCREMENT PRIMARY KEY, smtp_host VARCHAR(255) NOT NULL DEFAULT '', smtp_port INT DEFAULT 587,
+            smtp_user VARCHAR(255) DEFAULT '', smtp_pass VARCHAR(255) DEFAULT '', smtp_secure ENUM('tls','ssl','none') DEFAULT 'tls',
+            mail_from VARCHAR(255) DEFAULT '', mail_from_name VARCHAR(255) DEFAULT 'Portail CE',
+            rappel_enabled TINYINT(1) DEFAULT 1, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $existing = $db->query("SELECT id FROM smtp_config LIMIT 1")->fetch();
+        $params = [
+            trim($_POST['smtp_host'] ?? ''),
+            (int)($_POST['smtp_port'] ?? 587),
+            trim($_POST['smtp_user'] ?? ''),
+            trim($_POST['smtp_pass'] ?? ''),
+            $_POST['smtp_secure'] ?? 'tls',
+            trim($_POST['mail_from'] ?? ''),
+            trim($_POST['mail_from_name'] ?? 'Portail CE'),
+            isset($_POST['rappel_enabled']) ? 1 : 0,
+        ];
+        if ($existing) {
+            $db->prepare("UPDATE smtp_config SET smtp_host=?, smtp_port=?, smtp_user=?, smtp_pass=?, smtp_secure=?, mail_from=?, mail_from_name=?, rappel_enabled=? WHERE id=?")
+                ->execute(array_merge($params, [$existing['id']]));
+        } else {
+            $db->prepare("INSERT INTO smtp_config (smtp_host, smtp_port, smtp_user, smtp_pass, smtp_secure, mail_from, mail_from_name, rappel_enabled) VALUES (?,?,?,?,?,?,?,?)")
+                ->execute($params);
+        }
+        header('Location: index.php?tab=smtp&msg=smtp_saved');
+        exit;
+    }
+
+    if ($action === 'test_smtp') {
+        $testEmail = trim($_POST['test_email'] ?? '');
+        if (!empty($testEmail)) {
+            $html = "<div style='font-family:Arial;padding:20px;'><h2 style='color:#dc0032;'>Test SMTP OK</h2><p>Si vous lisez cet email, la configuration SMTP du portail fonctionne correctement.</p><p style='color:#999;font-size:12px;'>Envoyé le " . date('d/m/Y H:i') . "</p></div>";
+            $ok = sendSmtpMail($testEmail, '[Portail CE] Test SMTP', $html);
+            header('Location: index.php?tab=smtp&msg=' . ($ok ? 'smtp_test_ok' : 'smtp_test_fail'));
+        } else {
+            header('Location: index.php?tab=smtp&msg=smtp_test_fail');
+        }
+        exit;
+    }
 }
 
 // Données
@@ -277,6 +318,7 @@ $users = $db->query("SELECT * FROM users ORDER BY nom, prenom")->fetchAll();
 $categoriesLiens = getCategoriesLiens();
 $liens = $db->query("SELECT l.*, c.nom AS categorie_nom FROM liens_externes l LEFT JOIN categories_liens c ON l.categorie_id = c.id ORDER BY l.ordre ASC, l.nom ASC")->fetchAll();
 $menuItems = $db->query("SELECT * FROM menu_config ORDER BY ordre ASC")->fetchAll();
+$smtpConfig = getSmtpConfig();
 
 // Pending approvals
 $pendingModeles = $db->query("SELECT m.*, u.nom AS author_nom, u.prenom AS author_prenom FROM modeles_courriers m LEFT JOIN users u ON m.user_id = u.id WHERE m.approved = 0 ORDER BY m.id DESC")->fetchAll();
@@ -309,6 +351,9 @@ $activeTab = $_GET['tab'] ?? 'users';
         'rejected' => 'Élément refusé et supprimé.',
         'deleted' => 'Enregistrement supprimé.',
         'updated' => 'Enregistrement modifié avec succès.',
+        'smtp_saved' => 'Configuration SMTP enregistrée.',
+        'smtp_test_ok' => 'Email de test envoyé avec succès !',
+        'smtp_test_fail' => 'Échec de l\'envoi du mail de test. Vérifiez la configuration SMTP.',
     ];
     echo $msgs[$_GET['msg']] ?? 'Opération effectuée.';
     ?>
@@ -337,6 +382,9 @@ $activeTab = $_GET['tab'] ?? 'users';
     </li>
     <li class="nav-item">
         <a class="nav-link <?= $activeTab === 'menu' ? 'active' : '' ?>" href="?tab=menu"><i class="fas fa-bars"></i> Menu</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link <?= $activeTab === 'smtp' ? 'active' : '' ?>" href="?tab=smtp"><i class="fas fa-envelope"></i> Emails</a>
     </li>
 </ul>
 
@@ -1390,6 +1438,116 @@ function editMenuItem(id) {
     new bootstrap.Modal(document.getElementById('editMenuItemModal')).show();
 }
 </script>
+
+<?php elseif ($activeTab === 'smtp'): ?>
+<!-- =============== CONFIGURATION SMTP =============== -->
+<div class="row g-4">
+    <div class="col-md-7">
+        <div class="data-table-container">
+            <div class="data-table-header">
+                <h3><i class="fas fa-server"></i> Configuration SMTP</h3>
+            </div>
+            <div class="p-3">
+                <form method="post">
+                    <input type="hidden" name="action" value="save_smtp">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label">Serveur SMTP</label>
+                            <input type="text" name="smtp_host" class="form-control" value="<?= e($smtpConfig['smtp_host'] ?? '') ?>" placeholder="smtp.example.com">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Port</label>
+                            <input type="number" name="smtp_port" class="form-control" value="<?= (int)($smtpConfig['smtp_port'] ?? 587) ?>">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Identifiant SMTP</label>
+                            <input type="text" name="smtp_user" class="form-control" value="<?= e($smtpConfig['smtp_user'] ?? '') ?>" placeholder="user@example.com">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Mot de passe SMTP</label>
+                            <input type="password" name="smtp_pass" class="form-control" value="<?= e($smtpConfig['smtp_pass'] ?? '') ?>">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Sécurité</label>
+                            <select name="smtp_secure" class="form-select">
+                                <option value="tls" <?= ($smtpConfig['smtp_secure'] ?? '') === 'tls' ? 'selected' : '' ?>>TLS (recommandé)</option>
+                                <option value="ssl" <?= ($smtpConfig['smtp_secure'] ?? '') === 'ssl' ? 'selected' : '' ?>>SSL</option>
+                                <option value="none" <?= ($smtpConfig['smtp_secure'] ?? '') === 'none' ? 'selected' : '' ?>>Aucune</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Email expéditeur</label>
+                            <input type="email" name="mail_from" class="form-control" value="<?= e($smtpConfig['mail_from'] ?? '') ?>" placeholder="noreply@example.com">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Nom expéditeur</label>
+                            <input type="text" name="mail_from_name" class="form-control" value="<?= e($smtpConfig['mail_from_name'] ?? 'Portail CE') ?>">
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check form-switch">
+                                <input type="checkbox" name="rappel_enabled" class="form-check-input" id="rappelEnabled" <?= ($smtpConfig['rappel_enabled'] ?? 1) ? 'checked' : '' ?>>
+                                <label class="form-check-label" for="rappelEnabled">
+                                    <strong>Activer les emails de rappel automatiques</strong>
+                                    <br><small class="text-muted">Un email quotidien sera envoyé à chaque utilisateur ayant des traitements en retard (>7 jours)</small>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Enregistrer</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-5">
+        <!-- Test SMTP -->
+        <div class="data-table-container mb-4">
+            <div class="data-table-header">
+                <h3><i class="fas fa-paper-plane"></i> Tester l'envoi</h3>
+            </div>
+            <div class="p-3">
+                <?php if (empty($smtpConfig['smtp_host'])): ?>
+                    <div class="alert alert-warning mb-0">
+                        <i class="fas fa-exclamation-triangle"></i> Configurez d'abord le serveur SMTP avant de tester.
+                    </div>
+                <?php else: ?>
+                    <form method="post">
+                        <input type="hidden" name="action" value="test_smtp">
+                        <div class="mb-3">
+                            <label class="form-label">Adresse email de test</label>
+                            <input type="email" name="test_email" class="form-control" placeholder="votre@email.com" required>
+                        </div>
+                        <button type="submit" class="btn btn-ce-outline"><i class="fas fa-paper-plane"></i> Envoyer un test</button>
+                    </form>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <!-- Info -->
+        <div class="data-table-container">
+            <div class="data-table-header">
+                <h3><i class="fas fa-info-circle"></i> Fonctionnement</h3>
+            </div>
+            <div class="p-3">
+                <p><strong>Rappels automatiques :</strong></p>
+                <ul>
+                    <li>Un email est envoyé <strong>1 fois par jour maximum</strong> à chaque connexion</li>
+                    <li>Uniquement si l'utilisateur a des <strong>instances, demandes clients ou rappels en retard</strong> (&gt; 7 jours)</li>
+                    <li>L'email est envoyé à l'adresse <strong>email professionnel</strong> du profil utilisateur</li>
+                    <li>Les envois sont enregistrés dans la table <code>notifications_log</code></li>
+                </ul>
+                <p class="mb-0"><strong>Serveurs SMTP courants :</strong></p>
+                <ul class="mb-0">
+                    <li>Gmail : <code>smtp.gmail.com</code> port 587 (TLS)</li>
+                    <li>Outlook : <code>smtp.office365.com</code> port 587 (TLS)</li>
+                    <li>OVH : <code>ssl0.ovh.net</code> port 465 (SSL)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
 
 <?php endif; ?>
 

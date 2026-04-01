@@ -350,3 +350,186 @@ function getRetardsUrgents($userId) {
 
     return $retards;
 }
+
+/**
+ * Récupérer la config SMTP depuis la base
+ */
+function getSmtpConfig() {
+    $db = getDB();
+    try {
+        $db->exec("CREATE TABLE IF NOT EXISTS smtp_config (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            smtp_host VARCHAR(255) NOT NULL DEFAULT '',
+            smtp_port INT DEFAULT 587,
+            smtp_user VARCHAR(255) DEFAULT '',
+            smtp_pass VARCHAR(255) DEFAULT '',
+            smtp_secure ENUM('tls','ssl','none') DEFAULT 'tls',
+            mail_from VARCHAR(255) DEFAULT '',
+            mail_from_name VARCHAR(255) DEFAULT 'Portail CE',
+            rappel_enabled TINYINT(1) DEFAULT 1,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $row = $db->query("SELECT * FROM smtp_config LIMIT 1")->fetch();
+        if (!$row) {
+            $db->exec("INSERT INTO smtp_config (smtp_host) VALUES ('')");
+            $row = $db->query("SELECT * FROM smtp_config LIMIT 1")->fetch();
+        }
+        return $row;
+    } catch (Exception $e) {
+        return null;
+    }
+}
+
+/**
+ * Envoyer un email via SMTP (socket direct, sans dépendance externe)
+ */
+function sendSmtpMail($to, $subject, $htmlBody) {
+    $cfg = getSmtpConfig();
+    if (!$cfg || empty($cfg['smtp_host']) || empty($to)) return false;
+
+    $host = $cfg['smtp_host'];
+    $port = (int)$cfg['smtp_port'] ?: 587;
+    $user = $cfg['smtp_user'];
+    $pass = $cfg['smtp_pass'];
+    $secure = $cfg['smtp_secure'];
+    $from = $cfg['mail_from'] ?: $user;
+    $fromName = $cfg['mail_from_name'] ?: 'Portail CE';
+
+    // Construire le message MIME
+    $boundary = md5(uniqid(time()));
+    $headers = "From: {$fromName} <{$from}>\r\n";
+    $headers .= "To: {$to}\r\n";
+    $headers .= "Subject: {$subject}\r\n";
+    $headers .= "MIME-Version: 1.0\r\n";
+    $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+    $headers .= "Date: " . date('r') . "\r\n";
+
+    // Connexion SMTP
+    $prefix = ($secure === 'ssl') ? 'ssl://' : '';
+    $fp = @fsockopen($prefix . $host, $port, $errno, $errstr, 10);
+    if (!$fp) return false;
+
+    $resp = function() use ($fp) {
+        $r = '';
+        while ($line = fgets($fp, 512)) {
+            $r .= $line;
+            if (substr($line, 3, 1) === ' ') break;
+        }
+        return $r;
+    };
+
+    $cmd = function($c) use ($fp, $resp) {
+        fwrite($fp, $c . "\r\n");
+        return $resp();
+    };
+
+    $resp(); // banner
+
+    $cmd("EHLO localhost");
+
+    if ($secure === 'tls') {
+        $cmd("STARTTLS");
+        stream_socket_enable_crypto($fp, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
+        $cmd("EHLO localhost");
+    }
+
+    if (!empty($user) && !empty($pass)) {
+        $cmd("AUTH LOGIN");
+        $cmd(base64_encode($user));
+        $cmd(base64_encode($pass));
+    }
+
+    $cmd("MAIL FROM:<{$from}>");
+    $cmd("RCPT TO:<{$to}>");
+    $cmd("DATA");
+
+    $message = $headers . "\r\n" . $htmlBody . "\r\n";
+    fwrite($fp, $message . "\r\n.\r\n");
+    $result = $resp();
+
+    $cmd("QUIT");
+    fclose($fp);
+
+    return strpos($result, '250') !== false;
+}
+
+/**
+ * Envoyer un email de rappel quotidien pour les retards (1x/jour max)
+ */
+function sendDailyReminderIfNeeded($userId) {
+    $cfg = getSmtpConfig();
+    if (!$cfg || !$cfg['rappel_enabled'] || empty($cfg['smtp_host'])) return;
+
+    $db = getDB();
+
+    // Récupérer l'email de l'utilisateur
+    $stmt = $db->prepare("SELECT email_pro, nom, prenom FROM users WHERE id = ?");
+    $stmt->execute([$userId]);
+    $user = $stmt->fetch();
+    if (!$user || empty($user['email_pro'])) return;
+
+    // Vérifier si un rappel a déjà été envoyé aujourd'hui
+    $stmt = $db->prepare("SELECT id FROM notifications_log WHERE user_id = ? AND DATE(date_envoi) = CURDATE() AND type = 'rappel_retards'");
+    $stmt->execute([$userId]);
+    if ($stmt->fetch()) return; // Déjà envoyé aujourd'hui
+
+    // Récupérer les retards
+    $retards = getRetardsUrgents($userId);
+    $nbInstances = count($retards['instances']);
+    $nbDemandes = count($retards['demandes_clients']);
+    $nbRappels = count($retards['rappels']);
+    $total = $nbInstances + $nbDemandes + $nbRappels;
+
+    if ($total === 0) return; // Rien en retard
+
+    // Construire l'email HTML
+    $prenom = e($user['prenom']);
+    $html = "
+    <div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;'>
+        <div style='background:#dc0032;color:white;padding:20px;text-align:center;'>
+            <h1 style='margin:0;font-size:22px;'>Rappel - {$total} traitement(s) en retard</h1>
+        </div>
+        <div style='padding:20px;background:#f9f9f9;'>
+            <p>Bonjour <strong>{$prenom}</strong>,</p>
+            <p>Vous avez des traitements en retard de plus de 7 jours :</p>";
+
+    if ($nbInstances > 0) {
+        $html .= "<h3 style='color:#dc0032;'>Instances ({$nbInstances})</h3><ul>";
+        foreach ($retards['instances'] as $r) {
+            $html .= "<li><strong>" . e($r['numero_personne']) . "</strong> - Échéance : " . formatDate($r['date_echeance']) . " - " . excerpt(e($r['details'] ?? ''), 60) . "</li>";
+        }
+        $html .= "</ul>";
+    }
+    if ($nbDemandes > 0) {
+        $html .= "<h3 style='color:#dc0032;'>Demandes clients ({$nbDemandes})</h3><ul>";
+        foreach ($retards['demandes_clients'] as $r) {
+            $html .= "<li><strong>" . e($r['numero_personne']) . "</strong> - Depuis le " . formatDate($r['date_ajout']) . " - " . excerpt(e($r['details_demande'] ?? ''), 60) . "</li>";
+        }
+        $html .= "</ul>";
+    }
+    if ($nbRappels > 0) {
+        $html .= "<h3 style='color:#dc0032;'>Rappels ({$nbRappels})</h3><ul>";
+        foreach ($retards['rappels'] as $r) {
+            $html .= "<li><strong>" . e($r['numero_personne']) . "</strong> - Depuis le " . formatDate($r['date_ajout']) . " - " . excerpt(e($r['motif'] ?? ''), 60) . "</li>";
+        }
+        $html .= "</ul>";
+    }
+
+    $appUrl = defined('APP_URL') ? APP_URL : '';
+    $html .= "
+            <p style='margin-top:20px;'>
+                <a href='{$appUrl}' style='display:inline-block;background:#dc0032;color:white;padding:12px 24px;text-decoration:none;font-weight:bold;'>
+                    Accéder au portail
+                </a>
+            </p>
+            <p style='color:#999;font-size:12px;margin-top:20px;'>Ce rappel est envoyé automatiquement une fois par jour.</p>
+        </div>
+    </div>";
+
+    $subject = "[Portail CE] {$total} traitement(s) en retard";
+    $sent = sendSmtpMail($user['email_pro'], $subject, $html);
+
+    // Logger l'envoi (même en échec pour éviter le spam)
+    $db->prepare("INSERT INTO notifications_log (user_id, type, nb_instances, nb_demandes) VALUES (?, 'rappel_retards', ?, ?)")
+        ->execute([$userId, $nbInstances, $nbDemandes]);
+}
