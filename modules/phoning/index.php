@@ -19,6 +19,8 @@ $db->exec("CREATE TABLE IF NOT EXISTS appels_phoning (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 try { $db->exec("ALTER TABLE seances_phoning ADD COLUMN titre VARCHAR(255) DEFAULT NULL AFTER date_ajout"); } catch (Exception $e) {}
 try { $db->exec("ALTER TABLE seances_phoning ADD COLUMN notes TEXT DEFAULT NULL AFTER titre"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE seances_phoning ADD COLUMN nombre_anv INT DEFAULT 0 AFTER nombre_repondeur"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE appels_phoning ADD COLUMN is_anv TINYINT(1) DEFAULT 0 AFTER motif_rdv"); } catch (Exception $e) {}
 
 // === ACTIONS ===
 
@@ -54,8 +56,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $resultat = $_POST['resultat'];
     $dateRdv = ($resultat === 'rdv' && !empty($_POST['date_rdv'])) ? $_POST['date_rdv'] : null;
     $motifRdv = ($resultat === 'rdv' && !empty($_POST['motif_rdv'])) ? $_POST['motif_rdv'] : null;
-    $stmt = $db->prepare("INSERT INTO appels_phoning (seance_id, user_id, numero_personne, resultat, date_rdv, motif_rdv, commentaire) VALUES (?, ?, ?, ?, ?, ?, ?)");
-    $stmt->execute([$seanceId, $userId, trim($_POST['numero_personne'] ?? ''), $resultat, $dateRdv, $motifRdv, trim($_POST['commentaire'] ?? '')]);
+    $isAnv = ($resultat === 'rdv' && isset($_POST['is_anv'])) ? 1 : 0;
+    $stmt = $db->prepare("INSERT INTO appels_phoning (seance_id, user_id, numero_personne, resultat, date_rdv, motif_rdv, is_anv, commentaire) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$seanceId, $userId, trim($_POST['numero_personne'] ?? ''), $resultat, $dateRdv, $motifRdv, $isAnv, trim($_POST['commentaire'] ?? '')]);
     // Recalculer les compteurs
     recalcSeance($db, $seanceId, $userId);
     header('Location: index.php?open=' . $seanceId);
@@ -80,24 +83,27 @@ function recalcSeance($db, $seanceId, $userId) {
         COUNT(*) as total,
         SUM(resultat = 'repondeur') as repondeurs,
         SUM(resultat = 'rdv') as rdv,
+        SUM(resultat = 'rdv' AND is_anv = 1) as anv,
         SUM(resultat = 'rdv' AND date_rdv IS NOT NULL AND YEARWEEK(date_rdv, 1) = YEARWEEK(CURDATE(), 1)) as rdv_s,
         SUM(resultat = 'rdv' AND date_rdv IS NOT NULL AND YEARWEEK(date_rdv, 1) = YEARWEEK(CURDATE(), 1) + 1) as rdv_s1,
         SUM(resultat = 'rdv' AND (date_rdv IS NULL OR (YEARWEEK(date_rdv, 1) != YEARWEEK(CURDATE(), 1) AND YEARWEEK(date_rdv, 1) != YEARWEEK(CURDATE(), 1) + 1))) as rdv_autres
         FROM appels_phoning WHERE seance_id = ?");
     $stmt->execute([$seanceId]);
     $c = $stmt->fetch();
-    $db->prepare("UPDATE seances_phoning SET nombre_appels = ?, nombre_repondeur = ?, nombre_rdv = ?, dont_s = ?, dont_s1 = ?, dont_anv = ? WHERE id = ? AND user_id = ?")
-        ->execute([(int)$c['total'], (int)$c['repondeurs'], (int)$c['rdv'], (int)$c['rdv_s'], (int)$c['rdv_s1'], (int)$c['rdv_autres'], $seanceId, $userId]);
+    $db->prepare("UPDATE seances_phoning SET nombre_appels = ?, nombre_repondeur = ?, nombre_anv = ?, nombre_rdv = ?, dont_s = ?, dont_s1 = ?, dont_anv = ? WHERE id = ? AND user_id = ?")
+        ->execute([(int)$c['total'], (int)$c['repondeurs'], (int)$c['anv'], (int)$c['rdv'], (int)$c['rdv_s'], (int)$c['rdv_s1'], (int)$c['rdv_autres'], $seanceId, $userId]);
 }
 
 // Objectifs
 $objectifAppels = 60;
 $objectifRDV = 12;
+$objectifANV = 2;
 
 // Totaux semaine en cours (toutes séances confondues)
 $stmt = $db->prepare("SELECT
     COALESCE(SUM(nombre_appels),0) as appels,
     COALESCE(SUM(nombre_rdv),0) as rdv,
+    COALESCE(SUM(nombre_anv),0) as anv_total,
     COALESCE(SUM(dont_s),0) as s,
     COALESCE(SUM(dont_s1),0) as s1,
     COALESCE(SUM(dont_anv),0) as anv,
@@ -108,8 +114,10 @@ $semaine = $stmt->fetch();
 
 $resteAppels = max(0, $objectifAppels - $semaine['appels']);
 $resteRDV = max(0, $objectifRDV - $semaine['rdv']);
+$resteANV = max(0, $objectifANV - $semaine['anv_total']);
 $pctAppels = $objectifAppels > 0 ? min(100, round(($semaine['appels'] / $objectifAppels) * 100)) : 0;
 $pctRDV = $objectifRDV > 0 ? min(100, round(($semaine['rdv'] / $objectifRDV) * 100)) : 0;
+$pctANV = $objectifANV > 0 ? min(100, round(($semaine['anv_total'] / $objectifANV) * 100)) : 0;
 
 // Liste des séances
 $stmt = $db->prepare("SELECT * FROM seances_phoning WHERE user_id = ? ORDER BY date_ajout DESC");
@@ -137,7 +145,7 @@ foreach ($seances as $s) {
             <small class="text-muted mt-1 d-block">Reste : <strong><?= $resteAppels ?></strong></small>
         </div>
     </div>
-    <div class="col-md-3">
+    <div class="col-md-2">
         <div class="stat-card">
             <div class="stat-number"><?= $semaine['rdv'] ?> / <?= $objectifRDV ?></div>
             <div class="stat-label">RDV cette semaine</div>
@@ -148,6 +156,16 @@ foreach ($seances as $s) {
         </div>
     </div>
     <div class="col-md-2">
+        <div class="stat-card">
+            <div class="stat-number"><?= $semaine['anv_total'] ?> / <?= $objectifANV ?></div>
+            <div class="stat-label">ANV cette semaine</div>
+            <div class="progress mt-2" style="height: 8px;">
+                <div class="progress-bar <?= $pctANV >= 100 ? 'bg-success' : 'progress-ce' ?>" role="progressbar" style="width: <?= $pctANV ?>%"></div>
+            </div>
+            <small class="text-muted mt-1 d-block">Reste : <strong><?= $resteANV ?></strong></small>
+        </div>
+    </div>
+    <div class="col-md-1">
         <div class="stat-card">
             <div class="stat-number"><?= $semaine['repondeur'] ?></div>
             <div class="stat-label">Répondeurs</div>
@@ -291,6 +309,7 @@ function openDossier(id) {
     const repondeurs = appels.filter(a => a.resultat === 'repondeur').length;
     const indispos = appels.filter(a => a.resultat === 'indisponible').length;
     const rdvs = appels.filter(a => a.resultat === 'rdv').length;
+    const anvs = appels.filter(a => a.resultat === 'rdv' && a.is_anv == 1).length;
     const repondus = appels.filter(a => a.resultat === 'repondu').length;
 
     // Calculer S / S+1 / autres côté JS
@@ -317,7 +336,7 @@ function openDossier(id) {
     if (appels.length > 0) {
         appelsHtml = `<table class="table table-sm table-bordered">
             <thead class="table-light"><tr>
-                <th>Heure</th><th>N° / Nom</th><th>Résultat</th><th>Date RDV</th><th>Motif</th><th>Commentaire</th><th></th>
+                <th>Heure</th><th>N° / Nom</th><th>Résultat</th><th>Date RDV</th><th>Motif</th><th>ANV</th><th>Commentaire</th><th></th>
             </tr></thead><tbody>`;
         appels.forEach(a => {
             const time = a.created_at ? a.created_at.substring(11, 16) : '';
@@ -327,6 +346,7 @@ function openDossier(id) {
                 <td>${resultatLabels[a.resultat] || a.resultat}</td>
                 <td>${a.resultat === 'rdv' && a.date_rdv ? a.date_rdv.split('-').reverse().join('/') : '-'}</td>
                 <td>${a.resultat === 'rdv' && a.motif_rdv ? esc(a.motif_rdv) : '-'}</td>
+                <td>${a.resultat === 'rdv' && a.is_anv == 1 ? '<span class="badge bg-info">ANV</span>' : '-'}</td>
                 <td>${esc(a.commentaire) || '-'}</td>
                 <td>
                     <form method="POST" class="d-inline" onsubmit="return confirm('Supprimer cet appel ?')">
@@ -353,7 +373,8 @@ function openDossier(id) {
             <div class="col-md-2"><div class="stat-card text-center"><div class="stat-number">${repondus}</div><div class="stat-label">Répondus</div></div></div>
             <div class="col-md-2"><div class="stat-card text-center"><div class="stat-number">${repondeurs}</div><div class="stat-label">Répondeurs</div></div></div>
             <div class="col-md-2"><div class="stat-card text-center"><div class="stat-number">${indispos}</div><div class="stat-label">Indisponibles</div></div></div>
-            <div class="col-md-2"><div class="stat-card text-center"><div class="stat-number">${rdvs}</div><div class="stat-label">RDV</div></div></div>
+            <div class="col-md-1"><div class="stat-card text-center"><div class="stat-number">${rdvs}</div><div class="stat-label">RDV</div></div></div>
+            <div class="col-md-1"><div class="stat-card text-center"><div class="stat-number">${anvs}</div><div class="stat-label">ANV</div></div></div>
             <div class="col-md-2"><div class="stat-card text-center"><div class="stat-number">${rdvS} / ${rdvS1} / ${rdvAutres}</div><div class="stat-label">S / S+1 / Autres</div></div></div>
         </div>
 
@@ -389,7 +410,13 @@ function openDossier(id) {
                                 ${motifOptions}
                             </select>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-1 rdv-fields d-flex align-items-end" style="display:none">
+                            <div class="form-check mb-2">
+                                <input type="checkbox" name="is_anv" class="form-check-input" id="checkAnv" value="1">
+                                <label class="form-check-label" for="checkAnv"><strong>ANV</strong></label>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
                             <label class="form-label">Commentaire</label>
                             <input type="text" name="commentaire" class="form-control" placeholder="Optionnel">
                         </div>

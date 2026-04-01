@@ -140,6 +140,7 @@ CREATE TABLE IF NOT EXISTS `appels_phoning` (
   `resultat` ENUM('repondu','repondeur','indisponible','rdv') NOT NULL DEFAULT 'repondu',
   `date_rdv` DATE DEFAULT NULL,
   `motif_rdv` ENUM('Banca','Epargne','Placement','Crédit','Assurances') DEFAULT NULL,
+  `is_anv` TINYINT(1) DEFAULT 0,
   `commentaire` TEXT DEFAULT NULL,
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (`seance_id`) REFERENCES `seances_phoning`(`id`) ON DELETE CASCADE,
