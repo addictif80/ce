@@ -467,4 +467,38 @@ CREATE TABLE IF NOT EXISTS `mobilites_chequiers` (
   FOREIGN KEY (`mobilite_id`) REFERENCES `mobilites`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Table EAI - Attendus (objectifs fixés par l'admin)
+CREATE TABLE IF NOT EXISTS `eai_attendus` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `cle` VARCHAR(50) NOT NULL UNIQUE,
+  `libelle` VARCHAR(255) NOT NULL,
+  `section` VARCHAR(50) NOT NULL,
+  `valeur_attendue` DECIMAL(15,2) DEFAULT 0,
+  `unite` VARCHAR(20) DEFAULT '',
+  `ordre` INT DEFAULT 0,
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table EAI - Rapports hebdomadaires
+CREATE TABLE IF NOT EXISTS `eai_rapports` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` INT NOT NULL,
+  `semaine_date` DATE NOT NULL,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY `unique_user_semaine` (`user_id`, `semaine_date`),
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table EAI - Valeurs par indicateur par rapport
+CREATE TABLE IF NOT EXISTS `eai_valeurs` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `rapport_id` INT NOT NULL,
+  `cle` VARCHAR(50) NOT NULL,
+  `valeur` DECIMAL(15,2) DEFAULT 0,
+  `auto_filled` TINYINT(1) DEFAULT 0,
+  UNIQUE KEY `unique_rapport_cle` (`rapport_id`, `cle`),
+  FOREIGN KEY (`rapport_id`) REFERENCES `eai_rapports`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 SET FOREIGN_KEY_CHECKS = 1;
