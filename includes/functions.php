@@ -260,6 +260,18 @@ function searchGlobal($query, $userId) {
         $results = array_merge($results, $stmt->fetchAll());
     } catch (Exception $e) {}
 
+    // Séances phoning (dossiers)
+    $stmt = $db->prepare("SELECT id, COALESCE(titre, CONCAT('Séance du ', DATE_FORMAT(date_ajout, '%d/%m/%Y'))) AS titre, CONCAT(nombre_appels, ' appels, ', nombre_rdv, ' RDV') AS detail, 'phoning' AS type FROM seances_phoning WHERE user_id = ? AND (titre LIKE ? OR notes LIKE ?)");
+    $stmt->execute([$userId, $like, $like]);
+    $results = array_merge($results, $stmt->fetchAll());
+
+    // Appels phoning (recherche par numéro/nom ou commentaire)
+    try {
+        $stmt = $db->prepare("SELECT a.seance_id AS id, CONCAT(COALESCE(a.numero_personne, ''), ' (', a.resultat, ')') AS titre, COALESCE(a.commentaire, '') AS detail, 'phoning' AS type FROM appels_phoning a WHERE a.user_id = ? AND (a.numero_personne LIKE ? OR a.commentaire LIKE ?)");
+        $stmt->execute([$userId, $like, $like]);
+        $results = array_merge($results, $stmt->fetchAll());
+    } catch (Exception $e) {}
+
     return $results;
 }
 

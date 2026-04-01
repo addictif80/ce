@@ -28,7 +28,7 @@ $proceduresEnAvant = $stmtProc->fetchAll();
             'instances' => 'Instance', 'rappels' => 'Rappel', 'offres' => 'Offre',
             'codes' => 'Code utile', 'contacts' => 'Contact', 'demandes_clients' => 'Demande client',
             'blocnotes' => 'Bloc-notes', 'procedures' => 'Procédure', 'courriers' => 'Courrier',
-            'formations' => 'Formation', 'equipe' => 'Équipe'
+            'formations' => 'Formation', 'equipe' => 'Équipe', 'phoning' => 'Phoning'
         ];
         $typeLinks = [
             'instances' => 'modules/instances/index.php', 'rappels' => 'modules/rappels/index.php',
@@ -36,7 +36,7 @@ $proceduresEnAvant = $stmtProc->fetchAll();
             'contacts' => 'modules/contacts/index.php', 'demandes_clients' => 'modules/demandes_clients/index.php',
             'blocnotes' => 'modules/blocnotes/index.php', 'procedures' => 'modules/procedures/index.php',
             'courriers' => 'modules/courriers/index.php', 'formations' => 'modules/formations/index.php',
-            'equipe' => 'modules/contacts/index.php'
+            'equipe' => 'modules/contacts/index.php', 'phoning' => 'modules/phoning/index.php'
         ];
         foreach ($searchResults as $r): ?>
             <div class="search-result-item">
@@ -45,7 +45,7 @@ $proceduresEnAvant = $stmtProc->fetchAll();
                     <strong class="ms-2"><?= e($r['titre']) ?></strong>
                     <span class="text-muted ms-2"><?= e(excerpt($r['detail'], 100)) ?></span>
                 </div>
-                <a href="<?= $typeLinks[$r['type']] ?? '#' ?>" class="btn btn-sm btn-ce-outline">Voir</a>
+                <a href="<?= $typeLinks[$r['type']] ?? '#' ?><?= !empty($r['id']) ? '?open=' . (int)$r['id'] : '' ?>" class="btn btn-sm btn-ce-outline">Voir</a>
             </div>
         <?php endforeach; ?>
     <?php endif; ?>
