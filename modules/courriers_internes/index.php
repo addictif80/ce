@@ -319,6 +319,9 @@ $modeles = $stmt->fetchAll();
                                     <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertBuiltinVar('add', 'civilite')"><code>{{civilite}}</code></button>
                                     <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertBuiltinVar('add', 'nom_dest')"><code>{{nom_dest}}</code></button>
                                     <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertBuiltinVar('add', 'prenom_dest')"><code>{{prenom_dest}}</code></button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertBuiltinVar('add', 'adresse_dest')"><code>{{adresse_dest}}</code></button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertBuiltinVar('add', 'cp_ville_dest')"><code>{{cp_ville_dest}}</code></button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertBuiltinVar('add', 'date_naissance_dest')"><code>{{date_naissance_dest}}</code></button>
                                 </div>
                                 <div id="addVariablesContainer"></div>
                             </div>
@@ -601,10 +604,17 @@ function getBuiltinVariables(prefix) {
     const civiliteEl = document.getElementById(prefix + 'Civilite');
     const nomEl = document.getElementById(prefix + 'NomDest');
     const prenomEl = document.getElementById(prefix + 'PrenomDest');
+    const form = civiliteEl ? civiliteEl.closest('form') : null;
+    const adresseVal = form ? (form.querySelector('[name="adresse_dest"]')?.value || '') : '';
+    const cpVilleVal = form ? (form.querySelector('[name="cp_ville_dest"]')?.value || '') : '';
+    const dateNaissVal = form ? (form.querySelector('[name="date_naissance_dest"]')?.value || '') : '';
     return {
         'civilite': civiliteEl ? civiliteEl.value : '',
         'nom_dest': nomEl ? nomEl.value : '',
-        'prenom_dest': prenomEl ? prenomEl.value : ''
+        'prenom_dest': prenomEl ? prenomEl.value : '',
+        'adresse_dest': adresseVal,
+        'cp_ville_dest': cpVilleVal,
+        'date_naissance_dest': dateNaissVal ? fmtDate(dateNaissVal) : ''
     };
 }
 
@@ -669,7 +679,7 @@ function replaceVariables(text, vars) {
 }
 
 // Auto-détecter les variables {{...}} dans le contenu d'un modèle (exclut les variables fixes)
-const BUILTIN_VARS = ['civilite', 'nom_dest', 'prenom_dest'];
+const BUILTIN_VARS = ['civilite', 'nom_dest', 'prenom_dest', 'adresse_dest', 'cp_ville_dest', 'date_naissance_dest'];
 function detectVariables(text) {
     const matches = text.match(/\{\{([^}]+)\}\}/g);
     if (!matches) return [];
@@ -882,6 +892,9 @@ function editCourrier(id) {
                             <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertBuiltinVar('edit', 'civilite')"><code>{{civilite}}</code></button>
                             <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertBuiltinVar('edit', 'nom_dest')"><code>{{nom_dest}}</code></button>
                             <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertBuiltinVar('edit', 'prenom_dest')"><code>{{prenom_dest}}</code></button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertBuiltinVar('edit', 'adresse_dest')"><code>{{adresse_dest}}</code></button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertBuiltinVar('edit', 'cp_ville_dest')"><code>{{cp_ville_dest}}</code></button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertBuiltinVar('edit', 'date_naissance_dest')"><code>{{date_naissance_dest}}</code></button>
                         </div>
                         <div id="editVariablesContainer"></div>
                     </div>
