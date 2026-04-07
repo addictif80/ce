@@ -33,9 +33,7 @@ if (empty($demande['token'])) {
 }
 
 // URL du bouton "Marquer comme traité"
-$scheme    = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
-$basePath  = rtrim(dirname(dirname(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH))), '/');
-$traiterUrl = $scheme . '://' . $_SERVER['HTTP_HOST'] . $basePath . '/rappels_clients/traiter.php?token=' . urlencode($demande['token']);
+$traiterUrl = rtrim(APP_URL, '/') . '/modules/rappels_clients/traiter.php?token=' . urlencode($demande['token']);
 
 $expediteur    = trim($user['prenom'] . ' ' . $user['nom']);
 $conseillerNom = trim($demande['cons_prenom'] . ' ' . $demande['cons_nom']);

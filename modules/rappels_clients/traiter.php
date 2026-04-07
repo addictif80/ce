@@ -3,7 +3,7 @@
  * Page publique (sans connexion) permettant au conseiller de marquer
  * une demande de rappel comme traitée via le lien reçu par mail.
  */
-require_once __DIR__ . '/../../includes/db.php';
+require_once __DIR__ . '/../../includes/config.php';
 
 $token = trim($_GET['token'] ?? '');
 
