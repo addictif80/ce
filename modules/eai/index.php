@@ -167,22 +167,24 @@ function getEaiAutoFillData($db, $userId, $tuesdayDate) {
     $data['rdv_proactifs_s2'] = (int)$r['total'];
     $data['rdv_anv_s2'] = (int)$r['anv'];
 
-    // ========= VENTES depuis suivi_production (semaine passée) =========
+    // ========= VENTES depuis suivi_production (sem. passée + sem. en cours jusqu'à aujourd'hui) =========
+    $ventesFrom = $prevMon;
+    $ventesTo   = (new DateTime())->format('Y-m-d'); // jusqu'à aujourd'hui inclus
 
     // Clés comptées (COUNT des lignes)
     $clesCount = ['ventes_brut_anv', 'cartes_hdg_dd', 'izicartes', 'forfaits', 'livrets',
                   'pel_quadreto', 'assvie_peri', 'nouveau_societaire', 'equip_jequip', 'bp_jbp'];
     $stmtCount = $db->prepare("SELECT COALESCE(COUNT(*), 0) FROM suivi_production WHERE user_id = ? AND eai_cle = ? AND DATE(date_rdv) BETWEEN ? AND ?");
     foreach ($clesCount as $cle) {
-        $stmtCount->execute([$userId, $cle, $prevMon, $prevSun]);
+        $stmtCount->execute([$userId, $cle, $ventesFrom, $ventesTo]);
         $data[$cle] = (int)$stmtCount->fetchColumn();
     }
 
-    // Clés monétaires (SUM du montant_nombre) — sem. passée
+    // Clés monétaires (SUM du montant_nombre) — sem. passée + sem. en cours
     $clesSum = ['volume_pret_perso', 'volume_collecte', 'volume_parts_sociales'];
     $stmtSum = $db->prepare("SELECT COALESCE(SUM(CAST(montant_nombre AS DECIMAL(15,2))), 0) FROM suivi_production WHERE user_id = ? AND eai_cle = ? AND DATE(date_rdv) BETWEEN ? AND ?");
     foreach ($clesSum as $cle) {
-        $stmtSum->execute([$userId, $cle, $prevMon, $prevSun]);
+        $stmtSum->execute([$userId, $cle, $ventesFrom, $ventesTo]);
         $data[$cle] = (float)$stmtSum->fetchColumn();
     }
 
