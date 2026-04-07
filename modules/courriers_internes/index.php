@@ -18,6 +18,7 @@ $db->exec("CREATE TABLE IF NOT EXISTS courriers_internes (
     adresse_dest VARCHAR(255) DEFAULT '',
     complement_adresse_dest VARCHAR(255) DEFAULT '',
     cp_ville_dest VARCHAR(255) DEFAULT '',
+    date_naissance_dest DATE DEFAULT NULL,
     lieu VARCHAR(255) DEFAULT 'Capdenac-Gare',
     date_courrier DATETIME DEFAULT CURRENT_TIMESTAMP,
     objet VARCHAR(500) NOT NULL,
@@ -30,6 +31,7 @@ try { $db->exec("ALTER TABLE courriers_internes ADD COLUMN complement_dest VARCH
 try { $db->exec("ALTER TABLE courriers_internes ADD COLUMN adresse_dest VARCHAR(255) DEFAULT '' AFTER complement_dest"); } catch (PDOException $e) {}
 try { $db->exec("ALTER TABLE courriers_internes ADD COLUMN complement_adresse_dest VARCHAR(255) DEFAULT '' AFTER adresse_dest"); } catch (PDOException $e) {}
 try { $db->exec("ALTER TABLE courriers_internes ADD COLUMN cp_ville_dest VARCHAR(255) DEFAULT '' AFTER complement_adresse_dest"); } catch (PDOException $e) {}
+try { $db->exec("ALTER TABLE courriers_internes ADD COLUMN date_naissance_dest DATE DEFAULT NULL AFTER cp_ville_dest"); } catch (PDOException $e) {}
 
 $db->exec("CREATE TABLE IF NOT EXISTS modeles_courriers_internes (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -49,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $nom = $_POST['nom_dest'] ?? '';
     $prenom = $_POST['prenom_dest'] ?? '';
     $nomPrenom = trim($civilite . ' ' . $prenom . ' ' . $nom);
-    $stmt = $db->prepare("INSERT INTO courriers_internes (user_id, civilite_dest, nom_dest, prenom_dest, nom_prenom_dest, complement_dest, adresse_dest, complement_adresse_dest, cp_ville_dest, lieu, objet, corps) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt = $db->prepare("INSERT INTO courriers_internes (user_id, civilite_dest, nom_dest, prenom_dest, nom_prenom_dest, complement_dest, adresse_dest, complement_adresse_dest, cp_ville_dest, date_naissance_dest, lieu, objet, corps) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     $stmt->execute([
         $userId,
         $civilite,
@@ -60,6 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $_POST['adresse_dest'] ?? '',
         $_POST['complement_adresse_dest'] ?? '',
         $_POST['cp_ville_dest'] ?? '',
+        !empty($_POST['date_naissance_dest']) ? $_POST['date_naissance_dest'] : null,
         $_POST['lieu'] ?: 'Capdenac-Gare',
         $_POST['objet'],
         $_POST['corps']
@@ -74,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $nom = $_POST['nom_dest'] ?? '';
     $prenom = $_POST['prenom_dest'] ?? '';
     $nomPrenom = trim($civilite . ' ' . $prenom . ' ' . $nom);
-    $stmt = $db->prepare("UPDATE courriers_internes SET civilite_dest = ?, nom_dest = ?, prenom_dest = ?, nom_prenom_dest = ?, complement_dest = ?, adresse_dest = ?, complement_adresse_dest = ?, cp_ville_dest = ?, lieu = ?, objet = ?, corps = ? WHERE id = ? AND user_id = ?");
+    $stmt = $db->prepare("UPDATE courriers_internes SET civilite_dest = ?, nom_dest = ?, prenom_dest = ?, nom_prenom_dest = ?, complement_dest = ?, adresse_dest = ?, complement_adresse_dest = ?, cp_ville_dest = ?, date_naissance_dest = ?, lieu = ?, objet = ?, corps = ? WHERE id = ? AND user_id = ?");
     $stmt->execute([
         $civilite,
         $nom,
@@ -84,6 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $_POST['adresse_dest'] ?? '',
         $_POST['complement_adresse_dest'] ?? '',
         $_POST['cp_ville_dest'] ?? '',
+        !empty($_POST['date_naissance_dest']) ? $_POST['date_naissance_dest'] : null,
         $_POST['lieu'] ?: 'Capdenac-Gare',
         $_POST['objet'],
         $_POST['corps'],
@@ -277,15 +281,19 @@ $modeles = $stmt->fetchAll();
                             <label class="form-label">Complément d'adresse</label>
                             <input type="text" name="complement_adresse_dest" class="form-control">
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label">Code postal et ville</label>
                             <input type="text" name="cp_ville_dest" class="form-control">
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Date de naissance</label>
+                            <input type="date" name="date_naissance_dest" class="form-control">
+                        </div>
+                        <div class="col-md-2">
                             <label class="form-label">Lieu</label>
                             <input type="text" name="lieu" class="form-control" value="Capdenac-Gare">
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <label class="form-label">Date</label>
                             <input type="text" class="form-control" value="<?= date('d/m/Y') ?>" disabled>
                         </div>
@@ -752,6 +760,7 @@ function showDetail(id) {
 
     const clientName = [c.civilite_dest, c.prenom_dest, c.nom_dest].filter(Boolean).join(' ') || c.nom_prenom_dest;
     let clientLines = clientName;
+    if (c.date_naissance_dest) clientLines += '<br>Né(e) le ' + fmtDate(c.date_naissance_dest);
     if (c.complement_dest) clientLines += '<br>' + c.complement_dest;
     if (c.adresse_dest) clientLines += '<br>' + c.adresse_dest;
     if (c.complement_adresse_dest) clientLines += '<br>' + c.complement_adresse_dest;
@@ -839,15 +848,19 @@ function editCourrier(id) {
                     <label class="form-label">Complément d'adresse</label>
                     <input type="text" name="complement_adresse_dest" class="form-control" value="${c.complement_adresse_dest || ''}">
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <label class="form-label">Code postal et ville</label>
                     <input type="text" name="cp_ville_dest" class="form-control" value="${c.cp_ville_dest || ''}">
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-4">
+                    <label class="form-label">Date de naissance</label>
+                    <input type="date" name="date_naissance_dest" class="form-control" value="${c.date_naissance_dest || ''}">
+                </div>
+                <div class="col-md-2">
                     <label class="form-label">Lieu</label>
                     <input type="text" name="lieu" class="form-control" value="${c.lieu || 'Capdenac-Gare'}">
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label">Date</label>
                     <input type="text" class="form-control" value="${fmtDate(c.date_courrier)}" disabled>
                 </div>
@@ -907,6 +920,7 @@ function printCourrier(id) {
 
     const clientName = [c.civilite_dest, c.prenom_dest, c.nom_dest].filter(Boolean).join(' ') || c.nom_prenom_dest;
     let clientLines = clientName;
+    if (c.date_naissance_dest) clientLines += '<br>Né(e) le ' + fmtDate(c.date_naissance_dest);
     if (c.complement_dest) clientLines += '<br>' + c.complement_dest;
     if (c.adresse_dest) clientLines += '<br>' + c.adresse_dest;
     if (c.complement_adresse_dest) clientLines += '<br>' + c.complement_adresse_dest;
