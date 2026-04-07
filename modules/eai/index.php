@@ -61,16 +61,16 @@ $kpiDefs = [
     ['cle' => 'taux_decroche', 'libelle' => 'Taux décroché', 'section' => 'activite', 'unite' => '%', 'ordre' => 14],
     ['cle' => 'taux_reponse_mails', 'libelle' => 'Taux réponse aux mails', 'section' => 'activite', 'unite' => '%', 'ordre' => 15],
     ['cle' => 'volume_appels_sortants', 'libelle' => 'Volume appels sortants', 'section' => 'activite', 'unite' => '', 'ordre' => 16],
-    // Section RDV
-    ['cle' => 'rdv_s', 'libelle' => 'Nombre de RDV - S', 'section' => 'rdv', 'unite' => '', 'ordre' => 17],
-    ['cle' => 'rdv_s1', 'libelle' => 'Nombre de RDV - S+1', 'section' => 'rdv', 'unite' => '', 'ordre' => 18],
-    ['cle' => 'rdv_s2', 'libelle' => 'Nombre de RDV - S+2', 'section' => 'rdv', 'unite' => '', 'ordre' => 19],
-    ['cle' => 'rdv_proactifs_s', 'libelle' => 'RDV Proactifs - S', 'section' => 'rdv', 'unite' => '', 'ordre' => 20],
-    ['cle' => 'rdv_proactifs_s1', 'libelle' => 'RDV Proactifs - S+1', 'section' => 'rdv', 'unite' => '', 'ordre' => 21],
-    ['cle' => 'rdv_proactifs_s2', 'libelle' => 'RDV Proactifs - S+2', 'section' => 'rdv', 'unite' => '', 'ordre' => 22],
-    ['cle' => 'rdv_anv_s', 'libelle' => 'RDV ANV - S', 'section' => 'rdv', 'unite' => '', 'ordre' => 23],
-    ['cle' => 'rdv_anv_s1', 'libelle' => 'RDV ANV - S+1', 'section' => 'rdv', 'unite' => '', 'ordre' => 24],
-    ['cle' => 'rdv_anv_s2', 'libelle' => 'RDV ANV - S+2', 'section' => 'rdv', 'unite' => '', 'ordre' => 25],
+    // Section RDV — S = sem. passée, S+1 = sem. en cours, S+2 = sem. prochaine
+    ['cle' => 'rdv_s', 'libelle' => 'Nombre de RDV - Sem. passée', 'section' => 'rdv', 'unite' => '', 'ordre' => 17],
+    ['cle' => 'rdv_s1', 'libelle' => 'Nombre de RDV - Sem. en cours', 'section' => 'rdv', 'unite' => '', 'ordre' => 18],
+    ['cle' => 'rdv_s2', 'libelle' => 'Nombre de RDV - Sem. prochaine', 'section' => 'rdv', 'unite' => '', 'ordre' => 19],
+    ['cle' => 'rdv_proactifs_s', 'libelle' => 'RDV Proactifs - Sem. passée', 'section' => 'rdv', 'unite' => '', 'ordre' => 20],
+    ['cle' => 'rdv_proactifs_s1', 'libelle' => 'RDV Proactifs - Sem. en cours', 'section' => 'rdv', 'unite' => '', 'ordre' => 21],
+    ['cle' => 'rdv_proactifs_s2', 'libelle' => 'RDV Proactifs - Sem. prochaine', 'section' => 'rdv', 'unite' => '', 'ordre' => 22],
+    ['cle' => 'rdv_anv_s', 'libelle' => 'RDV ANV - Sem. passée', 'section' => 'rdv', 'unite' => '', 'ordre' => 23],
+    ['cle' => 'rdv_anv_s1', 'libelle' => 'RDV ANV - Sem. en cours', 'section' => 'rdv', 'unite' => '', 'ordre' => 24],
+    ['cle' => 'rdv_anv_s2', 'libelle' => 'RDV ANV - Sem. prochaine', 'section' => 'rdv', 'unite' => '', 'ordre' => 25],
     // Section Portefeuille
     ['cle' => 'myflow_en_cours', 'libelle' => 'MyFlow en cours', 'section' => 'portefeuille', 'unite' => '', 'ordre' => 26],
     ['cle' => 'vigiclients_en_cours', 'libelle' => 'Vigiclients en cours', 'section' => 'portefeuille', 'unite' => '', 'ordre' => 27],
@@ -88,83 +88,107 @@ if ($count == 0) {
     }
 }
 
+// Migration : mise à jour des libellés RDV pour refléter sem. passée / en cours / prochaine
+$rdvLabels = [
+    'rdv_s'           => 'Nombre de RDV - Sem. passée',
+    'rdv_s1'          => 'Nombre de RDV - Sem. en cours',
+    'rdv_s2'          => 'Nombre de RDV - Sem. prochaine',
+    'rdv_proactifs_s' => 'RDV Proactifs - Sem. passée',
+    'rdv_proactifs_s1'=> 'RDV Proactifs - Sem. en cours',
+    'rdv_proactifs_s2'=> 'RDV Proactifs - Sem. prochaine',
+    'rdv_anv_s'       => 'RDV ANV - Sem. passée',
+    'rdv_anv_s1'      => 'RDV ANV - Sem. en cours',
+    'rdv_anv_s2'      => 'RDV ANV - Sem. prochaine',
+];
+$stmtLabel = $db->prepare("UPDATE eai_attendus SET libelle = ? WHERE cle = ? AND libelle != ?");
+foreach ($rdvLabels as $cle => $libelle) {
+    try { $stmtLabel->execute([$libelle, $cle, $libelle]); } catch (Exception $e) {}
+}
+
 // ========= FONCTION AUTO-FILL =========
 function getEaiAutoFillData($db, $userId, $tuesdayDate) {
+    // Calcul du lundi de la semaine en cours (contenant le mardi de génération)
     $dt = new DateTime($tuesdayDate);
     $dow = (int)$dt->format('N');
     $mondayDt = clone $dt;
     $mondayDt->modify('-' . ($dow - 1) . ' days');
 
-    $monday = $mondayDt->format('Y-m-d');
-    $sunday = (clone $mondayDt)->modify('+6 days')->format('Y-m-d');
+    // Semaine passée (S-1) : activité + RDV de la sem. dernière
+    $prevMon = (clone $mondayDt)->modify('-7 days')->format('Y-m-d');
+    $prevSun = (clone $mondayDt)->modify('-1 day')->format('Y-m-d');
+
+    // Semaine en cours (S) : RDV de cette semaine (dont ANV)
+    $curMon = $mondayDt->format('Y-m-d');
+    $curSun = (clone $mondayDt)->modify('+6 days')->format('Y-m-d');
+
+    // Semaine prochaine (S+1) : RDV de la semaine prochaine (dont ANV)
     $nextMon = (clone $mondayDt)->modify('+7 days')->format('Y-m-d');
     $nextSun = (clone $mondayDt)->modify('+13 days')->format('Y-m-d');
-    $next2Mon = (clone $mondayDt)->modify('+14 days')->format('Y-m-d');
-    $next2Sun = (clone $mondayDt)->modify('+20 days')->format('Y-m-d');
 
     $data = [];
 
-    // Volume appels sortants (séances phoning de la semaine)
+    // ========= ACTIVITÉ (semaine passée) =========
+
+    // Volume appels sortants — sem. passée
     $stmt = $db->prepare("SELECT COALESCE(SUM(nombre_appels), 0) FROM seances_phoning WHERE user_id = ? AND date_ajout BETWEEN ? AND ?");
-    $stmt->execute([$userId, $monday, $sunday]);
+    $stmt->execute([$userId, $prevMon, $prevSun]);
     $data['volume_appels_sortants'] = (float)$stmt->fetchColumn();
 
-    // Taux décroché (appels individuels de la semaine)
+    // Taux décroché — sem. passée
     $stmt = $db->prepare("SELECT COUNT(*) as total, SUM(resultat IN ('repondu','rdv')) as decroche FROM appels_phoning WHERE user_id = ? AND DATE(created_at) BETWEEN ? AND ?");
-    $stmt->execute([$userId, $monday, $sunday]);
+    $stmt->execute([$userId, $prevMon, $prevSun]);
     $r = $stmt->fetch();
     $total = (int)$r['total'];
     $data['taux_decroche'] = $total > 0 ? round((float)$r['decroche'] / $total * 100, 1) : 0;
 
-    // RDV par semaine (S, S+1, S+2) depuis appels_phoning
+    // ========= RDV =========
+    // S = sem. passée | S+1 = sem. en cours | S+2 = sem. prochaine
     $rdvStmt = $db->prepare("SELECT COUNT(*) as total, COALESCE(SUM(is_anv = 1), 0) as anv FROM appels_phoning WHERE user_id = ? AND resultat = 'rdv' AND date_rdv BETWEEN ? AND ?");
 
-    // S
-    $rdvStmt->execute([$userId, $monday, $sunday]);
+    // S (sem. passée)
+    $rdvStmt->execute([$userId, $prevMon, $prevSun]);
     $r = $rdvStmt->fetch();
     $data['rdv_s'] = (int)$r['total'];
     $data['rdv_proactifs_s'] = (int)$r['total'];
     $data['rdv_anv_s'] = (int)$r['anv'];
 
-    // S+1
-    $rdvStmt->execute([$userId, $nextMon, $nextSun]);
+    // S+1 (sem. en cours)
+    $rdvStmt->execute([$userId, $curMon, $curSun]);
     $r = $rdvStmt->fetch();
     $data['rdv_s1'] = (int)$r['total'];
     $data['rdv_proactifs_s1'] = (int)$r['total'];
     $data['rdv_anv_s1'] = (int)$r['anv'];
 
-    // S+2
-    $rdvStmt->execute([$userId, $next2Mon, $next2Sun]);
+    // S+2 (sem. prochaine)
+    $rdvStmt->execute([$userId, $nextMon, $nextSun]);
     $r = $rdvStmt->fetch();
     $data['rdv_s2'] = (int)$r['total'];
     $data['rdv_proactifs_s2'] = (int)$r['total'];
     $data['rdv_anv_s2'] = (int)$r['anv'];
 
-    // Ventes brut ANV = total des RDV ANV toutes semaines confondues
-    $data['ventes_brut_anv'] = $data['rdv_anv_s'] + $data['rdv_anv_s1'] + $data['rdv_anv_s2'];
+    // ========= VENTES depuis suivi_production (semaine passée) =========
 
-    // ========= VENTES depuis suivi_production (semaine S) =========
     // Clés comptées (COUNT des lignes)
-    $clesCount = ['cartes_hdg_dd', 'izicartes', 'forfaits', 'livrets', 'pel_quadreto',
-                  'assvie_peri', 'nouveau_societaire', 'equip_jequip', 'bp_jbp'];
+    $clesCount = ['ventes_brut_anv', 'cartes_hdg_dd', 'izicartes', 'forfaits', 'livrets',
+                  'pel_quadreto', 'assvie_peri', 'nouveau_societaire', 'equip_jequip', 'bp_jbp'];
     $stmtCount = $db->prepare("SELECT COALESCE(COUNT(*), 0) FROM suivi_production WHERE user_id = ? AND eai_cle = ? AND DATE(date_rdv) BETWEEN ? AND ?");
     foreach ($clesCount as $cle) {
-        $stmtCount->execute([$userId, $cle, $monday, $sunday]);
+        $stmtCount->execute([$userId, $cle, $prevMon, $prevSun]);
         $data[$cle] = (int)$stmtCount->fetchColumn();
     }
 
-    // Clés monétaires (SUM du montant_nombre)
+    // Clés monétaires (SUM du montant_nombre) — sem. passée
     $clesSum = ['volume_pret_perso', 'volume_collecte', 'volume_parts_sociales'];
     $stmtSum = $db->prepare("SELECT COALESCE(SUM(CAST(montant_nombre AS DECIMAL(15,2))), 0) FROM suivi_production WHERE user_id = ? AND eai_cle = ? AND DATE(date_rdv) BETWEEN ? AND ?");
     foreach ($clesSum as $cle) {
-        $stmtSum->execute([$userId, $cle, $monday, $sunday]);
+        $stmtSum->execute([$userId, $cle, $prevMon, $prevSun]);
         $data[$cle] = (float)$stmtSum->fetchColumn();
     }
 
-    // ANV depuis production (prioritaire sur le calcul RDV si des entrées existent)
-    $stmtCount->execute([$userId, 'ventes_brut_anv', $monday, $sunday]);
-    $anvProd = (int)$stmtCount->fetchColumn();
-    if ($anvProd > 0) $data['ventes_brut_anv'] = $anvProd;
+    // Si aucun ANV en production, fallback sur les RDV ANV sem. passée (phoning)
+    if ($data['ventes_brut_anv'] === 0) {
+        $data['ventes_brut_anv'] = $data['rdv_anv_s'];
+    }
 
     return $data;
 }
