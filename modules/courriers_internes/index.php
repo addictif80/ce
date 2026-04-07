@@ -492,6 +492,7 @@ $modeles = $stmt->fetchAll();
 }
 .letter-preview .lp-objet {
     font-weight: bold;
+    text-decoration: underline;
     margin: 10px 0;
     font-size: 14px;
 }
@@ -770,7 +771,6 @@ function showDetail(id) {
 
     const clientName = [c.civilite_dest, c.prenom_dest, c.nom_dest].filter(Boolean).join(' ') || c.nom_prenom_dest;
     let clientLines = clientName;
-    if (c.date_naissance_dest) clientLines += '<br>Né(e) le ' + fmtDate(c.date_naissance_dest);
     if (c.complement_dest) clientLines += '<br>' + c.complement_dest;
     if (c.adresse_dest) clientLines += '<br>' + c.adresse_dest;
     if (c.complement_adresse_dest) clientLines += '<br>' + c.complement_adresse_dest;
@@ -778,14 +778,12 @@ function showDetail(id) {
 
     document.getElementById('detailContent').innerHTML = `
         <div class="letter-preview">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:40px;">
                 <div class="lp-client">${clientLines}</div>
-                <div class="lp-lieu-date" style="margin:0;">${c.lieu || 'Capdenac-Gare'}, le ${fmtDate(c.date_courrier)}</div>
+                <div class="lp-lieu-date" style="margin:0;text-align:right;">${c.lieu || 'Capdenac-Gare'}, le ${fmtDate(c.date_courrier)}</div>
             </div>
-            <br><br>
             <div class="lp-objet">Objet : ${c.objet}</div>
-            <br><br>
-            <div class="lp-corps">${c.corps}</div>
+            <div class="lp-corps" style="margin-top:30px;">${c.corps}</div>
             <div class="lp-footer">${userData.prenom} ${userData.nom}</div>
         </div>
         <div class="text-center mt-3">
@@ -933,7 +931,6 @@ function printCourrier(id) {
 
     const clientName = [c.civilite_dest, c.prenom_dest, c.nom_dest].filter(Boolean).join(' ') || c.nom_prenom_dest;
     let clientLines = clientName;
-    if (c.date_naissance_dest) clientLines += '<br>Né(e) le ' + fmtDate(c.date_naissance_dest);
     if (c.complement_dest) clientLines += '<br>' + c.complement_dest;
     if (c.adresse_dest) clientLines += '<br>' + c.adresse_dest;
     if (c.complement_adresse_dest) clientLines += '<br>' + c.complement_adresse_dest;
@@ -941,16 +938,20 @@ function printCourrier(id) {
 
     const printArea = document.getElementById('printArea');
     printArea.innerHTML = `
-        <div style="font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.4;color:#000;">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-                <div style="font-size:11pt;font-weight:500;line-height:1.5;">${clientLines}</div>
-                <div style="text-align:right;">${c.lieu || 'Capdenac-Gare'}, le ${fmtDate(c.date_courrier)}</div>
+        <div style="font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.5;color:#000;">
+            <!-- Bloc client (haut gauche) + lieu/date (haut droite) — normes NF Z11-001 -->
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:45mm;">
+                <div style="font-size:11pt;line-height:1.6;">${clientLines}</div>
+                <div style="text-align:right;font-size:11pt;">${c.lieu || 'Capdenac-Gare'}, le ${fmtDate(c.date_courrier)}</div>
             </div>
-            <br><br>
-            <div style="font-weight:bold;">Objet : ${c.objet}</div>
-            <br><br>
-            <div style="text-align:justify;">${c.corps}</div>
-            <div style="text-align:right;margin-top:40px;">${userData.prenom} ${userData.nom}</div>
+            <!-- Objet -->
+            <div style="font-weight:bold;text-decoration:underline;margin-bottom:8mm;">Objet : ${c.objet}</div>
+            <!-- Corps -->
+            <div style="text-align:justify;line-height:1.6;">${c.corps}</div>
+            <!-- Signature -->
+            <div style="text-align:right;margin-top:20mm;">
+                <div>${userData.prenom} ${userData.nom}</div>
+            </div>
         </div>
     `;
     printArea.style.display = 'block';
