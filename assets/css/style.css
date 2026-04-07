@@ -371,6 +371,12 @@ body {
     color: var(--ce-blue);
 }
 
+.stat-sep {
+    font-weight: 300;
+    opacity: 0.4;
+    margin: 0 4px;
+}
+
 /* DATA TABLE */
 .data-table-container {
     background: white;

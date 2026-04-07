@@ -55,17 +55,32 @@ $proceduresEnAvant = $stmtProc->fetchAll();
 <!-- Stats -->
 <div class="row g-3 mb-4">
     <div class="col-md-3">
-        <div class="stat-card">
-            <div class="stat-number"><?= $stats['instances_a_faire'] ?></div>
-            <div class="stat-label">Instances à traiter</div>
+        <div class="stat-card stat-warning">
+            <div class="stat-number"><?= $stats['instances_a_faire'] ?> <span class="stat-sep">|</span> <?= $stats['instances_retard'] ?></div>
+            <div class="stat-label">Instances à traiter | en retard</div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="stat-card stat-warning">
-            <div class="stat-number"><?= $stats['instances_retard'] ?></div>
-            <div class="stat-label">Instances en retard</div>
+        <div class="stat-card">
+            <div class="stat-number"><?= $stats['offres_en_cours'] ?> <span class="stat-sep">|</span> <?= $stats['offres_terminees'] ?></div>
+            <div class="stat-label">Offres en cours | terminées</div>
         </div>
     </div>
+    <div class="col-md-3">
+        <div class="stat-card stat-info">
+            <div class="stat-number"><?= $stats['phoning_reste_appels'] ?> <span class="stat-sep">|</span> <?= $stats['phoning_reste_rdv'] ?></div>
+            <div class="stat-label">Appels restants | RDV restants</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card stat-success">
+            <div class="stat-number"><?= $stats['formations_a_venir'] ?> <span class="stat-sep">|</span> <?= $stats['formations_non_expansya'] ?></div>
+            <div class="stat-label">Formations à venir | notes de frais</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
     <div class="col-md-3">
         <div class="stat-card stat-info">
             <div class="stat-number"><?= $stats['rappels_en_cours'] ?></div>
@@ -76,49 +91,6 @@ $proceduresEnAvant = $stmtProc->fetchAll();
         <div class="stat-card stat-success">
             <div class="stat-number"><?= $stats['demandes_non_traitees'] ?></div>
             <div class="stat-label">Demandes clients en cours</div>
-        </div>
-    </div>
-</div>
-
-<div class="row g-3 mb-4">
-    <div class="col-md-3">
-        <div class="stat-card">
-            <div class="stat-number"><?= $stats['offres_en_cours'] ?></div>
-            <div class="stat-label">Offres en cours</div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="stat-card stat-warning">
-            <div class="stat-number"><?= $stats['offres_terminees'] ?></div>
-            <div class="stat-label">Offres terminées</div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="stat-card stat-info">
-            <div class="stat-number"><?= $stats['phoning_reste_appels'] ?></div>
-            <div class="stat-label">Appels restants (semaine)</div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="stat-card stat-warning">
-            <div class="stat-number"><?= $stats['phoning_reste_rdv'] ?></div>
-            <div class="stat-label">RDV restants (semaine)</div>
-        </div>
-    </div>
-</div>
-
-<!-- Formations -->
-<div class="row g-3 mb-4">
-    <div class="col-md-3">
-        <div class="stat-card stat-info">
-            <div class="stat-number"><?= $stats['formations_a_venir'] ?></div>
-            <div class="stat-label">Formations à venir</div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="stat-card stat-warning">
-            <div class="stat-number"><?= $stats['formations_non_expansya'] ?></div>
-            <div class="stat-label">Notes de frais non envoyées</div>
         </div>
     </div>
     <div class="col-md-3 d-flex align-items-center">
