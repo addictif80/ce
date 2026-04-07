@@ -14,12 +14,22 @@ $db->exec("CREATE TABLE IF NOT EXISTS courriers_internes (
     nom_dest VARCHAR(255) DEFAULT '',
     prenom_dest VARCHAR(255) DEFAULT '',
     nom_prenom_dest VARCHAR(255) NOT NULL,
+    complement_dest VARCHAR(255) DEFAULT '',
+    adresse_dest VARCHAR(255) DEFAULT '',
+    complement_adresse_dest VARCHAR(255) DEFAULT '',
+    cp_ville_dest VARCHAR(255) DEFAULT '',
     lieu VARCHAR(255) DEFAULT 'Capdenac-Gare',
     date_courrier DATETIME DEFAULT CURRENT_TIMESTAMP,
     objet VARCHAR(500) NOT NULL,
     corps LONGTEXT,
     INDEX(user_id)
 )");
+
+// Migrations
+try { $db->exec("ALTER TABLE courriers_internes ADD COLUMN complement_dest VARCHAR(255) DEFAULT '' AFTER nom_prenom_dest"); } catch (PDOException $e) {}
+try { $db->exec("ALTER TABLE courriers_internes ADD COLUMN adresse_dest VARCHAR(255) DEFAULT '' AFTER complement_dest"); } catch (PDOException $e) {}
+try { $db->exec("ALTER TABLE courriers_internes ADD COLUMN complement_adresse_dest VARCHAR(255) DEFAULT '' AFTER adresse_dest"); } catch (PDOException $e) {}
+try { $db->exec("ALTER TABLE courriers_internes ADD COLUMN cp_ville_dest VARCHAR(255) DEFAULT '' AFTER complement_adresse_dest"); } catch (PDOException $e) {}
 
 $db->exec("CREATE TABLE IF NOT EXISTS modeles_courriers_internes (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -39,13 +49,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $nom = $_POST['nom_dest'] ?? '';
     $prenom = $_POST['prenom_dest'] ?? '';
     $nomPrenom = trim($civilite . ' ' . $prenom . ' ' . $nom);
-    $stmt = $db->prepare("INSERT INTO courriers_internes (user_id, civilite_dest, nom_dest, prenom_dest, nom_prenom_dest, lieu, objet, corps) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt = $db->prepare("INSERT INTO courriers_internes (user_id, civilite_dest, nom_dest, prenom_dest, nom_prenom_dest, complement_dest, adresse_dest, complement_adresse_dest, cp_ville_dest, lieu, objet, corps) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     $stmt->execute([
         $userId,
         $civilite,
         $nom,
         $prenom,
         $nomPrenom,
+        $_POST['complement_dest'] ?? '',
+        $_POST['adresse_dest'] ?? '',
+        $_POST['complement_adresse_dest'] ?? '',
+        $_POST['cp_ville_dest'] ?? '',
         $_POST['lieu'] ?: 'Capdenac-Gare',
         $_POST['objet'],
         $_POST['corps']
@@ -60,12 +74,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $nom = $_POST['nom_dest'] ?? '';
     $prenom = $_POST['prenom_dest'] ?? '';
     $nomPrenom = trim($civilite . ' ' . $prenom . ' ' . $nom);
-    $stmt = $db->prepare("UPDATE courriers_internes SET civilite_dest = ?, nom_dest = ?, prenom_dest = ?, nom_prenom_dest = ?, lieu = ?, objet = ?, corps = ? WHERE id = ? AND user_id = ?");
+    $stmt = $db->prepare("UPDATE courriers_internes SET civilite_dest = ?, nom_dest = ?, prenom_dest = ?, nom_prenom_dest = ?, complement_dest = ?, adresse_dest = ?, complement_adresse_dest = ?, cp_ville_dest = ?, lieu = ?, objet = ?, corps = ? WHERE id = ? AND user_id = ?");
     $stmt->execute([
         $civilite,
         $nom,
         $prenom,
         $nomPrenom,
+        $_POST['complement_dest'] ?? '',
+        $_POST['adresse_dest'] ?? '',
+        $_POST['complement_adresse_dest'] ?? '',
+        $_POST['cp_ville_dest'] ?? '',
         $_POST['lieu'] ?: 'Capdenac-Gare',
         $_POST['objet'],
         $_POST['corps'],
@@ -248,8 +266,28 @@ $modeles = $stmt->fetchAll();
                             <input type="text" name="prenom_dest" id="addPrenomDest" class="form-control" required>
                         </div>
                         <div class="col-md-3">
+                            <label class="form-label">Complément (titre, service...)</label>
+                            <input type="text" name="complement_dest" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Adresse</label>
+                            <input type="text" name="adresse_dest" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Complément d'adresse</label>
+                            <input type="text" name="complement_adresse_dest" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Code postal et ville</label>
+                            <input type="text" name="cp_ville_dest" class="form-control">
+                        </div>
+                        <div class="col-md-3">
                             <label class="form-label">Lieu</label>
                             <input type="text" name="lieu" class="form-control" value="Capdenac-Gare">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Date</label>
+                            <input type="text" class="form-control" value="<?= date('d/m/Y') ?>" disabled>
                         </div>
 
                         <!-- Objet -->
@@ -713,11 +751,16 @@ function showDetail(id) {
     if (!c) return;
 
     const clientName = [c.civilite_dest, c.prenom_dest, c.nom_dest].filter(Boolean).join(' ') || c.nom_prenom_dest;
+    let clientLines = clientName;
+    if (c.complement_dest) clientLines += '<br>' + c.complement_dest;
+    if (c.adresse_dest) clientLines += '<br>' + c.adresse_dest;
+    if (c.complement_adresse_dest) clientLines += '<br>' + c.complement_adresse_dest;
+    if (c.cp_ville_dest) clientLines += '<br>' + c.cp_ville_dest;
 
     document.getElementById('detailContent').innerHTML = `
         <div class="letter-preview">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-                <div class="lp-client">${clientName}</div>
+                <div class="lp-client">${clientLines}</div>
                 <div class="lp-lieu-date" style="margin:0;">${c.lieu || 'Capdenac-Gare'}, le ${fmtDate(c.date_courrier)}</div>
             </div>
             <br><br>
@@ -785,8 +828,28 @@ function editCourrier(id) {
                     <input type="text" name="prenom_dest" id="editPrenomDest" class="form-control" value="${c.prenom_dest || ''}" required>
                 </div>
                 <div class="col-md-3">
+                    <label class="form-label">Complément (titre, service...)</label>
+                    <input type="text" name="complement_dest" class="form-control" value="${c.complement_dest || ''}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Adresse</label>
+                    <input type="text" name="adresse_dest" class="form-control" value="${c.adresse_dest || ''}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Complément d'adresse</label>
+                    <input type="text" name="complement_adresse_dest" class="form-control" value="${c.complement_adresse_dest || ''}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Code postal et ville</label>
+                    <input type="text" name="cp_ville_dest" class="form-control" value="${c.cp_ville_dest || ''}">
+                </div>
+                <div class="col-md-3">
                     <label class="form-label">Lieu</label>
                     <input type="text" name="lieu" class="form-control" value="${c.lieu || 'Capdenac-Gare'}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Date</label>
+                    <input type="text" class="form-control" value="${fmtDate(c.date_courrier)}" disabled>
                 </div>
                 <div class="col-12">
                     <label class="form-label">Objet <span class="text-danger">*</span></label>
@@ -843,12 +906,17 @@ function printCourrier(id) {
     if (!c) return;
 
     const clientName = [c.civilite_dest, c.prenom_dest, c.nom_dest].filter(Boolean).join(' ') || c.nom_prenom_dest;
+    let clientLines = clientName;
+    if (c.complement_dest) clientLines += '<br>' + c.complement_dest;
+    if (c.adresse_dest) clientLines += '<br>' + c.adresse_dest;
+    if (c.complement_adresse_dest) clientLines += '<br>' + c.complement_adresse_dest;
+    if (c.cp_ville_dest) clientLines += '<br>' + c.cp_ville_dest;
 
     const printArea = document.getElementById('printArea');
     printArea.innerHTML = `
         <div style="font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.4;color:#000;">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-                <div style="font-size:11pt;font-weight:500;">${clientName}</div>
+                <div style="font-size:11pt;font-weight:500;line-height:1.5;">${clientLines}</div>
                 <div style="text-align:right;">${c.lieu || 'Capdenac-Gare'}, le ${fmtDate(c.date_courrier)}</div>
             </div>
             <br><br>
