@@ -4,6 +4,7 @@ require_once __DIR__ . '/../../templates/header.php';
 $db = getDB();
 $userId = getCurrentUserId();
 $isAdmin = isAdmin();
+$user = getCurrentUser();
 
 // ========= AUTO-MIGRATION =========
 try {
@@ -475,6 +476,9 @@ function formatVal($val, $unite) {
     </form>
     <?php if ($rapport): ?>
     <span class="badge bg-success align-self-center"><i class="fas fa-check"></i> EAI généré</span>
+    <button type="button" class="btn btn-ce-outline no-print" onclick="window.print()">
+        <i class="fas fa-file-pdf"></i> Imprimer PDF
+    </button>
     <?php endif; ?>
 </div>
 
@@ -606,15 +610,185 @@ function formatVal($val, $unite) {
     </div>
     <?php endforeach; ?>
 
-    <div class="d-flex justify-content-end gap-2 mb-4">
+    <div class="d-flex justify-content-end gap-2 mb-4 no-print">
+        <button type="button" class="btn btn-ce-outline" onclick="window.print()">
+            <i class="fas fa-file-pdf"></i> Imprimer PDF
+        </button>
         <button type="submit" class="btn btn-ce btn-lg">
             <i class="fas fa-save"></i> Enregistrer les valeurs
         </button>
     </div>
 </form>
 
+<!-- ===== ZONE D'IMPRESSION PDF ===== -->
+<div id="eai-print-area">
+    <div class="eai-ph">
+        <div>
+            <span class="eai-ph-title">EAI &mdash; Semaine <?= $weekNum ?> / <?= $yearNum ?></span><br>
+            <span class="eai-ph-sub">Mardi <?= $tuesdayLabel ?> &nbsp;&middot;&nbsp; <?= e($user['prenom'] . ' ' . $user['nom']) ?></span>
+        </div>
+        <div class="eai-ph-date">Imprimé le <?= date('d/m/Y') ?></div>
+    </div>
+
+    <?php foreach ($sections as $sectionKey => $sectionInfo): ?>
+    <div class="eai-ps">
+        <div class="eai-ps-title"><?= $sectionInfo['label'] ?></div>
+
+        <?php if ($sectionKey === 'rdv'): ?>
+        <table class="eai-pt">
+            <thead>
+                <tr>
+                    <th style="width:32%"></th>
+                    <th style="width:22.6%;text-align:center;">Sem. passée</th>
+                    <th style="width:22.6%;text-align:center;">Sem. en cours</th>
+                    <th style="width:22.6%;text-align:center;">Sem. prochaine</th>
+                </tr>
+            </thead>
+            <tbody>
+            <?php
+            $rdvGroups = [
+                'Nombre de RDV'  => ['rdv_s', 'rdv_s1', 'rdv_s2'],
+                'RDV Proactifs'  => ['rdv_proactifs_s', 'rdv_proactifs_s1', 'rdv_proactifs_s2'],
+                'RDV ANV'        => ['rdv_anv_s', 'rdv_anv_s1', 'rdv_anv_s2'],
+            ];
+            foreach ($rdvGroups as $groupLabel => $keys): ?>
+            <tr>
+                <td><strong><?= $groupLabel ?></strong></td>
+                <?php foreach ($keys as $cle):
+                    $realise = getValeur($valeurs, $cle);
+                    $attendu = getAttendu($attendus, $cle);
+                    $unite   = $attendus[$cle]['unite'] ?? '';
+                    $ecart   = $realise - $attendu;
+                    $cls = $attendu > 0 ? ($realise >= $attendu ? 'p-ok' : 'p-ko') : '';
+                ?>
+                <td style="text-align:center;">
+                    <strong class="<?= $cls ?>"><?= formatVal($realise, $unite) ?></strong>
+                    <?php if ($attendu > 0): ?>
+                    <span class="p-att"> / <?= formatVal($attendu, $unite) ?></span><br>
+                    <span class="<?= $cls ?> p-ecart"><?= $ecart >= 0 ? '+' : '' ?><?= formatVal($ecart, $unite) ?></span>
+                    <?php endif; ?>
+                </td>
+                <?php endforeach; ?>
+            </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+
+        <?php else: ?>
+        <table class="eai-pt">
+            <thead>
+                <tr>
+                    <th style="width:42%">Indicateur</th>
+                    <th style="width:19%;text-align:center;">Attendu</th>
+                    <th style="width:19%;text-align:center;">Réalisé</th>
+                    <th style="width:20%;text-align:center;">Écart</th>
+                </tr>
+            </thead>
+            <tbody>
+            <?php foreach ($attendus as $cle => $att):
+                if ($att['section'] !== $sectionKey) continue;
+                $realise    = getValeur($valeurs, $cle);
+                $attenduVal = (float)$att['valeur_attendue'];
+                $unite      = $att['unite'];
+                $ecart      = $realise - $attenduVal;
+                $inverse    = ($cle === 'rpm_clients_15j');
+                $ok = $attenduVal > 0 && ((!$inverse && $realise >= $attenduVal) || ($inverse && $realise <= $attenduVal));
+                $ko = $attenduVal > 0 && !$ok;
+                $cls = $ok ? 'p-ok' : ($ko ? 'p-ko' : '');
+            ?>
+            <tr>
+                <td><?= e($att['libelle']) ?></td>
+                <td class="p-att" style="text-align:center;"><?= formatVal($attenduVal, $unite) ?></td>
+                <td style="text-align:center;"><strong class="<?= $cls ?>"><?= formatVal($realise, $unite) ?></strong></td>
+                <td style="text-align:center;">
+                    <?php if ($attenduVal > 0): ?>
+                    <strong class="<?= $cls ?>"><?= $ecart >= 0 ? '+' : '' ?><?= formatVal($ecart, $unite) ?></strong>
+                    <?php else: ?><span class="p-att">—</span><?php endif; ?>
+                </td>
+            </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php endif; ?>
+    </div>
+    <?php endforeach; ?>
+</div>
+
 <?php endif; // fin if rapport ?>
 
 <?php endif; // fin tabs ?>
+
+<style>
+/* ===== ZONE D'IMPRESSION — cachée à l'écran ===== */
+#eai-print-area { display: none; }
+
+@media print {
+    .no-print, nav, header, footer,
+    .nav-tabs, .alert, form, .btn { display: none !important; }
+
+    body * { visibility: hidden !important; }
+    #eai-print-area, #eai-print-area * { visibility: visible !important; }
+    #eai-print-area {
+        display: block !important;
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%;
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 10pt;
+        color: #000;
+    }
+    @page { size: A4 portrait; margin: 10mm 12mm; }
+}
+
+/* ===== STYLES INTERNES À LA ZONE D'IMPRESSION ===== */
+.eai-ph {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding-bottom: 3mm;
+    margin-bottom: 5mm;
+    border-bottom: 2px solid #333;
+}
+.eai-ph-title { font-size: 13pt; font-weight: bold; }
+.eai-ph-sub   { font-size: 10pt; color: #444; }
+.eai-ph-date  { font-size: 9pt; color: #666; text-align: right; }
+
+.eai-ps {
+    margin-bottom: 5mm;
+    page-break-inside: avoid;
+}
+.eai-ps-title {
+    font-size: 10.5pt;
+    font-weight: bold;
+    background: #2c2c2c;
+    color: #fff;
+    padding: 1.5mm 3mm;
+    letter-spacing: 0.03em;
+}
+
+.eai-pt {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9.5pt;
+}
+.eai-pt th {
+    background: #ececec;
+    padding: 1.8mm 3mm;
+    border: 0.3mm solid #bbb;
+    font-weight: bold;
+    font-size: 9pt;
+}
+.eai-pt td {
+    padding: 1.5mm 3mm;
+    border: 0.3mm solid #ddd;
+    vertical-align: middle;
+}
+.eai-pt tbody tr:nth-child(even) td { background: #f8f8f8; }
+
+.p-ok   { color: #1a6e1a; font-weight: bold; }
+.p-ko   { color: #aa0000; font-weight: bold; }
+.p-att  { color: #777; font-size: 8.5pt; }
+.p-ecart { font-size: 8.5pt; }
+</style>
 
 <?php require_once __DIR__ . '/../../templates/footer.php'; ?>
