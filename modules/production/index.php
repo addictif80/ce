@@ -6,6 +6,7 @@ $userId = getCurrentUserId();
 
 // Migration
 try { $db->exec("ALTER TABLE suivi_production ADD COLUMN eai_cle VARCHAR(50) DEFAULT '' AFTER produit_vendu"); } catch (PDOException $e) {}
+try { $db->exec("ALTER TABLE suivi_production ADD COLUMN categorie VARCHAR(100) DEFAULT ''"); } catch (PDOException $e) {}
 
 // Liste des produits avec clé EAI et unité associées
 $produits = [
@@ -40,8 +41,8 @@ foreach ($produits as $p) $produitsIndex[$p['libelle']] = $p;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add') {
     $libelle = $_POST['produit_vendu'] ?? '';
     $eaiCle = $produitsIndex[$libelle]['eai_cle'] ?? '';
-    $stmt = $db->prepare("INSERT INTO suivi_production (user_id, date_rdv, categorie, produit_vendu, eai_cle, montant_nombre, details) VALUES (?, ?, ?, ?, ?, ?, ?)");
-    $stmt->execute([$userId, $_POST['date_rdv'] ?: null, '', $libelle, $eaiCle, $_POST['montant_nombre'], $_POST['details']]);
+    $stmt = $db->prepare("INSERT INTO suivi_production (user_id, date_rdv, produit_vendu, eai_cle, montant_nombre, details) VALUES (?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$userId, $_POST['date_rdv'] ?: null, $libelle, $eaiCle, $_POST['montant_nombre'], $_POST['details']]);
     header('Location: index.php');
     exit;
 }
@@ -50,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'edit') {
     $libelle = $_POST['produit_vendu'] ?? '';
     $eaiCle = $produitsIndex[$libelle]['eai_cle'] ?? '';
-    $stmt = $db->prepare("UPDATE suivi_production SET date_rdv = ?, categorie = '', produit_vendu = ?, eai_cle = ?, montant_nombre = ?, details = ? WHERE id = ? AND user_id = ?");
+    $stmt = $db->prepare("UPDATE suivi_production SET date_rdv = ?, produit_vendu = ?, eai_cle = ?, montant_nombre = ?, details = ? WHERE id = ? AND user_id = ?");
     $stmt->execute([$_POST['date_rdv'] ?: null, $libelle, $eaiCle, $_POST['montant_nombre'], $_POST['details'], (int)$_POST['id'], $userId]);
     header('Location: index.php?open=' . (int)$_POST['id']);
     exit;
