@@ -784,7 +784,7 @@ function showDetail(id) {
             </div>
             <div class="lp-objet">Objet : ${c.objet}</div>
             <div class="lp-corps" style="margin-top:30px;">${c.corps}</div>
-            <div class="lp-footer">${userData.prenom} ${userData.nom}</div>
+            <div class="lp-footer">${clientName}</div>
         </div>
         <div class="text-center mt-3">
             <button class="btn btn-ce" onclick="printCourrier(${c.id})"><i class="fas fa-print"></i> Imprimer</button>
@@ -950,7 +950,7 @@ function printCourrier(id) {
             <div style="text-align:justify;line-height:1.6;">${c.corps}</div>
             <!-- Signature -->
             <div style="text-align:right;margin-top:20mm;">
-                <div>${userData.prenom} ${userData.nom}</div>
+                <div>${clientName}</div>
             </div>
         </div>
     `;
