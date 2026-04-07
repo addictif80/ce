@@ -311,6 +311,28 @@ if ($rapport) {
     }
 }
 
+// Ventes semaine passée uniquement — pour le rapport imprimé
+$reportVentes = [];
+$dt2   = new DateTime($tuesdayStr);
+$dow2  = (int)$dt2->format('N');
+$mon2  = (clone $dt2)->modify('-' . ($dow2 - 1) . ' days');
+$rPrevMon = (clone $mon2)->modify('-7 days')->format('Y-m-d');
+$rPrevSun = (clone $mon2)->modify('-1 day')->format('Y-m-d');
+
+$rClesCount = ['ventes_brut_anv', 'cartes_hdg_dd', 'izicartes', 'forfaits', 'livrets',
+               'pel_quadreto', 'assvie_peri', 'nouveau_societaire', 'equip_jequip', 'bp_jbp'];
+$rStmtCount = $db->prepare("SELECT COALESCE(COUNT(*), 0) FROM suivi_production WHERE user_id = ? AND eai_cle = ? AND DATE(date_rdv) BETWEEN ? AND ?");
+foreach ($rClesCount as $cle) {
+    $rStmtCount->execute([$userId, $cle, $rPrevMon, $rPrevSun]);
+    $reportVentes[$cle] = (int)$rStmtCount->fetchColumn();
+}
+$rClesSum = ['volume_pret_perso', 'volume_collecte', 'volume_parts_sociales'];
+$rStmtSum = $db->prepare("SELECT COALESCE(SUM(CAST(montant_nombre AS DECIMAL(15,2))), 0) FROM suivi_production WHERE user_id = ? AND eai_cle = ? AND DATE(date_rdv) BETWEEN ? AND ?");
+foreach ($rClesSum as $cle) {
+    $rStmtSum->execute([$userId, $cle, $rPrevMon, $rPrevSun]);
+    $reportVentes[$cle] = (float)$rStmtSum->fetchColumn();
+}
+
 // Historique des rapports
 $stmt = $db->prepare("SELECT semaine_date FROM eai_rapports WHERE user_id = ? ORDER BY semaine_date DESC LIMIT 10");
 $stmt->execute([$userId]);
@@ -689,7 +711,10 @@ function formatVal($val, $unite) {
             <tbody>
             <?php foreach ($attendus as $cle => $att):
                 if ($att['section'] !== $sectionKey) continue;
-                $realise    = getValeur($valeurs, $cle);
+                // Ventes : chiffres semaine passée uniquement pour le rapport
+                $realise = ($sectionKey === 'ventes' && isset($reportVentes[$cle]))
+                    ? $reportVentes[$cle]
+                    : getValeur($valeurs, $cle);
                 $attenduVal = (float)$att['valeur_attendue'];
                 $unite      = $att['unite'];
                 $ecart      = $realise - $attenduVal;
