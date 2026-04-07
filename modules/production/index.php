@@ -4,18 +4,54 @@ require_once __DIR__ . '/../../templates/header.php';
 $db = getDB();
 $userId = getCurrentUserId();
 
+// Migration
+try { $db->exec("ALTER TABLE suivi_production ADD COLUMN eai_cle VARCHAR(50) DEFAULT '' AFTER produit_vendu"); } catch (PDOException $e) {}
+
+// Liste des produits avec clé EAI et unité associées
+$produits = [
+    ['libelle' => 'ANV',                        'eai_cle' => 'ventes_brut_anv',      'unite' => ''],
+    ['libelle' => 'Prêt personnel',              'eai_cle' => 'volume_pret_perso',    'unite' => '€'],
+    ['libelle' => 'Carte HDG',                   'eai_cle' => 'cartes_hdg_dd',        'unite' => ''],
+    ['libelle' => 'Carte DD',                    'eai_cle' => 'cartes_hdg_dd',        'unite' => ''],
+    ['libelle' => 'Izicarte',                    'eai_cle' => 'izicartes',            'unite' => ''],
+    ['libelle' => 'Forfait',                     'eai_cle' => 'forfaits',             'unite' => ''],
+    ['libelle' => 'Collecte',                    'eai_cle' => 'volume_collecte',      'unite' => '€'],
+    ['libelle' => 'Ouverture livret',            'eai_cle' => 'livrets',              'unite' => ''],
+    ['libelle' => 'Versement programmé livret',  'eai_cle' => 'livrets',              'unite' => ''],
+    ['libelle' => 'PEL / Quadreto',              'eai_cle' => 'pel_quadreto',         'unite' => ''],
+    ['libelle' => 'Versement assurance vie',     'eai_cle' => 'assvie_peri',          'unite' => ''],
+    ['libelle' => 'Versement PERi',              'eai_cle' => 'assvie_peri',          'unite' => ''],
+    ['libelle' => 'Ouverture assurance vie',     'eai_cle' => 'assvie_peri',          'unite' => ''],
+    ['libelle' => 'Ouverture PERi',              'eai_cle' => 'assvie_peri',          'unite' => ''],
+    ['libelle' => 'Abonnement Assurance vie',    'eai_cle' => 'assvie_peri',          'unite' => ''],
+    ['libelle' => 'Abonnement PERi',             'eai_cle' => 'assvie_peri',          'unite' => ''],
+    ['libelle' => 'Versement parts sociales',    'eai_cle' => 'volume_parts_sociales','unite' => '€'],
+    ['libelle' => 'Nouveau sociétaire',          'eai_cle' => 'nouveau_societaire',   'unite' => ''],
+    ['libelle' => 'Equipement',                  'eai_cle' => 'equip_jequip',         'unite' => ''],
+    ['libelle' => 'Equipement Jeune',            'eai_cle' => 'equip_jequip',         'unite' => ''],
+    ['libelle' => 'Bancarisé principal',         'eai_cle' => 'bp_jbp',              'unite' => ''],
+    ['libelle' => 'Jeune Bancarisé principal',   'eai_cle' => 'bp_jbp',              'unite' => ''],
+];
+// Index libelle => produit pour les handlers POST
+$produitsIndex = [];
+foreach ($produits as $p) $produitsIndex[$p['libelle']] = $p;
+
 // Ajout
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add') {
-    $stmt = $db->prepare("INSERT INTO suivi_production (user_id, date_rdv, categorie, produit_vendu, montant_nombre, details) VALUES (?, ?, ?, ?, ?, ?)");
-    $stmt->execute([$userId, $_POST['date_rdv'] ?: null, $_POST['categorie'], $_POST['produit_vendu'], $_POST['montant_nombre'], $_POST['details']]);
+    $libelle = $_POST['produit_vendu'] ?? '';
+    $eaiCle = $produitsIndex[$libelle]['eai_cle'] ?? '';
+    $stmt = $db->prepare("INSERT INTO suivi_production (user_id, date_rdv, categorie, produit_vendu, eai_cle, montant_nombre, details) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$userId, $_POST['date_rdv'] ?: null, '', $libelle, $eaiCle, $_POST['montant_nombre'], $_POST['details']]);
     header('Location: index.php');
     exit;
 }
 
 // Edition
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'edit') {
-    $stmt = $db->prepare("UPDATE suivi_production SET date_rdv = ?, categorie = ?, produit_vendu = ?, montant_nombre = ?, details = ? WHERE id = ? AND user_id = ?");
-    $stmt->execute([$_POST['date_rdv'] ?: null, $_POST['categorie'], $_POST['produit_vendu'], $_POST['montant_nombre'], $_POST['details'], (int)$_POST['id'], $userId]);
+    $libelle = $_POST['produit_vendu'] ?? '';
+    $eaiCle = $produitsIndex[$libelle]['eai_cle'] ?? '';
+    $stmt = $db->prepare("UPDATE suivi_production SET date_rdv = ?, categorie = '', produit_vendu = ?, eai_cle = ?, montant_nombre = ?, details = ? WHERE id = ? AND user_id = ?");
+    $stmt->execute([$_POST['date_rdv'] ?: null, $libelle, $eaiCle, $_POST['montant_nombre'], $_POST['details'], (int)$_POST['id'], $userId]);
     header('Location: index.php?open=' . (int)$_POST['id']);
     exit;
 }
@@ -48,8 +84,6 @@ $nbMois = $stmt->fetchColumn();
 $stmt = $db->prepare("SELECT * FROM suivi_production WHERE user_id = ? ORDER BY date_rdv DESC");
 $stmt->execute([$userId]);
 $productions = $stmt->fetchAll();
-
-$categories = ['Banca', 'Epargne', 'Placement', 'Credit', 'Assurance'];
 ?>
 
 <!-- Stats -->
@@ -84,8 +118,7 @@ $categories = ['Banca', 'Epargne', 'Placement', 'Credit', 'Assurance'];
         <thead>
             <tr>
                 <th>Date RDV</th>
-                <th>Catégorie</th>
-                <th>Produit vendu</th>
+                <th>Produit</th>
                 <th>Montant/Nombre</th>
                 <th>Détails</th>
                 <th>Actions</th>
@@ -95,12 +128,9 @@ $categories = ['Banca', 'Epargne', 'Placement', 'Credit', 'Assurance'];
         <?php foreach ($productions as $prod): ?>
             <tr>
                 <td><?= formatDateTime($prod['date_rdv']) ?></td>
-                <td><span class="badge bg-secondary"><?= e($prod['categorie']) ?></span></td>
                 <td><strong><?= e($prod['produit_vendu']) ?></strong></td>
                 <td><?= e($prod['montant_nombre']) ?></td>
-                <td>
-                    <?= e(excerpt($prod['details'])) ?>
-                </td>
+                <td><?= e(excerpt($prod['details'])) ?></td>
                 <td class="actions">
                     <button class="btn btn-sm btn-ce-outline" onclick="showDetail(<?= $prod['id'] ?>)" title="Voir"><i class="fas fa-eye"></i></button>
                     <button class="btn btn-sm btn-ce-outline" onclick="editProduction(<?= $prod['id'] ?>)" title="Modifier"><i class="fas fa-edit"></i></button>
@@ -133,20 +163,16 @@ $categories = ['Banca', 'Epargne', 'Placement', 'Credit', 'Assurance'];
                             <input type="datetime-local" name="date_rdv" class="form-control" required>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Catégorie</label>
-                            <select name="categorie" class="form-select" required>
+                            <label class="form-label">Produit vendu <span class="text-danger">*</span></label>
+                            <select name="produit_vendu" class="form-select" required onchange="updateMontantLabel(this, 'addMontantLabel')">
                                 <option value="">-- Choisir --</option>
-                                <?php foreach ($categories as $cat): ?>
-                                    <option value="<?= $cat ?>"><?= $cat ?></option>
+                                <?php foreach ($produits as $p): ?>
+                                    <option value="<?= e($p['libelle']) ?>" data-unite="<?= $p['unite'] ?>"><?= e($p['libelle']) ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Produit vendu</label>
-                            <input type="text" name="produit_vendu" class="form-control" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Montant / Nombre</label>
+                            <label class="form-label" id="addMontantLabel">Montant / Nombre</label>
                             <input type="text" name="montant_nombre" class="form-control">
                         </div>
                         <div class="col-12">
@@ -195,6 +221,7 @@ $categories = ['Banca', 'Epargne', 'Placement', 'Credit', 'Assurance'];
 filterTable('searchProduction', 'tableProduction');
 
 const productionsData = <?= json_encode($productions) ?>;
+const produitsData = <?= json_encode($produits) ?>;
 const allNotes = {};
 <?php
 foreach ($productions as $prod) {
@@ -214,6 +241,20 @@ function toDatetimeLocal(dt) {
     return dt.replace(' ', 'T').substring(0, 16);
 }
 
+// Met à jour le label Montant/Nombre selon l'unité du produit sélectionné
+function updateMontantLabel(selectEl, labelId) {
+    const opt = selectEl.options[selectEl.selectedIndex];
+    const unite = opt ? opt.dataset.unite : '';
+    const label = document.getElementById(labelId);
+    if (label) label.textContent = unite === '€' ? 'Montant (€)' : 'Nombre';
+}
+
+function buildProduitsOptions(selected) {
+    return produitsData.map(p =>
+        `<option value="${p.libelle}" data-unite="${p.unite}" ${p.libelle === selected ? 'selected' : ''}>${p.libelle}</option>`
+    ).join('');
+}
+
 function showDetail(id) {
     const prod = productionsData.find(p => p.id == id);
     if (!prod) return;
@@ -222,13 +263,15 @@ function showDetail(id) {
         `<div class="note-item"><div class="note-meta"><strong>${n.prenom} ${n.nom}</strong> - ${n.created_at}</div><div class="note-content">${n.message}</div></div>`
     ).join('');
 
+    const produitInfo = produitsData.find(p => p.libelle === prod.produit_vendu);
+    const montantLabel = produitInfo && produitInfo.unite === '€' ? 'Montant (€)' : 'Nombre';
+
     document.getElementById('detailContent').innerHTML = `
         <div class="row">
             <div class="col-md-6">
                 <p><strong>Date RDV :</strong> ${formatDT(prod.date_rdv)}</p>
-                <p><strong>Catégorie :</strong> <span class="badge bg-secondary">${prod.categorie || '-'}</span></p>
-                <p><strong>Produit vendu :</strong> ${prod.produit_vendu || '-'}</p>
-                <p><strong>Montant / Nombre :</strong> ${prod.montant_nombre || '-'}</p>
+                <p><strong>Produit :</strong> ${prod.produit_vendu || '-'}</p>
+                <p><strong>${montantLabel} :</strong> ${prod.montant_nombre || '-'}</p>
             </div>
             <div class="col-md-6">
                 <p><strong>Détails :</strong></p>
@@ -253,10 +296,9 @@ function showDetail(id) {
 function editProduction(id) {
     const prod = productionsData.find(p => p.id == id);
     if (!prod) return;
-    const cats = <?= json_encode($categories) ?>;
-    let catsOptions = cats.map(c =>
-        `<option value="${c}" ${prod.categorie === c ? 'selected' : ''}>${c}</option>`
-    ).join('');
+
+    const produitInfo = produitsData.find(p => p.libelle === prod.produit_vendu);
+    const montantLabel = produitInfo && produitInfo.unite === '€' ? 'Montant (€)' : 'Nombre';
 
     document.getElementById('editContent').innerHTML = `
         <form method="POST">
@@ -268,18 +310,14 @@ function editProduction(id) {
                     <input type="datetime-local" name="date_rdv" class="form-control" value="${toDatetimeLocal(prod.date_rdv)}" required>
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label">Catégorie</label>
-                    <select name="categorie" class="form-select" required>
+                    <label class="form-label">Produit vendu <span class="text-danger">*</span></label>
+                    <select name="produit_vendu" class="form-select" required onchange="updateMontantLabel(this, 'editMontantLabel')">
                         <option value="">-- Choisir --</option>
-                        ${catsOptions}
+                        ${buildProduitsOptions(prod.produit_vendu)}
                     </select>
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label">Produit vendu</label>
-                    <input type="text" name="produit_vendu" class="form-control" value="${prod.produit_vendu || ''}" required>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Montant / Nombre</label>
+                    <label class="form-label" id="editMontantLabel">${montantLabel}</label>
                     <input type="text" name="montant_nombre" class="form-control" value="${prod.montant_nombre || ''}">
                 </div>
                 <div class="col-12">

@@ -143,10 +143,28 @@ function getEaiAutoFillData($db, $userId, $tuesdayDate) {
     // Ventes brut ANV = total des RDV ANV toutes semaines confondues
     $data['ventes_brut_anv'] = $data['rdv_anv_s'] + $data['rdv_anv_s1'] + $data['rdv_anv_s2'];
 
-    // Izicartes depuis mobilités de la semaine
-    $stmt = $db->prepare("SELECT COALESCE(SUM(izicarte = 1), 0) FROM mobilites WHERE user_id = ? AND date_ajout BETWEEN ? AND ?");
-    $stmt->execute([$userId, $monday, $sunday]);
-    $data['izicartes'] = (int)$stmt->fetchColumn();
+    // ========= VENTES depuis suivi_production (semaine S) =========
+    // Clés comptées (COUNT des lignes)
+    $clesCount = ['cartes_hdg_dd', 'izicartes', 'forfaits', 'livrets', 'pel_quadreto',
+                  'assvie_peri', 'nouveau_societaire', 'equip_jequip', 'bp_jbp'];
+    $stmtCount = $db->prepare("SELECT COALESCE(COUNT(*), 0) FROM suivi_production WHERE user_id = ? AND eai_cle = ? AND DATE(date_rdv) BETWEEN ? AND ?");
+    foreach ($clesCount as $cle) {
+        $stmtCount->execute([$userId, $cle, $monday, $sunday]);
+        $data[$cle] = (int)$stmtCount->fetchColumn();
+    }
+
+    // Clés monétaires (SUM du montant_nombre)
+    $clesSum = ['volume_pret_perso', 'volume_collecte', 'volume_parts_sociales'];
+    $stmtSum = $db->prepare("SELECT COALESCE(SUM(CAST(montant_nombre AS DECIMAL(15,2))), 0) FROM suivi_production WHERE user_id = ? AND eai_cle = ? AND DATE(date_rdv) BETWEEN ? AND ?");
+    foreach ($clesSum as $cle) {
+        $stmtSum->execute([$userId, $cle, $monday, $sunday]);
+        $data[$cle] = (float)$stmtSum->fetchColumn();
+    }
+
+    // ANV depuis production (prioritaire sur le calcul RDV si des entrées existent)
+    $stmtCount->execute([$userId, 'ventes_brut_anv', $monday, $sunday]);
+    $anvProd = (int)$stmtCount->fetchColumn();
+    if ($anvProd > 0) $data['ventes_brut_anv'] = $anvProd;
 
     return $data;
 }
@@ -280,7 +298,10 @@ $sections = [
 ];
 
 // KPIs auto-fillables
-$autoFillKeys = ['volume_appels_sortants', 'taux_decroche', 'ventes_brut_anv', 'izicartes',
+$autoFillKeys = ['volume_appels_sortants', 'taux_decroche',
+    'ventes_brut_anv', 'volume_pret_perso', 'cartes_hdg_dd', 'izicartes', 'forfaits',
+    'volume_collecte', 'livrets', 'pel_quadreto', 'assvie_peri', 'volume_parts_sociales',
+    'nouveau_societaire', 'equip_jequip', 'bp_jbp',
     'rdv_s', 'rdv_s1', 'rdv_s2', 'rdv_proactifs_s', 'rdv_proactifs_s1', 'rdv_proactifs_s2',
     'rdv_anv_s', 'rdv_anv_s1', 'rdv_anv_s2'];
 
