@@ -133,6 +133,7 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
                 </td>
                 <td class="actions">
                     <button class="btn btn-sm btn-ce-outline" onclick="showDetail(<?= $proc['id'] ?>)" title="Voir"><i class="fas fa-eye"></i></button>
+                    <a href="share_mail.php?id=<?= $proc['id'] ?>" class="btn btn-sm btn-ce-outline" title="Partager par mail"><i class="fas fa-envelope"></i></a>
                     <?php if ($isOwn || $isUserAdmin): ?>
                     <button class="btn btn-sm btn-ce-outline" onclick="editProcedure(<?= $proc['id'] ?>)" title="Modifier"><i class="fas fa-edit"></i></button>
                     <form method="POST" class="d-inline" onsubmit="return confirm('Supprimer cette procédure ?')">
@@ -259,11 +260,14 @@ function showDetail(id) {
             </div>
             <div class="col-12">
                 <label class="form-label"><strong>Lien de partage :</strong></label>
-                <div class="input-group">
+                <div class="input-group mb-2">
                     <input type="text" class="form-control" value="${escapeHtml(shareUrl)}" readonly id="detail_link_${id}">
                     <button class="btn btn-ce-outline" onclick="navigator.clipboard.writeText(document.getElementById('detail_link_${id}').value)"><i class="fas fa-copy"></i> Copier</button>
                     <a href="${escapeHtml(shareUrl)}" target="_blank" class="btn btn-ce-outline"><i class="fas fa-external-link-alt"></i> Ouvrir</a>
                 </div>
+                <a href="share_mail.php?id=${proc.id}" class="btn btn-ce-outline">
+                    <i class="fas fa-envelope"></i> Partager par mail (Outlook)
+                </a>
             </div>
         </div>`;
     new bootstrap.Modal(document.getElementById('detailModal')).show();
