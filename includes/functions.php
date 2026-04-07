@@ -169,6 +169,16 @@ function getMenuConfig() {
         foreach (getDefaultMenuItems() as $item) {
             $stmt->execute([$item['item_key'], $item['parent_key'], $item['label'], $item['icon'], $item['url'], $item['uri_patterns'], $item['ordre']]);
         }
+    } else {
+        // Insert any new default items that don't exist yet (preserves custom ordering)
+        $existing = $db->query("SELECT item_key FROM menu_config")->fetchAll(PDO::FETCH_COLUMN);
+        $existing = array_flip($existing);
+        $stmt = $db->prepare("INSERT INTO menu_config (item_key, parent_key, label, icon, url, uri_patterns, ordre) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        foreach (getDefaultMenuItems() as $item) {
+            if (!isset($existing[$item['item_key']])) {
+                $stmt->execute([$item['item_key'], $item['parent_key'], $item['label'], $item['icon'], $item['url'], $item['uri_patterns'], $item['ordre']]);
+            }
+        }
     }
 
     $items = $db->query("SELECT * FROM menu_config WHERE visible = 1 ORDER BY ordre ASC")->fetchAll();
