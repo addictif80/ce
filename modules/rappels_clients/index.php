@@ -13,16 +13,19 @@ $db->exec("CREATE TABLE IF NOT EXISTS demandes_rappel_client (
     conseiller_id INT NOT NULL,
     motif TEXT,
     traitee TINYINT(1) DEFAULT 0,
+    token VARCHAR(64) DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+try { $db->exec("ALTER TABLE demandes_rappel_client ADD COLUMN token VARCHAR(64) DEFAULT NULL"); } catch (Exception $e) {}
 
 // Récupérer les conseillers depuis contacts_equipe
 $conseillers = $db->query("SELECT id, prenom, nom, email FROM contacts_equipe ORDER BY nom, prenom")->fetchAll();
 
 // Ajout
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add') {
-    $stmt = $db->prepare("INSERT INTO demandes_rappel_client (user_id, identite_client, conseiller_id, motif, traitee, created_at) VALUES (?, ?, ?, ?, 0, NOW())");
-    $stmt->execute([$userId, trim($_POST['identite_client']), (int)$_POST['conseiller_id'], trim($_POST['motif'])]);
+    $token = bin2hex(random_bytes(32));
+    $stmt = $db->prepare("INSERT INTO demandes_rappel_client (user_id, identite_client, conseiller_id, motif, traitee, token, created_at) VALUES (?, ?, ?, ?, 0, ?, NOW())");
+    $stmt->execute([$userId, trim($_POST['identite_client']), (int)$_POST['conseiller_id'], trim($_POST['motif']), $token]);
     header('Location: index.php');
     exit;
 }

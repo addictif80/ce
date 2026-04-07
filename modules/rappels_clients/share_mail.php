@@ -25,6 +25,18 @@ $demande = $stmt->fetch();
 if (!$demande) { http_response_code(404); exit; }
 if (!$demande['cons_email']) { http_response_code(422); exit; }
 
+// Générer un token si la demande n'en a pas encore
+if (empty($demande['token'])) {
+    $token = bin2hex(random_bytes(32));
+    $db->prepare("UPDATE demandes_rappel_client SET token = ? WHERE id = ?")->execute([$token, $id]);
+    $demande['token'] = $token;
+}
+
+// URL du bouton "Marquer comme traité"
+$scheme    = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
+$basePath  = rtrim(dirname(dirname(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH))), '/');
+$traiterUrl = $scheme . '://' . $_SERVER['HTTP_HOST'] . $basePath . '/rappels_clients/traiter.php?token=' . urlencode($demande['token']);
+
 $expediteur    = trim($user['prenom'] . ' ' . $user['nom']);
 $conseillerNom = trim($demande['cons_prenom'] . ' ' . $demande['cons_nom']);
 $conseillerTo  = trim($demande['cons_nom'] . ' ' . $demande['cons_prenom']) . ' <' . $demande['cons_email'] . '>';
@@ -125,6 +137,29 @@ $htmlBody = <<<HTML
                 </tr>
               </table>
 
+              <!-- Bouton Marquer comme traité -->
+              <table cellpadding="0" cellspacing="0" border="0" width="100%"
+                     style="margin-bottom:28px;">
+                <tr>
+                  <td align="center">
+                    <a href="{$traiterUrl}"
+                       style="display:inline-block;padding:13px 28px;
+                              background-color:#28A745;color:#ffffff;
+                              font-size:15px;font-weight:bold;text-decoration:none;
+                              border-radius:5px;letter-spacing:0.02em;">
+                      &#10003;&nbsp; Marquer comme trait&eacute;e
+                    </a>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding-top:8px;">
+                    <p style="margin:0;font-size:11px;color:#aaaaaa;">
+                      Ou copiez ce lien&nbsp;: <span style="color:#555555;">{$traiterUrl}</span>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
               <p style="margin:0;font-size:13px;color:#666666;font-style:italic;">
                 Ce message a &eacute;t&eacute; g&eacute;n&eacute;r&eacute; depuis le Portail Conseiller par <strong>{$expEsc}</strong>.
               </p>
@@ -158,6 +193,7 @@ $textBody .= "========================\r\n\r\n";
 $textBody .= "De la part de : $expediteur\r\n";
 $textBody .= "Client : $clientIdent\r\n\r\n";
 $textBody .= "Motif :\r\n$motif\r\n\r\n";
+$textBody .= ">>> Marquer comme traitée : $traiterUrl\r\n\r\n";
 $textBody .= "---\r\nPortail Conseiller — Caisse d'Épargne\r\n";
 
 // ===================== CONSTRUCTION DU .EML =====================
