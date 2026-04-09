@@ -340,7 +340,7 @@ $B = rtrim(str_replace($relativeScript, '', $_SERVER['SCRIPT_NAME']), '/');
     <div class="main-content">
         <div class="topbar">
             <div class="topbar-left">
-                <button class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('active')">
+                <button class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('active');document.querySelector('.sidebar-backdrop')?.classList.toggle('active',document.getElementById('sidebar').classList.contains('active'))">
                     <i class="fas fa-bars"></i>
                 </button>
                 <h1><?= e($pageTitle ?? 'Accueil') ?></h1>

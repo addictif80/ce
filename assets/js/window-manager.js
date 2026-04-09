@@ -284,8 +284,31 @@
         return d.innerHTML;
     }
 
+    /* ---- Détection mobile ---- */
+    function isMobile() {
+        return window.innerWidth < 1024 || window.matchMedia('(pointer: coarse)').matches;
+    }
+
     /* ---- Initialisation ---- */
     document.addEventListener('DOMContentLoaded', function () {
+
+        // Sidebar backdrop (mobile) : clic en dehors pour fermer
+        const backdrop = document.createElement('div');
+        backdrop.className = 'sidebar-backdrop';
+        document.body.appendChild(backdrop);
+        backdrop.addEventListener('click', function () {
+            document.getElementById('sidebar').classList.remove('active');
+            backdrop.classList.remove('active');
+        });
+        // Ouvrir/fermer le backdrop avec la sidebar
+        document.querySelector('.sidebar-toggle')?.addEventListener('click', function () {
+            const open = document.getElementById('sidebar').classList.contains('active');
+            backdrop.classList.toggle('active', open);
+        });
+
+        // Sur mobile : navigation normale, pas de fenêtres
+        if (isMobile()) return;
+
         // Mode bureau actif (layout flex)
         document.body.classList.add('wm-ready');
 

@@ -682,22 +682,94 @@ body {
     cursor: pointer;
 }
 
+/* =============================================
+   RESPONSIVE - Mobile friendly
+   ============================================= */
+
+/* Overlay sidebar mobile */
+.sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 999;
+}
+.sidebar-backdrop.active { display: block; }
+
+@media (max-width: 1024px) {
+    /* Désactiver le gestionnaire de fenêtres sur tablettes/mobiles
+       (géré côté JS via WM_DISABLED) */
+}
+
 @media (max-width: 768px) {
+    /* Sidebar */
     .sidebar {
         transform: translateX(-100%);
+        z-index: 1001;
     }
     .sidebar.active {
         transform: translateX(0);
+        box-shadow: 4px 0 20px rgba(0,0,0,0.3);
     }
-    .main-content {
-        margin-left: 0;
+
+    /* Layout principal */
+    .main-content { margin-left: 0; }
+    .sidebar-toggle { display: inline-block; }
+
+    /* Topbar */
+    .topbar { padding: 10px 14px; }
+    .topbar-left h1 { font-size: 16px; }
+    .topbar-search { display: none; }
+
+    /* Contenu */
+    .page-content { padding: 14px; }
+
+    /* Stat cards : 2 par ligne */
+    .stat-card { padding: 14px; }
+    .stat-number { font-size: 28px; }
+
+    /* Tables : scroll horizontal */
+    .data-table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .data-table { min-width: 520px; }
+    .data-table-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 14px;
     }
-    .sidebar-toggle {
-        display: inline-block;
+    .search-box input { width: 100%; }
+    .search-box { width: 100%; }
+
+    /* Modals : plein écran */
+    .modal-fullscreen-custom .modal-dialog {
+        margin: 6px;
+        max-width: calc(100vw - 12px);
     }
-    .topbar-search input {
-        width: 200px;
-    }
+    .modal-body { padding: 14px; }
+
+    /* Boutons d'action dans tables */
+    .actions { white-space: nowrap; }
+
+    /* Note items */
+    .note-item { padding: 8px 10px; }
+}
+
+@media (max-width: 480px) {
+    .topbar { padding: 8px 10px; gap: 8px; }
+    .topbar-left h1 { font-size: 14px; }
+    .page-content { padding: 10px; }
+
+    /* Stat cards : pleine largeur */
+    .row > [class*="col-md"] { width: 100%; }
+
+    /* Réduire les paddings des cartes */
+    .stat-card { padding: 12px; }
+    .data-table-header { padding: 10px; }
+    .data-table thead th, .data-table td { padding: 8px 10px; font-size: 12px; }
+
+    /* Boutons plus compacts */
+    .btn-ce, .btn-ce-outline { padding: 8px 14px; font-size: 13px; }
+    .btn-sm { padding: 4px 8px; font-size: 11px; }
 }
 
 /* PROCEDURES HIGHLIGHT */
