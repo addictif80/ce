@@ -161,6 +161,12 @@ function nl2br(str) {
     return escapeHtml(str).replace(/\n/g, '<br>');
 }
 
+function formatLocalDateTime(mysqlDatetime) {
+    if (!mysqlDatetime) return '';
+    const dt = new Date(mysqlDatetime.replace(' ', 'T') + 'Z');
+    return dt.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
 function showDetail(id) {
     const note = notesData.find(n => n.id == id);
     if (!note) return;
@@ -168,7 +174,7 @@ function showDetail(id) {
         <div class="row">
             <div class="col-12 mb-3">
                 <h4>${escapeHtml(note.nom_note)}</h4>
-                <small class="text-muted">Créée le ${note.created_at} — Modifiée le ${note.updated_at}</small>
+                <small class="text-muted">Créée le ${formatLocalDateTime(note.created_at)} — Modifiée le ${formatLocalDateTime(note.updated_at)}</small>
             </div>
             <div class="col-12">
                 <div class="p-3 bg-light rounded" style="white-space:pre-wrap;">${escapeHtml(note.contenu)}</div>
