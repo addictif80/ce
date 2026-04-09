@@ -83,6 +83,9 @@ $categories = ['Bancarisation', 'Epargne', 'IARD', 'Prévoyance', 'Placement', '
     <div class="col-md-2 d-flex align-items-center">
         <a href="calendrier.php" class="btn btn-ce-outline"><i class="fas fa-calendar"></i> Calendrier</a>
     </div>
+    <div class="col-md-2 d-flex align-items-center">
+        <a href="rapport.php" class="btn btn-ce-outline"><i class="fas fa-print"></i> Rapport</a>
+    </div>
 </div>
 
 <!-- Tableau -->
