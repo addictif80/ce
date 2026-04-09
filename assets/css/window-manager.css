@@ -29,6 +29,8 @@ body.wm-ready .page-content {
 /* Barre d'onglets */
 #win-tabbar {
     display: none;
+    flex-direction: row;
+    flex-wrap: nowrap;
     align-items: center;
     background: #1e1e1e;
     padding: 0 6px;
@@ -38,16 +40,18 @@ body.wm-ready .page-content {
     flex-shrink: 0;
     border-bottom: 2px solid var(--ce-red);
 }
-#win-tabbar.wm-on { display: flex; }
+#win-tabbar.wm-on { display: flex !important; flex-direction: row !important; }
 #win-tabbar::-webkit-scrollbar { height: 3px; }
 #win-tabbar::-webkit-scrollbar-thumb { background: #444; border-radius: 2px; }
 
 #win-tabs-list {
-    display: flex;
-    flex-direction: row;
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap;
     align-items: center;
     gap: 3px;
     flex: 1;
+    min-width: 0;
     overflow-x: auto;
     overflow-y: hidden;
 }
@@ -153,7 +157,7 @@ body.wm-ready .page-content {
 }
 
 /* Boutons de contrôle */
-.win-controls { display: flex; gap: 5px; flex-shrink: 0; }
+.win-controls { display: flex !important; flex-direction: row !important; flex-wrap: nowrap; gap: 5px; flex-shrink: 0; }
 .win-btn {
     width: 22px; height: 22px; border: none; border-radius: 4px;
     cursor: pointer; font-size: 13px; font-weight: bold;
