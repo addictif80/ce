@@ -232,7 +232,7 @@ function showDetail(id) {
     let notesHtml = notes.length > 0
         ? notes.map(n =>
             `<div class="note-item">
-                <div class="note-meta"><strong>${n.prenom} ${n.nom}</strong> - ${n.created_at}</div>
+                <div class="note-meta"><strong>${n.prenom} ${n.nom}</strong> - ${formatLocalDateTime(n.created_at)}</div>
                 <div class="note-content">${n.message}</div>
             </div>`
         ).join('')

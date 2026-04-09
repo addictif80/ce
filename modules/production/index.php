@@ -261,7 +261,7 @@ function showDetail(id) {
     if (!prod) return;
     const notes = allNotes[id] || [];
     let notesHtml = notes.map(n =>
-        `<div class="note-item"><div class="note-meta"><strong>${n.prenom} ${n.nom}</strong> - ${n.created_at}</div><div class="note-content">${n.message}</div></div>`
+        `<div class="note-item"><div class="note-meta"><strong>${n.prenom} ${n.nom}</strong> - ${formatLocalDateTime(n.created_at)}</div><div class="note-content">${n.message}</div></div>`
     ).join('');
 
     const produitInfo = produitsData.find(p => p.libelle === prod.produit_vendu);

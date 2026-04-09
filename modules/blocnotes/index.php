@@ -161,12 +161,6 @@ function nl2br(str) {
     return escapeHtml(str).replace(/\n/g, '<br>');
 }
 
-function formatLocalDateTime(mysqlDatetime) {
-    if (!mysqlDatetime) return '';
-    const dt = new Date(mysqlDatetime.replace(' ', 'T') + 'Z');
-    return dt.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
-
 function showDetail(id) {
     const note = notesData.find(n => n.id == id);
     if (!note) return;
