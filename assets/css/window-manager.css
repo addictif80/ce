@@ -33,7 +33,6 @@ body.wm-ready .page-content {
     background: #1e1e1e;
     padding: 0 6px;
     height: 38px;
-    gap: 3px;
     overflow-x: auto;
     overflow-y: hidden;
     flex-shrink: 0;
@@ -42,6 +41,16 @@ body.wm-ready .page-content {
 #win-tabbar.wm-on { display: flex; }
 #win-tabbar::-webkit-scrollbar { height: 3px; }
 #win-tabbar::-webkit-scrollbar-thumb { background: #444; border-radius: 2px; }
+
+#win-tabs-list {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 3px;
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
 
 .win-tab {
     display: flex;
