@@ -4,6 +4,52 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 requireLogin();
 $currentUser = getCurrentUser();
+$isEmbedded = !empty($_GET['embedded']);
+
+// Mode embarqué : structure minimale pour les iframes
+if ($isEmbedded) {
+    $projectRootFs = str_replace('\\', '/', realpath(__DIR__ . '/..'));
+    $scriptFs = str_replace('\\', '/', realpath($_SERVER['SCRIPT_FILENAME'] ?? $_SERVER['PHP_SELF']));
+    $relativeScript = str_replace($projectRootFs, '', $scriptFs);
+    $B = rtrim(str_replace($relativeScript, '', $_SERVER['SCRIPT_NAME']), '/');
+    ?>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?= e($pageTitle ?? '') ?></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="<?= $B ?>/assets/css/style.css" rel="stylesheet">
+    <?php if (isset($extraCss)): foreach((array)$extraCss as $css): ?>
+        <link href="<?= $css ?>" rel="stylesheet">
+    <?php endforeach; endif; ?>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    function filterTable(inputId, tableId) {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+        input.addEventListener('keyup', function() {
+            const filter = this.value.toLowerCase();
+            document.querySelectorAll('#' + tableId + ' tbody tr').forEach(row => {
+                row.style.display = row.textContent.toLowerCase().includes(filter) ? '' : 'none';
+            });
+        });
+    }
+    function toggleStatus(url, id, field, cb) {
+        const value = cb.checked ? 1 : 0;
+        fetch(url, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'id='+id+'&field='+field+'&value='+value })
+            .then(r=>r.json()).then(data=>{ if(!data.success){cb.checked=!cb.checked;alert('Erreur');}else{location.reload();} });
+    }
+    </script>
+</head>
+<body class="embedded">
+    <div class="page-content">
+    <?php
+    return; // Arrêt ici pour le mode embarqué
+}
+
 $liensExternes = getLiensExternes();
 $menuConfig = getMenuConfig();
 $currentPage = basename($_SERVER['PHP_SELF'], '.php');
@@ -30,6 +76,7 @@ $B = rtrim(str_replace($relativeScript, '', $_SERVER['SCRIPT_NAME']), '/');
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="<?= $B ?>/assets/css/style.css" rel="stylesheet">
+    <link href="<?= $B ?>/assets/css/window-manager.css" rel="stylesheet">
     <?php if (isset($extraCss)): foreach((array)$extraCss as $css): ?>
         <link href="<?= $css ?>" rel="stylesheet">
     <?php endforeach; endif; ?>
@@ -310,4 +357,13 @@ $B = rtrim(str_replace($relativeScript, '', $_SERVER['SCRIPT_NAME']), '/');
                 </span>
             </div>
         </div>
-        <div class="page-content">
+
+        <!-- Barre d'onglets (visible quand des fenêtres sont ouvertes) -->
+        <div id="win-tabbar">
+            <div id="win-tabs-list"></div>
+        </div>
+
+        <!-- Zone de contenu : bureau flottant + contenu normal -->
+        <div id="win-content-wrapper">
+            <div id="win-desktop"></div>
+            <div class="page-content" id="page-content-main">

@@ -1,0 +1,194 @@
+/* =============================================
+   Window Manager - Système de fenêtres
+   ============================================= */
+
+/* Layout principal (activé par JS) */
+body.wm-ready .main-content {
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: unset;
+}
+body.wm-ready .topbar {
+    position: static;
+    flex-shrink: 0;
+}
+body.wm-ready #win-content-wrapper {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    min-height: 0;
+}
+body.wm-ready .page-content {
+    height: 100%;
+    overflow-y: auto;
+    margin: 0;
+}
+
+/* Barre d'onglets */
+#win-tabbar {
+    display: none;
+    align-items: center;
+    background: #1e1e1e;
+    padding: 0 6px;
+    height: 38px;
+    gap: 3px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-shrink: 0;
+    border-bottom: 2px solid var(--ce-red);
+}
+#win-tabbar.wm-on { display: flex; }
+#win-tabbar::-webkit-scrollbar { height: 3px; }
+#win-tabbar::-webkit-scrollbar-thumb { background: #444; border-radius: 2px; }
+
+.win-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 10px 0 8px;
+    height: 28px;
+    background: #383838;
+    color: #aaa;
+    border-radius: 5px;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    max-width: 200px;
+    min-width: 90px;
+    transition: background 0.15s, color 0.15s;
+    user-select: none;
+    flex-shrink: 0;
+    border: 1px solid transparent;
+}
+.win-tab:hover { background: #4a4a4a; color: #ddd; }
+.win-tab.active {
+    background: var(--ce-red);
+    color: #fff;
+    border-color: var(--ce-red-dark);
+}
+.win-tab.win-tab-minimized { background: #2d2d2d; color: #666; font-style: italic; }
+
+.tab-icon { font-size: 11px; flex-shrink: 0; opacity: 0.85; }
+.tab-title { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.tab-close {
+    background: none; border: none; color: inherit;
+    width: 16px; height: 16px; padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 3px; font-size: 12px; cursor: pointer;
+    opacity: 0.5; flex-shrink: 0; transition: background 0.1s, opacity 0.1s;
+}
+.tab-close:hover { background: rgba(255,255,255,0.25); opacity: 1; }
+
+/* Zone bureau */
+#win-desktop {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: #d4d4d4;
+    background-image:
+        radial-gradient(circle at 1px 1px, rgba(0,0,0,0.06) 1px, transparent 0);
+    background-size: 24px 24px;
+    overflow: hidden;
+    z-index: 50;
+}
+#win-desktop.wm-on { display: block; }
+
+/* Fond du page-content masqué quand bureau actif */
+#page-content-main.wm-hidden { visibility: hidden; pointer-events: none; }
+
+/* ---- Fenêtre ---- */
+.win-frame {
+    position: absolute;
+    min-width: 340px;
+    min-height: 220px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.22), 0 1px 4px rgba(0,0,0,0.12);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: box-shadow 0.15s;
+}
+.win-frame.win-focused {
+    box-shadow: 0 10px 40px rgba(0,0,0,0.32), 0 2px 8px rgba(0,0,0,0.18);
+}
+.win-frame.win-hidden { display: none; }
+.win-frame.win-maximized {
+    top: 0 !important; left: 0 !important;
+    width: 100% !important; height: 100% !important;
+    border-radius: 0;
+}
+
+/* Barre de titre */
+.win-titlebar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%);
+    color: #eee;
+    padding: 0 8px;
+    height: 36px;
+    cursor: move;
+    user-select: none;
+    flex-shrink: 0;
+}
+.win-frame.win-focused .win-titlebar {
+    background: linear-gradient(135deg, var(--ce-red-dark) 0%, var(--ce-red) 100%);
+}
+.win-titlebar .win-icon { font-size: 13px; opacity: 0.85; flex-shrink: 0; }
+.win-titlebar .win-title {
+    flex: 1; font-size: 13px; font-weight: 500;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Boutons de contrôle */
+.win-controls { display: flex; gap: 5px; flex-shrink: 0; }
+.win-btn {
+    width: 22px; height: 22px; border: none; border-radius: 4px;
+    cursor: pointer; font-size: 13px; font-weight: bold;
+    display: flex; align-items: center; justify-content: center;
+    line-height: 1; transition: filter 0.1s; padding: 0;
+}
+.win-btn:hover { filter: brightness(1.2); }
+.win-min { background: #f0a30a; color: #5a3e00; }
+.win-max { background: #22a722; color: #fff; }
+.win-cls { background: #e81123; color: #fff; }
+
+/* Corps de la fenêtre */
+.win-body {
+    flex: 1; position: relative; overflow: hidden;
+    background: #f8f8f8;
+}
+.win-body iframe {
+    width: 100%; height: 100%; border: none; display: block;
+}
+
+/* Overlay de chargement */
+.win-loader {
+    position: absolute; inset: 0;
+    background: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; color: var(--ce-red);
+    z-index: 5;
+}
+
+/* Poignées de redimensionnement */
+.win-resize { position: absolute; z-index: 20; }
+.win-resize[data-d="e"]  { top: 0; right: 0;  width: 5px; height: 100%; cursor: e-resize; }
+.win-resize[data-d="s"]  { bottom: 0; left: 12px; right: 12px; height: 5px; cursor: s-resize; }
+.win-resize[data-d="w"]  { top: 0; left: 0;   width: 5px; height: 100%; cursor: w-resize; }
+.win-resize[data-d="se"] { bottom: 0; right: 0; width: 14px; height: 14px; cursor: se-resize; }
+.win-resize[data-d="sw"] { bottom: 0; left: 0;  width: 14px; height: 14px; cursor: sw-resize; }
+
+/* ---- Mode embarqué (iframe) ---- */
+body.embedded {
+    margin: 0;
+    padding: 0;
+    background: #fff;
+    overflow-x: hidden;
+}
+body.embedded .page-content {
+    padding: 20px;
+}
