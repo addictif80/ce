@@ -73,8 +73,9 @@ $demandes = $stmt->fetchAll();
             <div class="stat-label">Demandes terminées</div>
         </div>
     </div>
-    <div class="col-md-4 d-flex align-items-center">
+    <div class="col-md-4 d-flex align-items-center gap-2">
         <button class="btn btn-ce" data-bs-toggle="modal" data-bs-target="#addModal"><i class="fas fa-plus"></i> Nouvelle demande</button>
+        <a href="../instances/rapport.php" class="btn btn-ce-outline"><i class="fas fa-print"></i> Rapport</a>
     </div>
 </div>
 
