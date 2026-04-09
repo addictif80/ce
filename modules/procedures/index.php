@@ -251,7 +251,7 @@ function showDetail(id) {
         <div class="row">
             <div class="col-12 mb-3">
                 <h4>${escapeHtml(proc.nom)}</h4>
-                <small class="text-muted">Créée le ${proc.created_at}</small>
+                <small class="text-muted">Créée le ${formatLocalDateTime(proc.created_at)}</small>
                 ${proc.mise_en_avant == 1 ? ' <span class="badge-fait ms-2"><i class="fas fa-star"></i> Mise en avant</span>' : ''}
                 ${proc.approved == 1 ? ' <span class="badge bg-success ms-2"><i class="fas fa-check"></i> Approuvé</span>' : ' <span class="badge bg-warning text-dark ms-2"><i class="fas fa-clock"></i> En attente</span>'}
             </div>
