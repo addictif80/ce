@@ -154,6 +154,7 @@ $seances = $stmt->fetchAll();
                 <td><?= (int)$seance['nombre_repondeur'] ?></td>
                 <td class="actions">
                     <button class="btn btn-sm btn-ce-outline" onclick="editSeance(<?= $seance['id'] ?>)" title="Modifier"><i class="fas fa-edit"></i></button>
+                    <a href="rapport.php?id=<?= $seance['id'] ?>" target="_blank" class="btn btn-sm btn-ce-outline" title="Imprimer le rapport"><i class="fas fa-print"></i></a>
                     <form method="POST" class="d-inline" onsubmit="return confirm('Supprimer cette séance ?')">
                         <input type="hidden" name="action" value="delete">
                         <input type="hidden" name="id" value="<?= $seance['id'] ?>">
