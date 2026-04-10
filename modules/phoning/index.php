@@ -214,6 +214,7 @@ foreach ($seances as $s) {
                 <td><?= (int)$seance['dont_s'] ?> / <?= (int)$seance['dont_s1'] ?> / <?= (int)$seance['dont_anv'] ?></td>
                 <td class="actions">
                     <button class="btn btn-sm btn-ce-outline" onclick="openDossier(<?= $seance['id'] ?>)" title="Ouvrir le dossier"><i class="fas fa-folder-open"></i></button>
+                    <a href="rapport.php?id=<?= $seance['id'] ?>" target="_blank" class="btn btn-sm btn-ce-outline" title="Imprimer le rapport"><i class="fas fa-print"></i></a>
                     <form method="POST" class="d-inline" onsubmit="return confirm('Supprimer cette séance et tous ses appels ?')">
                         <input type="hidden" name="action" value="delete">
                         <input type="hidden" name="id" value="<?= $seance['id'] ?>">
