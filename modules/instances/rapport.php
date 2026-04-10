@@ -1,4 +1,149 @@
 <?php
+$isPrint = (isset($_GET['format']) && $_GET['format'] === 'print');
+
+// ============================================================
+// Mode impression : page autonome sans template
+// ============================================================
+if ($isPrint) {
+    require_once __DIR__ . '/../../includes/auth.php';
+    require_once __DIR__ . '/../../includes/functions.php';
+    requireLogin();
+
+    $db     = getDB();
+    $userId = getCurrentUserId();
+    $user   = getCurrentUser();
+
+    $stmt = $db->prepare("SELECT * FROM instances WHERE user_id = ? AND statut = 'a_faire' ORDER BY date_echeance ASC");
+    $stmt->execute([$userId]);
+    $instances = $stmt->fetchAll();
+
+    $stmt = $db->prepare("SELECT * FROM demandes_clients WHERE user_id = ? AND traitee = 0 ORDER BY date_ajout DESC");
+    $stmt->execute([$userId]);
+    $demandes = $stmt->fetchAll();
+
+    $today      = date('d/m/Y');
+    $expediteur = trim($user['prenom'] . ' ' . $user['nom']);
+    ?>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rapport d'activité — <?= e($expediteur) ?></title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 24px; font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #1a1a1a; }
+        h1 { color: #CF0A2C; font-size: 18px; margin: 0 0 4px 0; }
+        .meta { font-size: 12px; color: #666; margin-bottom: 20px; }
+        .section { margin-bottom: 24px; page-break-inside: avoid; }
+        .section-title { color: #CF0A2C; border-bottom: 2px solid #CF0A2C; padding-bottom: 5px; margin-bottom: 10px; font-size: 14px; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th { background-color: #CF0A2C; color: #fff; padding: 7px 10px; text-align: left; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        td { padding: 6px 10px; border-bottom: 1px solid #eee; }
+        .badge-retard { display:inline-block; background:#dc3545; color:#fff; border-radius:3px; padding:1px 7px; font-size:11px; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+        .footer { margin-top: 24px; font-size: 10px; color: #999; border-top: 1px solid #ddd; padding-top: 6px; }
+        .no-print { margin-bottom: 16px; }
+        @media print {
+            .no-print { display: none !important; }
+            body { margin: 0; }
+        }
+    </style>
+</head>
+<body onload="window.print()">
+
+<div class="no-print">
+    <button onclick="window.print()" style="padding:6px 14px;background:#CF0A2C;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">Imprimer</button>
+    <button onclick="window.close()" style="padding:6px 14px;background:#6c757d;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;margin-left:8px;">Fermer</button>
+</div>
+
+<h1>Rapport d'activité</h1>
+<div class="meta"><?= e($expediteur) ?> &mdash; généré le <?= $today ?></div>
+
+<div class="section">
+    <div class="section-title">Instances en cours (<?= count($instances) ?>)</div>
+    <?php if (empty($instances)): ?>
+        <p style="color:#888;font-style:italic;">Aucune instance en cours.</p>
+    <?php else: ?>
+    <table>
+        <thead>
+            <tr>
+                <th>Date ajout</th>
+                <th>N° Personne / Nom</th>
+                <th>Échéance</th>
+                <th>Catégorie</th>
+                <th>Détails</th>
+            </tr>
+        </thead>
+        <tbody>
+        <?php foreach ($instances as $inst):
+            $echeanceClass = getEcheanceClass($inst['date_echeance']);
+            $isRetard = ($echeanceClass === 'bg-danger text-white');
+        ?>
+            <tr>
+                <td><?= formatDate($inst['date_ajout']) ?></td>
+                <td><strong><?= e($inst['numero_personne']) ?></strong></td>
+                <td>
+                    <?php if ($inst['date_echeance']): ?>
+                        <?php if ($isRetard): ?>
+                            <span class="badge-retard"><?= formatDate($inst['date_echeance']) ?></span>
+                        <?php else: ?>
+                            <?= formatDate($inst['date_echeance']) ?>
+                        <?php endif; ?>
+                    <?php else: ?>
+                        —
+                    <?php endif; ?>
+                </td>
+                <td><?= e($inst['categories']) ?></td>
+                <td><?= e(excerpt($inst['details'], 120)) ?></td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+    <?php endif; ?>
+</div>
+
+<div class="section">
+    <div class="section-title">Demandes clients en cours (<?= count($demandes) ?>)</div>
+    <?php if (empty($demandes)): ?>
+        <p style="color:#888;font-style:italic;">Aucune demande client en cours.</p>
+    <?php else: ?>
+    <table>
+        <thead>
+            <tr>
+                <th>Date ajout</th>
+                <th>N° Personne</th>
+                <th>Détails de la demande</th>
+                <th>Date envoi</th>
+                <th>Service</th>
+            </tr>
+        </thead>
+        <tbody>
+        <?php foreach ($demandes as $dem): ?>
+            <tr>
+                <td><?= formatDate($dem['date_ajout']) ?></td>
+                <td><strong><?= e($dem['numero_personne']) ?></strong></td>
+                <td><?= e(excerpt($dem['details_demande'], 120)) ?></td>
+                <td><?= $dem['date_envoi'] ? formatDate($dem['date_envoi']) : '—' ?></td>
+                <td><?= e($dem['service']) ?></td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+    <?php endif; ?>
+</div>
+
+<div class="footer">
+    Portail Conseiller &mdash; Caisse d'Épargne &mdash; rapport généré le <?= $today ?> par <?= e($expediteur) ?>
+</div>
+</body>
+</html>
+    <?php
+    exit;
+}
+
+// ============================================================
+// Mode normal (page avec template)
+// ============================================================
 $pageTitle = 'Rapport d\'activité';
 require_once __DIR__ . '/../../templates/header.php';
 $db     = getDB();
@@ -72,7 +217,7 @@ $expediteur = trim($user['prenom'] . ' ' . $user['nom']);
         </div>
     </div>
     <div class="col-auto d-flex align-items-center gap-2">
-        <button class="btn btn-ce-outline" onclick="window.print()"><i class="fas fa-print"></i> Imprimer</button>
+        <button class="btn btn-ce-outline" onclick="window.open('rapport.php?format=print', '_blank')"><i class="fas fa-print"></i> Imprimer</button>
         <button class="btn btn-ce" data-bs-toggle="modal" data-bs-target="#shareMailModal"><i class="fas fa-envelope"></i> Envoyer par mail</button>
         <a href="index.php" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Retour</a>
     </div>
