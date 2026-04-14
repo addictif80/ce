@@ -471,7 +471,10 @@ function openDetail(id) {
             <div class="card-body"><textarea name="notes" class="form-control" rows="3">${esc(m.notes)}</textarea></div>
         </div>
 
-        <button type="submit" class="btn btn-ce mb-4"><i class="fas fa-save"></i> Enregistrer les modifications</button>
+        <button type="submit" class="btn btn-ce mb-2"><i class="fas fa-save"></i> Enregistrer les modifications</button>
+        <a href="pochette.php?id=${id}" target="_blank" class="btn btn-ce-outline mb-2 ms-2">
+            <i class="fas fa-print"></i> Imprimer pochette
+        </a>
     </form>
 
     <!-- Cartes bancaires -->
