@@ -388,7 +388,7 @@ function openDetail(id) {
     }
 
     document.getElementById('detailContent').innerHTML = `
-    <form method="POST">
+    <form method="POST" id="detailUpdateForm">
         <input type="hidden" name="action" value="update">
         <input type="hidden" name="id" value="${m.id}">
 
@@ -495,6 +495,48 @@ function openDetail(id) {
             ${mq.length ? '<table class="table table-sm"><thead><tr><th>Titulaire</th><th>Commandé</th><th>Reçu</th><th>Remis</th><th></th></tr></thead><tbody>'+cheqHtml+'</tbody></table>' : '<p class="text-muted mb-0">Aucun chéquier</p>'}
         </div>
     </div>`;
+
+    // Soumission AJAX : reste sur le dossier ouvert sans rechargement de page
+    document.getElementById('detailUpdateForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const btn = this.querySelector('button[type="submit"]');
+        const origHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enregistrement\u2026';
+
+        fetch('index.php', { method: 'POST', body: new FormData(this) })
+            .then(r => {
+                if (r.ok) {
+                    // Mettre à jour le tableau local pour les prochaines interactions
+                    const fd = new FormData(document.getElementById('detailUpdateForm'));
+                    const idx = mobilites.findIndex(x => x.id == id);
+                    if (idx >= 0) {
+                        for (const [k, v] of fd.entries()) {
+                            if (k !== 'action') mobilites[idx][k] = v;
+                        }
+                        document.getElementById('detailUpdateForm')
+                            .querySelectorAll('input[type="checkbox"]')
+                            .forEach(cb => { if (!fd.has(cb.name)) mobilites[idx][cb.name] = 0; });
+                    }
+                    btn.classList.replace('btn-ce', 'btn-success');
+                    btn.innerHTML = '<i class="fas fa-check"></i> Enregistr\u00e9\u00a0!';
+                    setTimeout(() => {
+                        btn.disabled = false;
+                        btn.innerHTML = origHtml;
+                        btn.classList.replace('btn-success', 'btn-ce');
+                    }, 2500);
+                } else {
+                    btn.disabled = false;
+                    btn.innerHTML = origHtml;
+                    alert('Erreur lors de l\'enregistrement.');
+                }
+            })
+            .catch(() => {
+                btn.disabled = false;
+                btn.innerHTML = origHtml;
+                alert('Erreur r\u00e9seau, veuillez r\u00e9essayer.');
+            });
+    });
 
     new bootstrap.Modal(document.getElementById('detailModal')).show();
 }
