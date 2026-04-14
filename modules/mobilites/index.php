@@ -22,12 +22,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             'synthese_faite',
             'type_compte','compte_joint','montant_decouvert','izicarte',
             'mandat_signe','date_fin_mobilite','cloture_demandee','date_cloture_depart',
-            'mobiliz_mail_envoye','mobiliz_synthese_recue','mobiliz_04_ouvert','mobiliz_tel_fait','mobiliz_epargnes_a_transferer'
+            'mobiliz_mail_envoye','mobiliz_synthese_recue','mobiliz_04_ouvert','mobiliz_tel_fait',
+            'mobiliz_compte_cdd','mobiliz_compte_livret_a','mobiliz_compte_livret_b','mobiliz_compte_lep',
+            'mobiliz_compte_ldds','mobiliz_compte_assurance_vie','mobiliz_compte_pea','mobiliz_compte_parts_sociales',
+            'mobiliz_rdv_date','mobiliz_rdv_heure','mobiliz_rdv_honore'
         ];
         $checkboxes = ['doc_carte_identite','doc_justif_domicile','doc_avis_imposition','doc_releves_externes','doc_rib',
                         'synthese_faite','compte_joint','izicarte','mandat_signe','cloture_demandee',
-                        'is_ce_hors_mp','mobiliz_mail_envoye','mobiliz_synthese_recue','mobiliz_04_ouvert','mobiliz_tel_fait'];
-        $nullableFields = ['type_compte','date_fin_mobilite','date_cloture_depart','montant_decouvert'];
+                        'is_ce_hors_mp','mobiliz_mail_envoye','mobiliz_synthese_recue','mobiliz_04_ouvert','mobiliz_tel_fait',
+                        'mobiliz_compte_cdd','mobiliz_compte_livret_a','mobiliz_compte_livret_b','mobiliz_compte_lep',
+                        'mobiliz_compte_ldds','mobiliz_compte_assurance_vie','mobiliz_compte_pea','mobiliz_compte_parts_sociales',
+                        'mobiliz_rdv_honore'];
+        $nullableFields = ['type_compte','date_fin_mobilite','date_cloture_depart','montant_decouvert','mobiliz_rdv_date','mobiliz_rdv_heure'];
         $sets = ['is_ce_hors_mp = ?'];
         $vals = [isset($_POST['is_ce_hors_mp']) ? 1 : 0];
         foreach ($fields as $f) {
@@ -342,7 +348,40 @@ function openDetail(id) {
                     <div class="col-md-6"><div class="form-check"><input type="checkbox" name="mobiliz_synthese_recue" class="form-check-input" ${chk(m.mobiliz_synthese_recue)}><label class="form-check-label">Synthèse Mobiliz reçue</label></div></div>
                     <div class="col-md-6"><div class="form-check"><input type="checkbox" name="mobiliz_04_ouvert" class="form-check-input" ${chk(m.mobiliz_04_ouvert)}><label class="form-check-label">04 ouvert</label></div></div>
                     <div class="col-md-6"><div class="form-check"><input type="checkbox" name="mobiliz_tel_fait" class="form-check-input" ${chk(m.mobiliz_tel_fait)}><label class="form-check-label">Appel tél. fait</label></div></div>
-                    <div class="col-12"><label class="form-label">Épargnes à transférer</label><textarea name="mobiliz_epargnes_a_transferer" class="form-control" rows="2">${esc(m.mobiliz_epargnes_a_transferer)}</textarea></div>
+
+                    <div class="col-12 mt-2">
+                        <label class="form-label fw-bold">Comptes à transférer</label>
+                        <div class="row g-2">
+                            <div class="col-md-3"><div class="form-check"><input type="checkbox" name="mobiliz_compte_cdd" class="form-check-input" ${chk(m.mobiliz_compte_cdd)}><label class="form-check-label">CDD</label></div></div>
+                            <div class="col-md-3"><div class="form-check"><input type="checkbox" name="mobiliz_compte_livret_a" class="form-check-input" ${chk(m.mobiliz_compte_livret_a)}><label class="form-check-label">Livret A</label></div></div>
+                            <div class="col-md-3"><div class="form-check"><input type="checkbox" name="mobiliz_compte_livret_b" class="form-check-input" ${chk(m.mobiliz_compte_livret_b)}><label class="form-check-label">Livret B</label></div></div>
+                            <div class="col-md-3"><div class="form-check"><input type="checkbox" name="mobiliz_compte_lep" class="form-check-input" ${chk(m.mobiliz_compte_lep)}><label class="form-check-label">LEP</label></div></div>
+                            <div class="col-md-3"><div class="form-check"><input type="checkbox" name="mobiliz_compte_ldds" class="form-check-input" ${chk(m.mobiliz_compte_ldds)}><label class="form-check-label">LDDS</label></div></div>
+                            <div class="col-md-3"><div class="form-check"><input type="checkbox" name="mobiliz_compte_assurance_vie" class="form-check-input" ${chk(m.mobiliz_compte_assurance_vie)}><label class="form-check-label">Assurance vie</label></div></div>
+                            <div class="col-md-3"><div class="form-check"><input type="checkbox" name="mobiliz_compte_pea" class="form-check-input" ${chk(m.mobiliz_compte_pea)}><label class="form-check-label">PEA</label></div></div>
+                            <div class="col-md-3"><div class="form-check"><input type="checkbox" name="mobiliz_compte_parts_sociales" class="form-check-input" ${chk(m.mobiliz_compte_parts_sociales)}><label class="form-check-label">Parts sociales</label></div></div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 mt-2">
+                        <label class="form-label fw-bold">Rendez-vous</label>
+                        <div class="row g-2 align-items-center mb-1">
+                            <div class="col-auto"><div class="form-check mb-0"><input type="checkbox" name="mobiliz_rdv_honore" class="form-check-input" id="rdvHonore_${m.id}" ${chk(m.mobiliz_rdv_honore)} onchange="document.getElementById('rdvLabel_${m.id}').textContent=this.checked?'Le':'Pris le'"><label class="form-check-label" for="rdvHonore_${m.id}">Rendez-vous déjà honoré</label></div></div>
+                        </div>
+                        <div class="row g-2 align-items-center">
+                            <div class="col-auto"><span id="rdvLabel_${m.id}" class="form-text fw-semibold">${m.mobiliz_rdv_honore == 1 ? 'Le' : 'Pris le'}</span></div>
+                            <div class="col-auto"><input type="date" name="mobiliz_rdv_date" class="form-control form-control-sm" value="${m.mobiliz_rdv_date || ''}"></div>
+                            <div class="col-auto"><span class="form-text">à</span></div>
+                            <div class="col-auto"><input type="time" name="mobiliz_rdv_heure" class="form-control form-control-sm" value="${m.mobiliz_rdv_heure || ''}"></div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 mt-3">
+                        <a href="mobiliz_mail.php?id=${m.id}" class="btn btn-sm btn-warning">
+                            <i class="fas fa-envelope"></i> Générer le mail Mobiliz (.eml)
+                        </a>
+                        <small class="text-muted ms-2">Enregistrez d'abord vos modifications avant de générer le mail.</small>
+                    </div>
                 </div>
             </div>
         </div>`;
