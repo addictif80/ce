@@ -160,22 +160,6 @@ $htmlBody = <<<HTML
                 </tr>
               </table>
 
-              <p style="margin:0;font-size:13px;color:#666666;font-style:italic;">
-                Ce message a &eacute;t&eacute; g&eacute;n&eacute;r&eacute; depuis le Portail Conseiller &mdash; Caisse d&apos;&Eacute;pargne.
-              </p>
-
-            </td>
-          </tr>
-
-          <!-- Pied de page -->
-          <tr>
-            <td style="padding:16px 32px;background-color:#fafafa;
-                       border-top:1px solid #eeeeee;">
-              <p style="margin:0;font-size:11px;color:#aaaaaa;text-align:center;
-                        line-height:1.6;">
-                Portail Conseiller &mdash; Caisse d&apos;&Eacute;pargne<br>
-                Ce message a &eacute;t&eacute; g&eacute;n&eacute;r&eacute; automatiquement &mdash; merci de ne pas y r&eacute;pondre.
-              </p>
             </td>
           </tr>
 
