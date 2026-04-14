@@ -75,7 +75,8 @@ $textBody  = "Bonjour,\r\n\r\n";
 $textBody .= "$nomClient demande une mobilité depuis $banqueDepart vers la Caisse d'Epargne de Midi Pyrénées.\r\n";
 $textBody .= "Les comptes à transférer sont les suivants :\r\n";
 $textBody .= "$listeTxt\r\n\r\n";
-$textBody .= "$rdvPhraseTxt\r\n";
+$textBody .= "$rdvPhraseTxt\r\n\r\n";
+$textBody .= "Vous trouverez en pièces jointes le justificatif d'identité ainsi que le RIB de la banque de départ du client.\r\n";
 
 // ===================== CORPS HTML =====================
 $logoUrl = 'https://ce-prod.cloudimg.io/_images_/app/uploads/sites/16/2023/06/02105536/cemp-logo-paris-2024.png?func=bound&w=400&h=80&gravity=auto&optipress=2';
@@ -149,7 +150,7 @@ $htmlBody = <<<HTML
 
               <!-- Rendez-vous -->
               <table cellpadding="0" cellspacing="0" border="0" width="100%"
-                     style="margin-bottom:28px;">
+                     style="margin-bottom:24px;">
                 <tr>
                   <td style="padding:14px 16px;background:#ffffff;
                               border:1px solid #e8e8e8;border-radius:4px;">
@@ -159,6 +160,10 @@ $htmlBody = <<<HTML
                   </td>
                 </tr>
               </table>
+
+              <p style="margin:0 0 28px 0;font-size:14px;color:#333333;line-height:1.7;">
+                Vous trouverez en pi&egrave;ces jointes le justificatif d&rsquo;identit&eacute; ainsi que le RIB de la banque de d&eacute;part du client.
+              </p>
 
             </td>
           </tr>
