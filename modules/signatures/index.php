@@ -479,9 +479,13 @@ function showDetail(id) {
     });
 
     const hasNonRecus = docs.some(d => d.recu == 0);
+    const initialBtn = `<a href="index.php?action=gen_eml_initial&id=${id}" class="btn btn-ce-outline">
+           <i class="fas fa-envelope-open-text"></i> Mail initial (.eml)
+       </a>`;
+
     const rappelBtn = (dossier.statut === 'en_cours' && hasNonRecus)
         ? `<a href="index.php?action=gen_eml_rappel&id=${id}" class="btn btn-ce-outline">
-               <i class="fas fa-envelope"></i> Télécharger rappel (.eml)
+               <i class="fas fa-envelope"></i> Rappel (.eml)
            </a>`
         : '';
 
@@ -519,7 +523,7 @@ function showDetail(id) {
             <h6 class="mb-3"><i class="fas fa-file-alt"></i> Documents</h6>
             ${docsHtml || '<p class="text-muted">Aucun document</p>'}
         </div>
-        ${rappelBtn ? `<div class="mb-4">${rappelBtn}</div>` : ''}
+        <div class="d-flex flex-wrap gap-2 mb-4">${initialBtn}${rappelBtn}</div>
         <div class="notes-section">
             <h5><i class="fas fa-sticky-note"></i> Notes</h5>
             ${notesHtml || '<p class="text-muted">Aucune note</p>'}
@@ -610,16 +614,6 @@ const emlInitial = urlParams.get('eml_initial');
 
 if (openId) {
     showDetail(parseInt(openId));
-    if (emlInitial === '1') {
-        // Déclenche le téléchargement du mail initial sans quitter la page
-        setTimeout(() => {
-            const a = document.createElement('a');
-            a.href = 'index.php?action=gen_eml_initial&id=' + openId;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-        }, 400);
-    }
     history.replaceState(null, '', 'index.php');
 }
 </script>
