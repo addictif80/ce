@@ -47,49 +47,164 @@ if (isset($_GET['action']) && in_array($_GET['action'], ['gen_eml_initial', 'gen
     $stmt->execute([$id]);
     $docs = $stmt->fetchAll();
 
+    $nomClientEsc = htmlspecialchars($dossier['nom_client'], ENT_QUOTES);
+
     if ($_GET['action'] === 'gen_eml_initial') {
-        $subject = 'Documents à retourner signés';
-        $docsList = implode("\r\n", array_map(fn($d) => '  - ' . $d['nom_document'], $docs));
-        $body  = "Madame, Monsieur,\r\n\r\n";
-        $body .= "Veuillez trouver ci-joints les documents suivants à nous retourner signés :\r\n\r\n";
-        $body .= $docsList . "\r\n\r\n";
-        $body .= "Nous restons disponibles pour tout renseignement complémentaire.\r\n\r\n";
-        $body .= "Cordialement";
-        $type = 'envoi';
+        $subject    = 'Documents à retourner signés';
+        $bandeau    = 'Documents à retourner signés';
+        $docsSource = $docs;
+        $intro      = 'Veuillez trouver ci-joints les documents suivants &agrave; nous retourner sign&eacute;s&nbsp;:';
+        $introTxt   = "Veuillez trouver ci-joints les documents suivants à nous retourner signés :";
+        $type       = 'envoi';
     } else {
-        $nonRecus = array_values(array_filter($docs, fn($d) => !$d['recu']));
-        if (empty($nonRecus)) {
+        $docsSource = array_values(array_filter($docs, fn($d) => !$d['recu']));
+        if (empty($docsSource)) {
             header('Location: index.php?open=' . $id);
             exit;
         }
         $dateEnvoi = formatDate($dossier['date_envoi']);
         $subject   = 'RAPPEL : Documents en attente de signature depuis le ' . $dateEnvoi;
-        $docsList  = implode("\r\n", array_map(fn($d) => '  - ' . $d['nom_document'], $nonRecus));
-        $body  = "Madame, Monsieur,\r\n\r\n";
-        $body .= "Sauf erreur de notre part, nous n'avons pas encore reçu les documents suivants,\r\n";
-        $body .= "en attente de signature depuis le " . $dateEnvoi . " :\r\n\r\n";
-        $body .= $docsList . "\r\n\r\n";
-        $body .= "Nous vous remercions de bien vouloir nous les retourner dès que possible.\r\n\r\n";
-        $body .= "Cordialement";
-        $type = 'rappel';
+        $bandeau   = 'Rappel &mdash; Documents en attente de signature';
+        $intro     = 'Sauf erreur de notre part, nous n&rsquo;avons pas encore re&ccedil;u les documents suivants,
+                      en attente de signature depuis le <strong>' . htmlspecialchars($dateEnvoi, ENT_QUOTES) . '</strong>&nbsp;:';
+        $introTxt  = "Sauf erreur de notre part, nous n'avons pas encore reçu les documents suivants,\nen attente de signature depuis le $dateEnvoi :";
+        $type      = 'rappel';
     }
 
-    $safeName = preg_replace('/[^a-z0-9]/i', '_', $dossier['numero_personne']);
-    $filename  = $type . '_' . $safeName . '_' . date('Ymd') . '.eml';
+    // Listes de documents
+    $listeHtml = '<ul style="margin:8px 0 0 0;padding-left:20px;">'
+        . implode('', array_map(fn($d) => '<li>' . htmlspecialchars($d['nom_document'], ENT_QUOTES) . '</li>', $docsSource))
+        . '</ul>';
+    $listeTxt = implode("\r\n", array_map(fn($d) => '  - ' . $d['nom_document'], $docsSource));
 
-    $eml  = "Date: " . date('r') . "\r\n";
-    $eml .= "From: \r\n";
-    $eml .= "To: " . $dossier['nom_client'] . " <" . $dossier['email_client'] . ">\r\n";
-    $eml .= "Subject: =?UTF-8?B?" . base64_encode($subject) . "?=\r\n";
-    $eml .= "MIME-Version: 1.0\r\n";
-    $eml .= "Content-Type: text/plain; charset=UTF-8\r\n";
-    $eml .= "Content-Transfer-Encoding: 8bit\r\n";
-    $eml .= "\r\n";
-    $eml .= $body;
+    // Corps texte brut
+    $textBody  = "Madame, Monsieur,\r\n\r\n";
+    $textBody .= $introTxt . "\r\n\r\n";
+    $textBody .= $listeTxt . "\r\n\r\n";
+    $textBody .= "Nous restons disponibles pour tout renseignement complémentaire.\r\n\r\n";
+    $textBody .= "Cordialement";
+
+    // Corps HTML (même design que mobiliz_mail.php)
+    $logoUrl  = 'https://ce-prod.cloudimg.io/_images_/app/uploads/sites/16/2023/06/02105536/cemp-logo-paris-2024.png?func=bound&w=400&h=80&gravity=auto&optipress=2';
+
+    $htmlBody = <<<HTML
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;background-color:#f5f5f5;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0"
+         style="background-color:#f5f5f5;padding:30px 0;">
+    <tr>
+      <td align="center">
+
+        <!-- Carte centrale -->
+        <table width="600" cellpadding="0" cellspacing="0" border="0"
+               style="max-width:600px;width:100%;background-color:#ffffff;
+                      border-radius:8px;overflow:hidden;
+                      box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+
+          <!-- En-tête rouge -->
+          <tr>
+            <td style="background-color:#CF0A2C;padding:22px 32px;">
+              <img src="{$logoUrl}"
+                   alt="Caisse d'Épargne" height="38"
+                   style="display:block;border:0;height:38px;">
+            </td>
+          </tr>
+
+          <!-- Bandeau sous-titre -->
+          <tr>
+            <td style="background-color:#a50823;padding:8px 32px;">
+              <p style="margin:0;font-size:11px;color:#f9c9c9;
+                        text-transform:uppercase;letter-spacing:0.08em;">
+                {$bandeau}
+              </p>
+            </td>
+          </tr>
+
+          <!-- Contenu principal -->
+          <tr>
+            <td style="padding:36px 32px 28px 32px;">
+
+              <p style="margin:0 0 20px 0;font-size:15px;color:#333333;line-height:1.7;">
+                Madame, Monsieur,
+              </p>
+
+              <p style="margin:0 0 20px 0;font-size:15px;color:#333333;line-height:1.7;">
+                {$intro}
+              </p>
+
+              <!-- Liste des documents -->
+              <table cellpadding="0" cellspacing="0" border="0" width="100%"
+                     style="margin-bottom:24px;background:#f8f8f8;
+                            border-left:3px solid #CF0A2C;
+                            border-radius:0 4px 4px 0;">
+                <tr>
+                  <td style="padding:14px 16px;">
+                    <p style="margin:0 0 8px 0;font-size:12px;color:#888888;
+                               text-transform:uppercase;letter-spacing:0.06em;">
+                      Documents
+                    </p>
+                    {$listeHtml}
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0 0 28px 0;font-size:14px;color:#333333;line-height:1.7;">
+                Nous restons disponibles pour tout renseignement compl&eacute;mentaire.
+              </p>
+
+              <p style="margin:0;font-size:14px;color:#333333;line-height:1.7;">
+                Cordialement
+              </p>
+
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+HTML;
+
+    // Construction du .eml multipart/alternative
+    $boundary      = 'bound_' . md5(uniqid('emlsig_', true));
+    $subjectHeader = '=?UTF-8?B?' . base64_encode($subject) . '?=';
+    $safeName      = preg_replace('/[^a-zA-Z0-9_-]/', '_', $dossier['numero_personne']);
+    $filename      = $type . '_' . $safeName . '_' . date('Ymd') . '.eml';
+    $toHeader      = $nomClientEsc . ' <' . $dossier['email_client'] . '>';
 
     header('Content-Type: message/rfc822');
     header('Content-Disposition: attachment; filename="' . $filename . '"');
-    header('Content-Length: ' . strlen($eml));
+    header('Cache-Control: no-cache, must-revalidate');
+
+    $eml  = "MIME-Version: 1.0\r\n";
+    $eml .= "Date: " . date('r') . "\r\n";
+    $eml .= "Subject: {$subjectHeader}\r\n";
+    $eml .= "To: {$toHeader}\r\n";
+    $eml .= "X-Unsent: 1\r\n";
+    $eml .= "Content-Type: multipart/alternative;\r\n\tboundary=\"{$boundary}\"\r\n";
+    $eml .= "\r\n";
+
+    $eml .= "--{$boundary}\r\n";
+    $eml .= "Content-Type: text/plain; charset=UTF-8\r\n";
+    $eml .= "Content-Transfer-Encoding: quoted-printable\r\n";
+    $eml .= "\r\n";
+    $eml .= quoted_printable_encode($textBody) . "\r\n";
+
+    $eml .= "--{$boundary}\r\n";
+    $eml .= "Content-Type: text/html; charset=UTF-8\r\n";
+    $eml .= "Content-Transfer-Encoding: quoted-printable\r\n";
+    $eml .= "\r\n";
+    $eml .= quoted_printable_encode($htmlBody) . "\r\n";
+
+    $eml .= "--{$boundary}--\r\n";
+
     echo $eml;
     exit;
 }
