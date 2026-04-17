@@ -54,7 +54,8 @@ $proceduresEnAvant = $stmtProc->fetchAll();
                     <strong class="ms-2"><?= e($r['titre']) ?></strong>
                     <span class="text-muted ms-2"><?= e(excerpt($r['detail'], 100)) ?></span>
                 </div>
-                <a href="<?= $typeLinks[$r['type']] ?? '#' ?><?= !empty($r['id']) ? '?open=' . (int)$r['id'] : '' ?>" class="btn btn-sm btn-ce-outline">Voir</a>
+                <?php $noOpen = ['equipe']; ?>
+                <a href="<?= $typeLinks[$r['type']] ?? '#' ?><?= (!empty($r['id']) && !in_array($r['type'], $noOpen)) ? '?open=' . (int)$r['id'] : '' ?>" class="btn btn-sm btn-ce-outline">Voir</a>
             </div>
         <?php endforeach; ?>
     <?php endif; ?>
