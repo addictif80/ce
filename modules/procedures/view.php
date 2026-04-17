@@ -73,6 +73,11 @@ if ($accessViaToken) {
         .container-page { max-width: 900px; margin: 0 auto; padding: 0 20px; }
         .card-content { background: #fff; border-radius: 10px; padding: 40px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin: 30px auto; }
         .procedure-text { white-space: pre-wrap; line-height: 1.8; font-size: 15px; }
+        .wysiwyg-content { line-height: 1.8; font-size: 15px; }
+        .wysiwyg-content img { max-width: 100%; height: auto; border-radius: 4px; margin: 8px 0; display: block; }
+        .wysiwyg-content h1, .wysiwyg-content h2, .wysiwyg-content h3 { color: #e4002b; margin-top: 16px; margin-bottom: 8px; }
+        .wysiwyg-content ul, .wysiwyg-content ol { padding-left: 24px; }
+        .wysiwyg-content object { max-width: 100%; display: block; margin: 8px 0; }
         .meta-info { color: #999; font-size: 13px; margin-top: 30px; padding-top: 15px; border-top: 1px solid #eee; }
         @media print { .page-header { background: #fff !important; color: #333 !important; } .no-print { display: none !important; } }
     </style>
@@ -91,7 +96,11 @@ if ($accessViaToken) {
     </div>
     <div class="container-page">
         <div class="card-content">
+            <?php if (preg_match('/<[a-z][\s\S]*>/i', $procedure['texte'])): ?>
+            <div class="wysiwyg-content"><?= $procedure['texte'] ?></div>
+        <?php else: ?>
             <div class="procedure-text"><?= e($procedure['texte']) ?></div>
+        <?php endif; ?>
             <div class="meta-info">
                 <i class="fas fa-calendar"></i> Publiée le <?= formatDate($procedure['created_at']) ?>
             </div>
@@ -133,7 +142,11 @@ require_once __DIR__ . '/../../templates/header.php';
         </h3>
         <small class="text-muted">Créée le <?= formatDate($procedure['created_at']) ?></small>
         <hr>
-        <div style="white-space:pre-wrap; line-height:1.8; font-size:15px;"><?= e($procedure['texte']) ?></div>
+        <?php if (preg_match('/<[a-z][\s\S]*>/i', $procedure['texte'])): ?>
+            <div class="wysiwyg-content" style="font-size:15px;"><?= $procedure['texte'] ?></div>
+        <?php else: ?>
+            <div style="white-space:pre-wrap; line-height:1.8; font-size:15px;"><?= e($procedure['texte']) ?></div>
+        <?php endif; ?>
     </div>
 </div>
 
