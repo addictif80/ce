@@ -161,6 +161,10 @@ function getDefaultMenuItems() {
         // Items - Références
         ['item_key' => 'codes', 'parent_key' => 'references', 'label' => 'Codes utiles', 'icon' => 'fa-key', 'url' => '/modules/codes/index.php', 'uri_patterns' => '/codes/', 'ordre' => 1],
         ['item_key' => 'contacts', 'parent_key' => 'references', 'label' => 'Contacts utiles', 'icon' => 'fa-address-book', 'url' => '/modules/contacts/index.php', 'uri_patterns' => '/contacts/', 'ordre' => 2],
+        // Section Communication
+        ['item_key' => 'communication', 'parent_key' => null, 'label' => 'Communication', 'icon' => 'fa-comments', 'url' => null, 'uri_patterns' => 'messagerie,agenda', 'ordre' => 6],
+        ['item_key' => 'messagerie', 'parent_key' => 'communication', 'label' => 'Messagerie', 'icon' => 'fa-comment-dots', 'url' => '/modules/messagerie/index.php', 'uri_patterns' => 'messagerie', 'ordre' => 1],
+        ['item_key' => 'agenda', 'parent_key' => 'communication', 'label' => 'Agenda', 'icon' => 'fa-calendar-week', 'url' => '/modules/agenda/index.php', 'uri_patterns' => 'agenda', 'ordre' => 2],
     ];
 }
 
