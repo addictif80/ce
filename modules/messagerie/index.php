@@ -1,86 +1,81 @@
 <?php
+// Traiter les requêtes AJAX avant le header (évite de mélanger HTML et JSON)
+if (($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) || (isset($_GET['action']) && $_GET['action'] === 'messages')) {
+    require_once __DIR__ . '/../../includes/auth.php';
+    require_once __DIR__ . '/../../includes/functions.php';
+    requireLogin();
+    header('Content-Type: application/json');
+    $db = getDB();
+    $userId = getCurrentUserId();
+    $currentUser = getCurrentUser();
+
+    $db->exec("CREATE TABLE IF NOT EXISTS messages (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        contenu TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_created (created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS message_vu (
+        user_id INT PRIMARY KEY,
+        dernier_message_id INT NOT NULL DEFAULT 0
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $action = $_POST['action'] ?? '';
+
+        if ($action === 'send') {
+            $contenu = trim($_POST['contenu'] ?? '');
+            if (!$contenu) { echo json_encode(['error' => 'Message vide']); exit; }
+            $contenu = mb_substr($contenu, 0, 2000);
+            $stmt = $db->prepare("INSERT INTO messages (user_id, contenu) VALUES (?, ?)");
+            $stmt->execute([$userId, $contenu]);
+            $msgId = (int)$db->lastInsertId();
+
+            $stmtU = $db->prepare("SELECT u.id FROM users u LEFT JOIN message_vu mv ON mv.user_id = u.id WHERE u.id != ? AND (mv.dernier_message_id IS NULL OR mv.dernier_message_id < ?)");
+            $stmtU->execute([$userId, $msgId]);
+            $nom = ($currentUser['prenom'] ?? '') . ' ' . ($currentUser['nom'] ?? '');
+            foreach ($stmtU->fetchAll() as $u) {
+                createNotification($u['id'], 'message', $nom . ' a envoyé un message', mb_substr($contenu, 0, 80), APP_URL . '/modules/messagerie/index.php');
+            }
+
+            $db->prepare("INSERT INTO message_vu (user_id, dernier_message_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE dernier_message_id = VALUES(dernier_message_id)")
+                ->execute([$userId, $msgId]);
+
+            echo json_encode(['success' => true, 'id' => $msgId]);
+            exit;
+        }
+
+        if ($action === 'mark_read') {
+            $lastId = (int)($_POST['last_id'] ?? 0);
+            if ($lastId) {
+                $db->prepare("INSERT INTO message_vu (user_id, dernier_message_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE dernier_message_id = GREATEST(dernier_message_id, VALUES(dernier_message_id))")
+                    ->execute([$userId, $lastId]);
+                $db->prepare("UPDATE notifications SET lu = 1 WHERE user_id = ? AND type = 'message'")->execute([$userId]);
+            }
+            echo json_encode(['success' => true]);
+            exit;
+        }
+    }
+
+    if (isset($_GET['action']) && $_GET['action'] === 'messages') {
+        $after = (int)($_GET['after'] ?? 0);
+        $stmt = $db->prepare("SELECT m.id, m.user_id, m.contenu, m.created_at, u.nom, u.prenom FROM messages m JOIN users u ON m.user_id = u.id WHERE m.id > ? ORDER BY m.id ASC LIMIT 100");
+        $stmt->execute([$after]);
+        echo json_encode(['messages' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+        exit;
+    }
+
+    echo json_encode(['error' => 'Action inconnue']);
+    exit;
+}
+
 $pageTitle = 'Messagerie';
 require_once __DIR__ . '/../../templates/header.php';
 $db = getDB();
 $userId = getCurrentUserId();
 $currentUser = getCurrentUser();
-
-$db->exec("CREATE TABLE IF NOT EXISTS messages (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    contenu TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_created (created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
-$db->exec("CREATE TABLE IF NOT EXISTS message_vu (
-    user_id INT PRIMARY KEY,
-    dernier_message_id INT NOT NULL DEFAULT 0
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
-// AJAX : envoyer un message
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    header('Content-Type: application/json');
-    if ($_POST['action'] === 'send') {
-        $contenu = trim($_POST['contenu'] ?? '');
-        if (!$contenu) { echo json_encode(['error' => 'Message vide']); exit; }
-        $contenu = mb_substr($contenu, 0, 2000);
-        $stmt = $db->prepare("INSERT INTO messages (user_id, contenu) VALUES (?, ?)");
-        $stmt->execute([$userId, $contenu]);
-        $msgId = (int)$db->lastInsertId();
-
-        // Notifier les utilisateurs absents depuis plus de 5 min
-        $stmtU = $db->prepare("
-            SELECT u.id FROM users u
-            LEFT JOIN message_vu mv ON mv.user_id = u.id
-            WHERE u.id != ? AND (mv.dernier_message_id IS NULL OR mv.dernier_message_id < ?)
-        ");
-        $stmtU->execute([$userId, $msgId]);
-        $nom = ($currentUser['prenom'] ?? '') . ' ' . ($currentUser['nom'] ?? '');
-        foreach ($stmtU->fetchAll() as $u) {
-            createNotification($u['id'], 'message',
-                $nom . ' a envoyé un message',
-                mb_substr($contenu, 0, 80),
-                APP_URL . '/modules/messagerie/index.php'
-            );
-        }
-
-        // Marquer comme vu pour l'expéditeur
-        $db->prepare("INSERT INTO message_vu (user_id, dernier_message_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE dernier_message_id = VALUES(dernier_message_id)")
-            ->execute([$userId, $msgId]);
-
-        echo json_encode(['success' => true, 'id' => $msgId]);
-        exit;
-    }
-
-    if ($_POST['action'] === 'mark_read') {
-        $lastId = (int)($_POST['last_id'] ?? 0);
-        if ($lastId) {
-            $db->prepare("INSERT INTO message_vu (user_id, dernier_message_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE dernier_message_id = GREATEST(dernier_message_id, VALUES(dernier_message_id))")
-                ->execute([$userId, $lastId]);
-            // Marquer les notifs messages comme lues
-            $db->prepare("UPDATE notifications SET lu = 1 WHERE user_id = ? AND type = 'message'")->execute([$userId]);
-        }
-        echo json_encode(['success' => true]);
-        exit;
-    }
-    exit;
-}
-
-// AJAX : récupérer les messages
-if (isset($_GET['action']) && $_GET['action'] === 'messages') {
-    header('Content-Type: application/json');
-    $after = (int)($_GET['after'] ?? 0);
-    $stmt = $db->prepare("
-        SELECT m.id, m.user_id, m.contenu, m.created_at, u.nom, u.prenom
-        FROM messages m JOIN users u ON m.user_id = u.id
-        WHERE m.id > ?
-        ORDER BY m.id ASC LIMIT 100
-    ");
-    $stmt->execute([$after]);
-    echo json_encode(['messages' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
-    exit;
-}
 
 // Chargement initial (50 derniers messages)
 $stmt = $db->query("
