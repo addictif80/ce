@@ -107,6 +107,7 @@ foreach ($rdvLabels as $cle => $libelle) {
 }
 
 // ========= FONCTION AUTO-FILL =========
+if (!function_exists('getEaiAutoFillData'))
 function getEaiAutoFillData($db, $userId, $tuesdayDate) {
     // Calcul du lundi de la semaine en cours (contenant le mardi de génération)
     $dt = new DateTime($tuesdayDate);

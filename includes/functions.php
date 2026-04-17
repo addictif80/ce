@@ -125,6 +125,56 @@ function getCategoriesLiens() {
 /**
  * Configuration du menu - Valeurs par défaut
  */
+
+function getEaiAutoFillData($db, $userId, $tuesdayDate) {
+    $dt = new DateTime($tuesdayDate);
+    $dow = (int)$dt->format('N');
+    $mondayDt = clone $dt;
+    $mondayDt->modify('-' . ($dow - 1) . ' days');
+
+    $prevMon = (clone $mondayDt)->modify('-7 days')->format('Y-m-d');
+    $prevSun = (clone $mondayDt)->modify('-1 day')->format('Y-m-d');
+    $curMon  = $mondayDt->format('Y-m-d');
+    $curSun  = (clone $mondayDt)->modify('+6 days')->format('Y-m-d');
+    $nextMon = (clone $mondayDt)->modify('+7 days')->format('Y-m-d');
+    $nextSun = (clone $mondayDt)->modify('+13 days')->format('Y-m-d');
+
+    $data = [];
+
+    $stmt = $db->prepare("SELECT COALESCE(SUM(nombre_appels), 0) FROM seances_phoning WHERE user_id = ? AND date_ajout BETWEEN ? AND ?");
+    $stmt->execute([$userId, $prevMon, $prevSun]);
+    $data['volume_appels_sortants'] = (float)$stmt->fetchColumn();
+
+    $stmt = $db->prepare("SELECT COUNT(*) as total, SUM(resultat IN ('repondu','rdv')) as decroche FROM appels_phoning WHERE user_id = ? AND DATE(created_at) BETWEEN ? AND ?");
+    $stmt->execute([$userId, $prevMon, $prevSun]);
+    $r = $stmt->fetch();
+    $total = (int)$r['total'];
+    $data['taux_decroche'] = $total > 0 ? round((float)$r['decroche'] / $total * 100, 1) : 0;
+
+    $rdvStmt = $db->prepare("SELECT COUNT(*) as total, COALESCE(SUM(is_anv = 1), 0) as anv FROM appels_phoning WHERE user_id = ? AND resultat = 'rdv' AND date_rdv BETWEEN ? AND ?");
+    $rdvStmt->execute([$userId, $prevMon, $prevSun]); $r = $rdvStmt->fetch();
+    $data['rdv_s'] = (int)$r['total']; $data['rdv_proactifs_s'] = (int)$r['total']; $data['rdv_anv_s'] = (int)$r['anv'];
+    $rdvStmt->execute([$userId, $curMon, $curSun]); $r = $rdvStmt->fetch();
+    $data['rdv_s1'] = (int)$r['total']; $data['rdv_proactifs_s1'] = (int)$r['total']; $data['rdv_anv_s1'] = (int)$r['anv'];
+    $rdvStmt->execute([$userId, $nextMon, $nextSun]); $r = $rdvStmt->fetch();
+    $data['rdv_s2'] = (int)$r['total']; $data['rdv_proactifs_s2'] = (int)$r['total']; $data['rdv_anv_s2'] = (int)$r['anv'];
+
+    $ventesFrom = $prevMon;
+    $ventesTo   = (new DateTime())->format('Y-m-d');
+
+    $clesCount = ['ventes_brut_anv','cartes_hdg_dd','izicartes','forfaits','livrets','pel_quadreto','assvie_peri','nouveau_societaire','equip_jequip','bp_jbp'];
+    $stmtCount = $db->prepare("SELECT COALESCE(COUNT(*), 0) FROM suivi_production WHERE user_id = ? AND eai_cle = ? AND DATE(date_rdv) BETWEEN ? AND ?");
+    foreach ($clesCount as $cle) { $stmtCount->execute([$userId, $cle, $ventesFrom, $ventesTo]); $data[$cle] = (int)$stmtCount->fetchColumn(); }
+
+    $clesSum = ['volume_pret_perso','volume_collecte','volume_parts_sociales'];
+    $stmtSum = $db->prepare("SELECT COALESCE(SUM(CAST(montant_nombre AS DECIMAL(15,2))), 0) FROM suivi_production WHERE user_id = ? AND eai_cle = ? AND DATE(date_rdv) BETWEEN ? AND ?");
+    foreach ($clesSum as $cle) { $stmtSum->execute([$userId, $cle, $ventesFrom, $ventesTo]); $data[$cle] = (float)$stmtSum->fetchColumn(); }
+
+    if ($data['ventes_brut_anv'] === 0) $data['ventes_brut_anv'] = $data['rdv_anv_s'];
+
+    return $data;
+}
+
 function getDefaultMenuItems() {
     return [
         // Sections
