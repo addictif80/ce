@@ -232,8 +232,8 @@ function searchGlobal($query, $userId) {
     $stmt->execute([$userId, $like, $like]);
     $results = array_merge($results, $stmt->fetchAll());
 
-    // Contacts utiles
-    $stmt = $db->prepare("SELECT id, service AS titre, a_contacter_pour AS detail, 'contacts' AS type FROM contacts_utiles WHERE user_id = ? AND (telephone LIKE ? OR mail LIKE ? OR service LIKE ? OR a_contacter_pour LIKE ?)");
+    // Contacts utiles (propres + approuvés par tous)
+    $stmt = $db->prepare("SELECT id, service AS titre, a_contacter_pour AS detail, 'contacts' AS type FROM contacts_utiles WHERE (user_id = ? OR approved = 1) AND (telephone LIKE ? OR mail LIKE ? OR service LIKE ? OR a_contacter_pour LIKE ?)");
     $stmt->execute([$userId, $like, $like, $like, $like]);
     $results = array_merge($results, $stmt->fetchAll());
 
@@ -268,8 +268,8 @@ function searchGlobal($query, $userId) {
     $results = array_merge($results, $stmt->fetchAll());
 
     try {
-        $stmt = $db->prepare("SELECT id, CONCAT(prenom, ' ', nom) AS titre, CONCAT(COALESCE(email,''), ' ', COALESCE(telephone,''), ' ', COALESCE(ligne_interne,'')) AS detail, 'equipe' AS type FROM contacts_equipe WHERE (nom LIKE ? OR prenom LIKE ? OR email LIKE ? OR telephone LIKE ? OR ligne_interne LIKE ?)");
-        $stmt->execute([$like, $like, $like, $like, $like]);
+        $stmt = $db->prepare("SELECT id, CONCAT(prenom, ' ', nom) AS titre, CONCAT(COALESCE(email,''), ' ', COALESCE(telephone,''), ' ', COALESCE(ligne_interne,'')) AS detail, 'equipe' AS type FROM contacts_equipe WHERE user_id = ? AND (nom LIKE ? OR prenom LIKE ? OR email LIKE ? OR telephone LIKE ? OR ligne_interne LIKE ?)");
+        $stmt->execute([$userId, $like, $like, $like, $like, $like]);
         $results = array_merge($results, $stmt->fetchAll());
     } catch (Exception $e) {}
 
@@ -281,6 +281,48 @@ function searchGlobal($query, $userId) {
     // Appels phoning (recherche par numéro/nom ou commentaire)
     try {
         $stmt = $db->prepare("SELECT a.seance_id AS id, CONCAT(COALESCE(a.numero_personne, ''), ' (', a.resultat, ')') AS titre, COALESCE(a.commentaire, '') AS detail, 'phoning' AS type FROM appels_phoning a WHERE a.user_id = ? AND (a.numero_personne LIKE ? OR a.commentaire LIKE ?)");
+        $stmt->execute([$userId, $like, $like]);
+        $results = array_merge($results, $stmt->fetchAll());
+    } catch (Exception $e) {}
+
+    // Courriers internes
+    try {
+        $stmt = $db->prepare("SELECT id, CONCAT(nom_prenom_dest, ' - ', objet) AS titre, corps AS detail, 'courriers_internes' AS type FROM courriers_internes WHERE user_id = ? AND (nom_prenom_dest LIKE ? OR objet LIKE ? OR corps LIKE ?)");
+        $stmt->execute([$userId, $like, $like, $like]);
+        $results = array_merge($results, $stmt->fetchAll());
+    } catch (Exception $e) {}
+
+    // Signatures (dossiers)
+    try {
+        $stmt = $db->prepare("SELECT id, CONCAT(COALESCE(numero_personne,''), ' - ', nom_client) AS titre, email_client AS detail, 'signatures' AS type FROM dossiers_signature WHERE user_id = ? AND (numero_personne LIKE ? OR nom_client LIKE ? OR email_client LIKE ?)");
+        $stmt->execute([$userId, $like, $like, $like]);
+        $results = array_merge($results, $stmt->fetchAll());
+    } catch (Exception $e) {}
+
+    // Mobilités
+    try {
+        $stmt = $db->prepare("SELECT id, CONCAT(COALESCE(numero_personne,''), ' - ', nom_client) AS titre, CONCAT(COALESCE(banque_depart,''), ' ', COALESCE(notes,'')) AS detail, 'mobilites' AS type FROM mobilites WHERE user_id = ? AND (numero_personne LIKE ? OR nom_client LIKE ? OR banque_depart LIKE ? OR notes LIKE ?)");
+        $stmt->execute([$userId, $like, $like, $like, $like]);
+        $results = array_merge($results, $stmt->fetchAll());
+    } catch (Exception $e) {}
+
+    // Rappels clients
+    try {
+        $stmt = $db->prepare("SELECT id, identite_client AS titre, motif AS detail, 'rappels_clients' AS type FROM demandes_rappel_client WHERE user_id = ? AND (identite_client LIKE ? OR motif LIKE ?)");
+        $stmt->execute([$userId, $like, $like]);
+        $results = array_merge($results, $stmt->fetchAll());
+    } catch (Exception $e) {}
+
+    // Production
+    try {
+        $stmt = $db->prepare("SELECT id, produit_vendu AS titre, details AS detail, 'production' AS type FROM suivi_production WHERE user_id = ? AND (produit_vendu LIKE ? OR details LIKE ?)");
+        $stmt->execute([$userId, $like, $like]);
+        $results = array_merge($results, $stmt->fetchAll());
+    } catch (Exception $e) {}
+
+    // Crédit immobilier
+    try {
+        $stmt = $db->prepare("SELECT id, CONCAT(COALESCE(numero_personne,''), ' - ', COALESCE(adresse_bien,'')) AS titre, adresse_bien AS detail, 'credit_immo' AS type FROM credit_immobilier WHERE user_id = ? AND (numero_personne LIKE ? OR adresse_bien LIKE ?)");
         $stmt->execute([$userId, $like, $like]);
         $results = array_merge($results, $stmt->fetchAll());
     } catch (Exception $e) {}
