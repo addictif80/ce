@@ -12,6 +12,7 @@ try { $db->exec("ALTER TABLE contacts_utiles ADD COLUMN approved_by INT DEFAULT 
 // Auto-create contacts_equipe table
 $db->exec("CREATE TABLE IF NOT EXISTS contacts_equipe (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT DEFAULT NULL,
     nom VARCHAR(100) NOT NULL,
     prenom VARCHAR(100) NOT NULL,
     email VARCHAR(150) DEFAULT NULL,
@@ -19,11 +20,12 @@ $db->exec("CREATE TABLE IF NOT EXISTS contacts_equipe (
     ligne_interne VARCHAR(20) DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+try { $db->exec("ALTER TABLE contacts_equipe ADD COLUMN user_id INT DEFAULT NULL"); } catch (Exception $e) {}
 
 // Ajout contact équipe
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_equipe') {
-    $stmt = $db->prepare("INSERT INTO contacts_equipe (nom, prenom, email, telephone, ligne_interne) VALUES (?, ?, ?, ?, ?)");
-    $stmt->execute([trim($_POST['nom']), trim($_POST['prenom']), trim($_POST['email'] ?? ''), trim($_POST['telephone'] ?? ''), trim($_POST['ligne_interne'] ?? '')]);
+    $stmt = $db->prepare("INSERT INTO contacts_equipe (user_id, nom, prenom, email, telephone, ligne_interne) VALUES (?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$userId, trim($_POST['nom']), trim($_POST['prenom']), trim($_POST['email'] ?? ''), trim($_POST['telephone'] ?? ''), trim($_POST['ligne_interne'] ?? '')]);
     header('Location: index.php');
     exit;
 }
@@ -31,8 +33,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 // Edition contact équipe
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'edit_equipe') {
     $id = (int)$_POST['id'];
-    $stmt = $db->prepare("UPDATE contacts_equipe SET nom = ?, prenom = ?, email = ?, telephone = ?, ligne_interne = ? WHERE id = ?");
-    $stmt->execute([trim($_POST['nom']), trim($_POST['prenom']), trim($_POST['email'] ?? ''), trim($_POST['telephone'] ?? ''), trim($_POST['ligne_interne'] ?? ''), $id]);
+    $stmt = $db->prepare("UPDATE contacts_equipe SET nom = ?, prenom = ?, email = ?, telephone = ?, ligne_interne = ? WHERE id = ? AND user_id = ?");
+    $stmt->execute([trim($_POST['nom']), trim($_POST['prenom']), trim($_POST['email'] ?? ''), trim($_POST['telephone'] ?? ''), trim($_POST['ligne_interne'] ?? ''), $id, $userId]);
     header('Location: index.php');
     exit;
 }
@@ -40,8 +42,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 // Suppression contact équipe
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_equipe') {
     $id = (int)$_POST['id'];
-    $stmt = $db->prepare("DELETE FROM contacts_equipe WHERE id = ?");
-    $stmt->execute([$id]);
+    $stmt = $db->prepare("DELETE FROM contacts_equipe WHERE id = ? AND user_id = ?");
+    $stmt->execute([$id, $userId]);
     header('Location: index.php');
     exit;
 }
@@ -107,15 +109,17 @@ function mailLink($mail) {
     return '<a href="mailto:' . e($mail) . '"><i class="fas fa-envelope fa-sm"></i> ' . e($mail) . '</a>';
 }
 
-// Utilisateurs de l'application (contacts automatiques) + contacts équipe manuels
-$stmtUsers = $db->query("SELECT id, nom, prenom, email_pro AS email, tel_pro AS telephone, ligne_interne, 'auto' AS source FROM users
+// Utilisateurs de l'application (contacts automatiques) + contacts équipe manuels (privés par utilisateur)
+$stmtUsers = $db->prepare("SELECT id, nom, prenom, email_pro AS email, tel_pro AS telephone, ligne_interne, 'auto' AS source FROM users
     UNION ALL
-    SELECT id, nom, prenom, email, telephone, ligne_interne, 'manual' AS source FROM contacts_equipe
+    SELECT id, nom, prenom, email, telephone, ligne_interne, 'manual' AS source FROM contacts_equipe WHERE user_id = ?
     ORDER BY nom, prenom");
+$stmtUsers->execute([$userId]);
 $userContacts = $stmtUsers->fetchAll();
 
 // Contacts équipe manuels seuls (pour le JS edit)
-$stmtManualEquipe = $db->query("SELECT * FROM contacts_equipe ORDER BY nom, prenom");
+$stmtManualEquipe = $db->prepare("SELECT * FROM contacts_equipe WHERE user_id = ? ORDER BY nom, prenom");
+$stmtManualEquipe->execute([$userId]);
 $manualEquipe = $stmtManualEquipe->fetchAll();
 ?>
 

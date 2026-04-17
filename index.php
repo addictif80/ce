@@ -28,7 +28,10 @@ $proceduresEnAvant = $stmtProc->fetchAll();
             'instances' => 'Instance', 'rappels' => 'Rappel', 'offres' => 'Offre',
             'codes' => 'Code utile', 'contacts' => 'Contact', 'demandes_clients' => 'Demande client',
             'blocnotes' => 'Bloc-notes', 'procedures' => 'Procédure', 'courriers' => 'Courrier',
-            'formations' => 'Formation', 'equipe' => 'Équipe', 'phoning' => 'Phoning'
+            'formations' => 'Formation', 'equipe' => 'Équipe', 'phoning' => 'Phoning',
+            'courriers_internes' => 'Courrier interne', 'signatures' => 'Signature',
+            'mobilites' => 'Mobilité', 'rappels_clients' => 'Rappel client',
+            'production' => 'Production', 'credit_immo' => 'Crédit immo'
         ];
         $typeLinks = [
             'instances' => 'modules/instances/index.php', 'rappels' => 'modules/rappels/index.php',
@@ -36,7 +39,13 @@ $proceduresEnAvant = $stmtProc->fetchAll();
             'contacts' => 'modules/contacts/index.php', 'demandes_clients' => 'modules/demandes_clients/index.php',
             'blocnotes' => 'modules/blocnotes/index.php', 'procedures' => 'modules/procedures/index.php',
             'courriers' => 'modules/courriers/index.php', 'formations' => 'modules/formations/index.php',
-            'equipe' => 'modules/contacts/index.php', 'phoning' => 'modules/phoning/index.php'
+            'equipe' => 'modules/contacts/index.php', 'phoning' => 'modules/phoning/index.php',
+            'courriers_internes' => 'modules/courriers_internes/index.php',
+            'signatures' => 'modules/signatures/index.php',
+            'mobilites' => 'modules/mobilites/index.php',
+            'rappels_clients' => 'modules/rappels_clients/index.php',
+            'production' => 'modules/production/index.php',
+            'credit_immo' => 'modules/credit_immo/index.php'
         ];
         foreach ($searchResults as $r): ?>
             <div class="search-result-item">
