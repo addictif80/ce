@@ -352,11 +352,100 @@ $B = rtrim(str_replace($relativeScript, '', $_SERVER['SCRIPT_NAME']), '/');
                     <input type="text" name="q" placeholder="Rechercher partout..." value="<?= e($_GET['q'] ?? '') ?>">
                 </form>
                 <?php endif; ?>
+                <!-- Cloche notifications -->
+                <div class="notif-bell-wrapper" id="notifBellWrapper">
+                    <button class="notif-bell" id="notifBellBtn" onclick="toggleNotifPanel()" title="Notifications">
+                        <i class="fas fa-bell"></i>
+                        <span class="notif-badge" id="notifBadge" style="display:none">0</span>
+                    </button>
+                    <div class="notif-panel" id="notifPanel" style="display:none">
+                        <div class="notif-panel-header">
+                            <strong><i class="fas fa-bell me-1"></i> Notifications</strong>
+                            <button onclick="markAllNotifRead()" class="btn btn-sm btn-link p-0" style="font-size:12px;color:var(--ce-red)">Tout lire</button>
+                        </div>
+                        <div class="notif-panel-body" id="notifList">
+                            <div class="notif-empty">Chargement…</div>
+                        </div>
+                    </div>
+                </div>
                 <span class="text-muted" style="font-size:13px;">
                     <i class="fas fa-user-circle"></i> <?= e($currentUser['prenom'] . ' ' . $currentUser['nom']) ?>
                 </span>
             </div>
         </div>
+        <script>
+        (function(){
+            const B = '<?= $B ?>';
+            const typeIcons = { note_partagee:'fas fa-sticky-note', procedure:'fas fa-book', rappel_client:'fas fa-phone', message:'fas fa-comment-dots' };
+            const typeClass = { note_partagee:'note', procedure:'procedure', rappel_client:'rappel', message:'message' };
+
+            function escN(s){ const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+            function timeAgo(ds){
+                const diff=Math.floor((Date.now()-new Date(ds.replace(' ','T')).getTime())/1000);
+                if(diff<60) return 'À l\'instant';
+                if(diff<3600) return Math.floor(diff/60)+' min';
+                if(diff<86400) return Math.floor(diff/3600)+'h';
+                return Math.floor(diff/86400)+'j';
+            }
+
+            window.toggleNotifPanel = function(){
+                const p=document.getElementById('notifPanel');
+                if(p.style.display==='none'){ p.style.display='flex'; loadNotifs(); }
+                else p.style.display='none';
+            };
+
+            function loadNotifs(){
+                fetch(B+'/notif_ajax.php?action=list')
+                .then(r=>r.json()).then(data=>{
+                    const list=document.getElementById('notifList');
+                    const ns=data.notifications||[];
+                    if(!ns.length){ list.innerHTML='<div class="notif-empty"><i class="fas fa-check-circle text-success me-1"></i> Aucune notification</div>'; return; }
+                    list.innerHTML=ns.map(n=>{
+                        const ic=typeIcons[n.type]||'fas fa-bell';
+                        const cl=typeClass[n.type]||'note';
+                        return `<div class="notif-item${n.lu==0?' unread':''}" onclick="openNotif(${n.id},'${escN(n.lien)}')">
+                            <div class="notif-icon ${cl}"><i class="${ic}"></i></div>
+                            <div class="notif-content">
+                                <div class="notif-title">${escN(n.titre)}</div>
+                                ${n.message?'<div class="notif-msg">'+escN(n.message.substring(0,70))+'</div>':''}
+                                <div class="notif-time">${timeAgo(n.created_at)}</div>
+                            </div>
+                            <div class="notif-dot"></div>
+                        </div>`;
+                    }).join('');
+                });
+            }
+
+            window.openNotif = function(id, lien){
+                fetch(B+'/notif_ajax.php',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'action=mark_read&id='+id});
+                document.getElementById('notifPanel').style.display='none';
+                if(lien) window.location.href=lien;
+                updateBadge();
+            };
+
+            window.markAllNotifRead = function(){
+                fetch(B+'/notif_ajax.php',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'action=mark_read'})
+                .then(()=>{ updateBadge(); loadNotifs(); });
+            };
+
+            function updateBadge(){
+                fetch(B+'/notif_ajax.php?action=count')
+                .then(r=>r.json()).then(data=>{
+                    const b=document.getElementById('notifBadge');
+                    if(data.count>0){ b.textContent=data.count>99?'99+':data.count; b.style.display='flex'; }
+                    else b.style.display='none';
+                }).catch(()=>{});
+            }
+
+            updateBadge();
+            setInterval(updateBadge, 30000);
+
+            document.addEventListener('click',function(e){
+                const w=document.getElementById('notifBellWrapper');
+                if(w && !w.contains(e.target)) document.getElementById('notifPanel').style.display='none';
+            });
+        })();
+        </script>
 
         <!-- Barre d'onglets (visible quand des fenêtres sont ouvertes) -->
         <div id="win-tabbar">

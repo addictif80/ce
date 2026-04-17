@@ -33,14 +33,25 @@ if ($action === 'share_user') {
     $noteId    = (int)($_POST['note_id']    ?? 0);
     $shareWith = (int)($_POST['share_with'] ?? 0);
 
-    $stmt = $db->prepare("SELECT id FROM blocnotes WHERE id = ? AND user_id = ?");
+    $stmt = $db->prepare("SELECT nom_note FROM blocnotes WHERE id = ? AND user_id = ?");
     $stmt->execute([$noteId, $userId]);
-    if (!$stmt->fetch()) { echo json_encode(['error' => 'Non autorisé']); exit; }
+    $note = $stmt->fetch();
+    if (!$note) { echo json_encode(['error' => 'Non autorisé']); exit; }
     if ($shareWith === $userId) { echo json_encode(['error' => 'Impossible de partager avec vous-même']); exit; }
     if (!$shareWith) { echo json_encode(['error' => 'Utilisateur invalide']); exit; }
 
     $stmt = $db->prepare("INSERT IGNORE INTO blocnotes_partages (note_id, shared_by, shared_with) VALUES (?, ?, ?)");
     $stmt->execute([$noteId, $userId, $shareWith]);
+
+    $stmtUser = $db->prepare("SELECT prenom, nom FROM users WHERE id = ?");
+    $stmtUser->execute([$userId]);
+    $sharer = $stmtUser->fetch();
+    createNotification($shareWith, 'note_partagee',
+        ($sharer['prenom'] ?? '') . ' ' . ($sharer['nom'] ?? '') . ' a partagé une note avec vous',
+        $note['nom_note'],
+        APP_URL . '/modules/blocnotes/index.php'
+    );
+
     echo json_encode(['success' => true]);
     exit;
 }

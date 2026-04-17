@@ -5,6 +5,24 @@
 
 require_once __DIR__ . '/config.php';
 
+function createNotification($userId, $type, $titre, $message = '', $lien = '') {
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS notifications (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            type VARCHAR(50) NOT NULL,
+            titre VARCHAR(255) NOT NULL,
+            message TEXT,
+            lien VARCHAR(500),
+            lu TINYINT(1) DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $stmt = $db->prepare("INSERT INTO notifications (user_id, type, titre, message, lien) VALUES (?, ?, ?, ?, ?)");
+        $stmt->execute([(int)$userId, $type, $titre, $message, $lien]);
+    } catch (Exception $e) {}
+}
+
 /**
  * Échapper le HTML
  */

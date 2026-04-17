@@ -19,6 +19,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $isUserAdmin ? 1 : 0,
         $isUserAdmin ? $userId : null
     ]);
+    if ($isUserAdmin) {
+        $nom = trim($_POST['nom']);
+        $stmtAll = $db->prepare("SELECT id FROM users WHERE id != ?");
+        $stmtAll->execute([$userId]);
+        foreach ($stmtAll->fetchAll() as $u) {
+            createNotification($u['id'], 'procedure', 'Nouvelle procédure : ' . $nom, '', APP_URL . '/modules/procedures/index.php');
+        }
+    }
     header('Location: index.php');
     exit;
 }
