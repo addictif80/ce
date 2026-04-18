@@ -101,8 +101,9 @@ $productions = $stmt->fetchAll();
             <div class="stat-label">Ce mois-ci</div>
         </div>
     </div>
-    <div class="col-md-4 d-flex align-items-center">
+    <div class="col-md-4 d-flex align-items-center gap-2">
         <button class="btn btn-ce" data-bs-toggle="modal" data-bs-target="#addModal"><i class="fas fa-plus"></i> Nouvelle production</button>
+        <a href="rapport.php" class="btn btn-ce-outline" target="_blank"><i class="fas fa-print"></i> Rapport</a>
     </div>
 </div>
 

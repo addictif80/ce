@@ -5,6 +5,24 @@
 
 require_once __DIR__ . '/config.php';
 
+function createNotification($userId, $type, $titre, $message = '', $lien = '') {
+    try {
+        $db = getDB();
+        $db->exec("CREATE TABLE IF NOT EXISTS notifications (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            type VARCHAR(50) NOT NULL,
+            titre VARCHAR(255) NOT NULL,
+            message TEXT,
+            lien VARCHAR(500),
+            lu TINYINT(1) DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $stmt = $db->prepare("INSERT INTO notifications (user_id, type, titre, message, lien) VALUES (?, ?, ?, ?, ?)");
+        $stmt->execute([(int)$userId, $type, $titre, $message, $lien]);
+    } catch (Exception $e) {}
+}
+
 /**
  * Échapper le HTML
  */
@@ -90,8 +108,8 @@ function generateShareLink() {
  */
 function getLiensExternes() {
     $db = getDB();
-    // Auto-add categorie_id column
     try { $db->exec("ALTER TABLE liens_externes ADD COLUMN categorie_id INT DEFAULT NULL"); } catch (Exception $e) {}
+    try { $db->exec("ALTER TABLE liens_externes ADD COLUMN mode_ouverture VARCHAR(10) NOT NULL DEFAULT 'onglet'"); } catch (Exception $e) {}
     return $db->query("SELECT l.*, c.nom AS categorie_nom FROM liens_externes l LEFT JOIN categories_liens c ON l.categorie_id = c.id ORDER BY c.ordre ASC, l.ordre ASC, l.nom ASC")->fetchAll();
 }
 
@@ -107,6 +125,56 @@ function getCategoriesLiens() {
 /**
  * Configuration du menu - Valeurs par défaut
  */
+
+function getEaiAutoFillData($db, $userId, $tuesdayDate) {
+    $dt = new DateTime($tuesdayDate);
+    $dow = (int)$dt->format('N');
+    $mondayDt = clone $dt;
+    $mondayDt->modify('-' . ($dow - 1) . ' days');
+
+    $prevMon = (clone $mondayDt)->modify('-7 days')->format('Y-m-d');
+    $prevSun = (clone $mondayDt)->modify('-1 day')->format('Y-m-d');
+    $curMon  = $mondayDt->format('Y-m-d');
+    $curSun  = (clone $mondayDt)->modify('+6 days')->format('Y-m-d');
+    $nextMon = (clone $mondayDt)->modify('+7 days')->format('Y-m-d');
+    $nextSun = (clone $mondayDt)->modify('+13 days')->format('Y-m-d');
+
+    $data = [];
+
+    $stmt = $db->prepare("SELECT COALESCE(SUM(nombre_appels), 0) FROM seances_phoning WHERE user_id = ? AND date_ajout BETWEEN ? AND ?");
+    $stmt->execute([$userId, $prevMon, $prevSun]);
+    $data['volume_appels_sortants'] = (float)$stmt->fetchColumn();
+
+    $stmt = $db->prepare("SELECT COUNT(*) as total, SUM(resultat IN ('repondu','rdv')) as decroche FROM appels_phoning WHERE user_id = ? AND DATE(created_at) BETWEEN ? AND ?");
+    $stmt->execute([$userId, $prevMon, $prevSun]);
+    $r = $stmt->fetch();
+    $total = (int)$r['total'];
+    $data['taux_decroche'] = $total > 0 ? round((float)$r['decroche'] / $total * 100, 1) : 0;
+
+    $rdvStmt = $db->prepare("SELECT COUNT(*) as total, COALESCE(SUM(is_anv = 1), 0) as anv FROM appels_phoning WHERE user_id = ? AND resultat = 'rdv' AND date_rdv BETWEEN ? AND ?");
+    $rdvStmt->execute([$userId, $prevMon, $prevSun]); $r = $rdvStmt->fetch();
+    $data['rdv_s'] = (int)$r['total']; $data['rdv_proactifs_s'] = (int)$r['total']; $data['rdv_anv_s'] = (int)$r['anv'];
+    $rdvStmt->execute([$userId, $curMon, $curSun]); $r = $rdvStmt->fetch();
+    $data['rdv_s1'] = (int)$r['total']; $data['rdv_proactifs_s1'] = (int)$r['total']; $data['rdv_anv_s1'] = (int)$r['anv'];
+    $rdvStmt->execute([$userId, $nextMon, $nextSun]); $r = $rdvStmt->fetch();
+    $data['rdv_s2'] = (int)$r['total']; $data['rdv_proactifs_s2'] = (int)$r['total']; $data['rdv_anv_s2'] = (int)$r['anv'];
+
+    $ventesFrom = $prevMon;
+    $ventesTo   = (new DateTime())->format('Y-m-d');
+
+    $clesCount = ['ventes_brut_anv','cartes_hdg_dd','izicartes','forfaits','livrets','pel_quadreto','assvie_peri','nouveau_societaire','equip_jequip','bp_jbp'];
+    $stmtCount = $db->prepare("SELECT COALESCE(COUNT(*), 0) FROM suivi_production WHERE user_id = ? AND eai_cle = ? AND DATE(date_rdv) BETWEEN ? AND ?");
+    foreach ($clesCount as $cle) { $stmtCount->execute([$userId, $cle, $ventesFrom, $ventesTo]); $data[$cle] = (int)$stmtCount->fetchColumn(); }
+
+    $clesSum = ['volume_pret_perso','volume_collecte','volume_parts_sociales'];
+    $stmtSum = $db->prepare("SELECT COALESCE(SUM(CAST(montant_nombre AS DECIMAL(15,2))), 0) FROM suivi_production WHERE user_id = ? AND eai_cle = ? AND DATE(date_rdv) BETWEEN ? AND ?");
+    foreach ($clesSum as $cle) { $stmtSum->execute([$userId, $cle, $ventesFrom, $ventesTo]); $data[$cle] = (float)$stmtSum->fetchColumn(); }
+
+    if ($data['ventes_brut_anv'] === 0) $data['ventes_brut_anv'] = $data['rdv_anv_s'];
+
+    return $data;
+}
+
 function getDefaultMenuItems() {
     return [
         // Sections
@@ -143,6 +211,10 @@ function getDefaultMenuItems() {
         // Items - Références
         ['item_key' => 'codes', 'parent_key' => 'references', 'label' => 'Codes utiles', 'icon' => 'fa-key', 'url' => '/modules/codes/index.php', 'uri_patterns' => '/codes/', 'ordre' => 1],
         ['item_key' => 'contacts', 'parent_key' => 'references', 'label' => 'Contacts utiles', 'icon' => 'fa-address-book', 'url' => '/modules/contacts/index.php', 'uri_patterns' => '/contacts/', 'ordre' => 2],
+        // Section Communication
+        ['item_key' => 'communication', 'parent_key' => null, 'label' => 'Communication', 'icon' => 'fa-comments', 'url' => null, 'uri_patterns' => 'messagerie,agenda', 'ordre' => 6],
+        ['item_key' => 'messagerie', 'parent_key' => 'communication', 'label' => 'Messagerie', 'icon' => 'fa-comment-dots', 'url' => '/modules/messagerie/index.php', 'uri_patterns' => 'messagerie', 'ordre' => 1],
+        ['item_key' => 'agenda', 'parent_key' => 'communication', 'label' => 'Agenda', 'icon' => 'fa-calendar-week', 'url' => '/modules/agenda/index.php', 'uri_patterns' => 'agenda', 'ordre' => 2],
     ];
 }
 

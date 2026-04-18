@@ -58,10 +58,14 @@
             if (!e.target.closest('.win-controls')) toggleMaximize(id);
         });
 
-        // Iframe
-        const iframe = frame.querySelector('iframe');
-        iframe.addEventListener('load', () => onIframeLoad(iframe, id));
-        iframe.src = embedUrl(url);
+        // Iframe ou page de lancement (sites externes bloqués par X-Frame-Options)
+        if (isExternalUrl(url)) {
+            frame.querySelector('.win-body').innerHTML = buildExternalLaunchHTML(url, title);
+        } else {
+            const iframe = frame.querySelector('iframe');
+            iframe.addEventListener('load', () => onIframeLoad(iframe, id));
+            iframe.src = embedUrl(url);
+        }
 
         wins[id] = { url, title, icon, minimized: false, maximized: false, prevGeom: null };
         createTab(id, title, icon);
@@ -90,6 +94,25 @@
         <div class="win-resize" data-d="sw"></div>`;
     }
 
+    /* ---- URL externe (X-Frame-Options) ---- */
+    function isExternalUrl(url) {
+        try { return new URL(url, location.origin).origin !== location.origin; }
+        catch(e) { return false; }
+    }
+
+    function buildExternalLaunchHTML(url, title) {
+        const safeUrl = url.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+        return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:40px;gap:16px;font-family:inherit">
+            <i class="fas fa-globe" style="font-size:52px;color:#ddd"></i>
+            <div style="font-size:18px;font-weight:600;color:#333">${esc(title)}</div>
+            <div style="font-size:12px;color:#bbb;word-break:break-all;max-width:400px">${esc(url)}</div>
+            <a href="${safeUrl}" target="_blank" style="background:#e4002b;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-size:14px;display:inline-flex;align-items:center;gap:8px;margin-top:8px">
+                <i class="fas fa-external-link-alt"></i>&nbsp;Ouvrir dans un onglet
+            </a>
+            <p style="font-size:12px;color:#ccc;max-width:320px;line-height:1.5;margin:0">Les sites externes ne peuvent pas être intégrés directement pour des raisons de sécurité.</p>
+        </div>`;
+    }
+
     /* ---- Chargement iframe ---- */
     function onIframeLoad(iframe, id) {
         try {
@@ -100,7 +123,12 @@
                 iframe.src = embedUrl(loc.href);
                 return;
             }
-        } catch (e) { return; }
+        } catch (e) {
+            // Cross-origin (lien externe) : masquer le loader quand même
+            const frame = document.getElementById(id);
+            if (frame) frame.querySelector('.win-loader').style.display = 'none';
+            return;
+        }
 
         const frame = document.getElementById(id);
         if (frame) frame.querySelector('.win-loader').style.display = 'none';
@@ -317,6 +345,7 @@
             link.addEventListener('click', function (e) {
                 const href = this.getAttribute('href');
                 if (!href || href.includes('logout') || href.startsWith('#')) return;
+                if (this.dataset.reload) { window.location.href = href; return; }
                 e.preventDefault();
 
                 const iconEl = this.querySelector('i');

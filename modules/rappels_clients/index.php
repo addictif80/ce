@@ -250,6 +250,13 @@ function editDemande(id) {
         </form>`;
     new bootstrap.Modal(document.getElementById('editModal')).show();
 }
+
+const urlParams = new URLSearchParams(window.location.search);
+const openId = urlParams.get('open');
+if (openId) {
+    editDemande(parseInt(openId));
+    history.replaceState(null, '', 'index.php');
+}
 </script>
 
 <?php require_once __DIR__ . '/../../templates/footer.php'; ?>

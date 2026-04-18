@@ -124,16 +124,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     // --- Liens externes ---
     if ($action === 'add_link') {
         $catId = !empty($_POST['categorie_id']) ? (int)$_POST['categorie_id'] : null;
-        $stmt = $db->prepare("INSERT INTO liens_externes (nom, url, categorie_id, ordre) VALUES (?, ?, ?, ?)");
-        $stmt->execute([trim($_POST['nom']), trim($_POST['url']), $catId, (int)($_POST['ordre'] ?? 0)]);
+        $mode  = in_array($_POST['mode_ouverture'] ?? '', ['onglet','fenetre']) ? $_POST['mode_ouverture'] : 'onglet';
+        $stmt = $db->prepare("INSERT INTO liens_externes (nom, url, categorie_id, ordre, mode_ouverture) VALUES (?, ?, ?, ?, ?)");
+        $stmt->execute([trim($_POST['nom']), trim($_POST['url']), $catId, (int)($_POST['ordre'] ?? 0), $mode]);
         header('Location: index.php?tab=liens&msg=link_added');
         exit;
     }
 
     if ($action === 'edit_link') {
         $catId = !empty($_POST['categorie_id']) ? (int)$_POST['categorie_id'] : null;
-        $stmt = $db->prepare("UPDATE liens_externes SET nom = ?, url = ?, categorie_id = ?, ordre = ? WHERE id = ?");
-        $stmt->execute([trim($_POST['nom']), trim($_POST['url']), $catId, (int)($_POST['ordre'] ?? 0), (int)$_POST['id']]);
+        $mode  = in_array($_POST['mode_ouverture'] ?? '', ['onglet','fenetre']) ? $_POST['mode_ouverture'] : 'onglet';
+        $stmt = $db->prepare("UPDATE liens_externes SET nom = ?, url = ?, categorie_id = ?, ordre = ?, mode_ouverture = ? WHERE id = ?");
+        $stmt->execute([trim($_POST['nom']), trim($_POST['url']), $catId, (int)($_POST['ordre'] ?? 0), $mode, (int)$_POST['id']]);
         header('Location: index.php?tab=liens&msg=link_updated');
         exit;
     }
@@ -1231,6 +1233,12 @@ function esc(str) {
                             </select>
                         </div>
                         <div class="col-md-2"><label class="form-label">Ordre</label><input type="number" name="ordre" class="form-control" value="0"></div>
+                        <div class="col-md-3"><label class="form-label">Ouverture</label>
+                            <select name="mode_ouverture" class="form-select">
+                                <option value="onglet">Nouvel onglet</option>
+                                <option value="fenetre">Fenêtre flottante</option>
+                            </select>
+                        </div>
                         <div class="col-12"><button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Ajouter</button></div>
                     </div>
                 </form>
@@ -1279,6 +1287,12 @@ function editLink(id) {
                 <div class="col-md-5"><label class="form-label">URL *</label><input type="url" name="url" class="form-control" value="${escapeHtml(l.url)}" required></div>
                 <div class="col-md-4"><label class="form-label">Catégorie</label><select name="categorie_id" class="form-select">${catOptions}</select></div>
                 <div class="col-md-2"><label class="form-label">Ordre</label><input type="number" name="ordre" class="form-control" value="${l.ordre}"></div>
+                <div class="col-md-3"><label class="form-label">Ouverture</label>
+                    <select name="mode_ouverture" class="form-select">
+                        <option value="onglet" ${(l.mode_ouverture||'onglet')==='onglet'?'selected':''}>Nouvel onglet</option>
+                        <option value="fenetre" ${l.mode_ouverture==='fenetre'?'selected':''}>Fenêtre flottante</option>
+                    </select>
+                </div>
                 <div class="col-12"><button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Enregistrer</button></div>
             </div>
         </form>`;
