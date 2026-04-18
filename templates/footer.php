@@ -26,7 +26,7 @@
     <?php endif; ?>
     </script>
 <?php if (empty($_GET['embedded'])): ?>
-    <script src="<?= $B ?>/assets/js/window-manager.js"></script>
+    <script src="<?= $B ?>/assets/js/window-manager.js?v=<?= filemtime(__DIR__ . '/../assets/js/window-manager.js') ?>"></script>
 <?php endif; ?>
 </body>
 </html>
