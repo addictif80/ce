@@ -300,7 +300,7 @@ $B = rtrim(str_replace($relativeScript, '', $_SERVER['SCRIPT_NAME']), '/');
                         $modeOuv = $lien['mode_ouverture'] ?? 'onglet';
                     ?>
                         <?php if ($modeOuv === 'fenetre'): ?>
-                            <a href="#" onclick="event.preventDefault();WM.open(<?= json_encode($lien['url']) ?>,<?= json_encode($lien['nom']) ?>,'fas fa-external-link-alt')"><i class="fas fa-external-link-alt"></i> <?= e($lien['nom']) ?></a>
+                            <a href="#" onclick="event.preventDefault();WM.open(<?= htmlspecialchars(json_encode($lien['url']), ENT_QUOTES) ?>,<?= htmlspecialchars(json_encode($lien['nom']), ENT_QUOTES) ?>,'fas fa-external-link-alt')"><i class="fas fa-external-link-alt"></i> <?= e($lien['nom']) ?></a>
                         <?php else: ?>
                             <a href="<?= e($lien['url']) ?>" target="_blank"><i class="fas fa-external-link-alt"></i> <?= e($lien['nom']) ?></a>
                         <?php endif; ?>
@@ -319,7 +319,7 @@ $B = rtrim(str_replace($relativeScript, '', $_SERVER['SCRIPT_NAME']), '/');
                         $modeOuv = $lien['mode_ouverture'] ?? 'onglet';
                     ?>
                         <?php if ($modeOuv === 'fenetre'): ?>
-                            <a href="#" onclick="event.preventDefault();WM.open(<?= json_encode($lien['url']) ?>,<?= json_encode($lien['nom']) ?>,'fas fa-external-link-alt')"><i class="fas fa-external-link-alt"></i> <?= e($lien['nom']) ?></a>
+                            <a href="#" onclick="event.preventDefault();WM.open(<?= htmlspecialchars(json_encode($lien['url']), ENT_QUOTES) ?>,<?= htmlspecialchars(json_encode($lien['nom']), ENT_QUOTES) ?>,'fas fa-external-link-alt')"><i class="fas fa-external-link-alt"></i> <?= e($lien['nom']) ?></a>
                         <?php else: ?>
                             <a href="<?= e($lien['url']) ?>" target="_blank"><i class="fas fa-external-link-alt"></i> <?= e($lien['nom']) ?></a>
                         <?php endif; ?>
