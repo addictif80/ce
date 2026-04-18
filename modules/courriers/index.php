@@ -41,6 +41,16 @@ try { $db->exec("ALTER TABLE courriers ADD COLUMN prenom_dest VARCHAR(255) DEFAU
 // Approval columns for modeles_courriers
 try { $db->exec("ALTER TABLE modeles_courriers ADD COLUMN approved TINYINT(1) DEFAULT 0"); } catch (PDOException $e) {}
 try { $db->exec("ALTER TABLE modeles_courriers ADD COLUMN approved_by INT DEFAULT NULL"); } catch (PDOException $e) {}
+try { $db->exec("ALTER TABLE courriers ADD COLUMN email_dest VARCHAR(255) DEFAULT '' AFTER cp_ville_dest"); } catch (PDOException $e) {}
+
+// Table journalisation envois mail
+$db->exec("CREATE TABLE IF NOT EXISTS courriers_envoi_mail (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    courrier_id INT NOT NULL,
+    user_id INT NOT NULL,
+    sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX(courrier_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
 // Ajout courrier
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add') {
@@ -48,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $nom = $_POST['nom_dest'] ?? '';
     $prenom = $_POST['prenom_dest'] ?? '';
     $nomPrenom = trim($civilite . ' ' . $prenom . ' ' . $nom);
-    $stmt = $db->prepare("INSERT INTO courriers (user_id, civilite_dest, nom_dest, prenom_dest, nom_prenom_dest, complement_dest, adresse_dest, complement_adresse_dest, cp_ville_dest, lieu, objet, corps) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt = $db->prepare("INSERT INTO courriers (user_id, civilite_dest, nom_dest, prenom_dest, nom_prenom_dest, complement_dest, adresse_dest, complement_adresse_dest, cp_ville_dest, email_dest, lieu, objet, corps) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     $stmt->execute([
         $userId,
         $civilite,
@@ -59,6 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $_POST['adresse_dest'],
         $_POST['complement_adresse_dest'] ?? '',
         $_POST['cp_ville_dest'],
+        trim($_POST['email_dest'] ?? ''),
         $_POST['lieu'] ?: 'Capdenac-Gare',
         $_POST['objet'],
         $_POST['corps']
@@ -73,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $nom = $_POST['nom_dest'] ?? '';
     $prenom = $_POST['prenom_dest'] ?? '';
     $nomPrenom = trim($civilite . ' ' . $prenom . ' ' . $nom);
-    $stmt = $db->prepare("UPDATE courriers SET civilite_dest = ?, nom_dest = ?, prenom_dest = ?, nom_prenom_dest = ?, complement_dest = ?, adresse_dest = ?, complement_adresse_dest = ?, cp_ville_dest = ?, lieu = ?, objet = ?, corps = ? WHERE id = ? AND user_id = ?");
+    $stmt = $db->prepare("UPDATE courriers SET civilite_dest = ?, nom_dest = ?, prenom_dest = ?, nom_prenom_dest = ?, complement_dest = ?, adresse_dest = ?, complement_adresse_dest = ?, cp_ville_dest = ?, email_dest = ?, lieu = ?, objet = ?, corps = ? WHERE id = ? AND user_id = ?");
     $stmt->execute([
         $civilite,
         $nom,
@@ -83,6 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $_POST['adresse_dest'],
         $_POST['complement_adresse_dest'] ?? '',
         $_POST['cp_ville_dest'],
+        trim($_POST['email_dest'] ?? ''),
         $_POST['lieu'] ?: 'Capdenac-Gare',
         $_POST['objet'],
         $_POST['corps'],
@@ -128,8 +140,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
-// Liste courriers
-$stmt = $db->prepare("SELECT * FROM courriers WHERE user_id = ? ORDER BY date_courrier DESC");
+// Liste courriers avec dernier envoi mail
+$stmt = $db->prepare("SELECT c.*, (SELECT sent_at FROM courriers_envoi_mail WHERE courrier_id = c.id ORDER BY sent_at DESC LIMIT 1) AS dernier_envoi FROM courriers c WHERE c.user_id = ? ORDER BY c.date_courrier DESC");
 $stmt->execute([$userId]);
 $courriers = $stmt->fetchAll();
 
@@ -190,6 +202,9 @@ $modeles = $stmt->fetchAll();
                     <button class="btn btn-sm btn-ce-outline" onclick="showDetail(<?= $c['id'] ?>)" title="Voir"><i class="fas fa-eye"></i></button>
                     <button class="btn btn-sm btn-ce-outline" onclick="editCourrier(<?= $c['id'] ?>)" title="Modifier"><i class="fas fa-edit"></i></button>
                     <button class="btn btn-sm btn-ce-outline" onclick="printCourrier(<?= $c['id'] ?>)" title="Imprimer"><i class="fas fa-print"></i></button>
+                    <?php if (!empty($c['email_dest'])): ?>
+                    <a href="send_mail.php?id=<?= $c['id'] ?>" class="btn btn-sm btn-ce-outline" title="Envoyer par mail<?= $c['dernier_envoi'] ? ' (dernier : ' . date('d/m/Y H:i', strtotime($c['dernier_envoi'])) . ')' : '' ?>"><i class="fas fa-envelope"></i></a>
+                    <?php endif; ?>
                     <form method="POST" class="d-inline" onsubmit="return confirm('Supprimer ce courrier ?')">
                         <input type="hidden" name="action" value="delete">
                         <input type="hidden" name="id" value="<?= $c['id'] ?>">
@@ -279,6 +294,10 @@ $modeles = $stmt->fetchAll();
                         <div class="col-md-6">
                             <label class="form-label">Code postal et ville <span class="text-danger">*</span></label>
                             <input type="text" name="cp_ville_dest" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Email du destinataire <small class="text-muted">(facultatif — pour envoi par mail)</small></label>
+                            <input type="email" name="email_dest" class="form-control" placeholder="client@exemple.fr">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Lieu</label>
@@ -588,6 +607,8 @@ $modeles = $stmt->fetchAll();
 <script>
 filterTable('searchCourriers', 'tableCourriers');
 
+function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s||''; return d.innerHTML; }
+
 const courriersData = <?= json_encode($courriers) ?>;
 const modelesData = <?= json_encode($modeles) ?>;
 const userData = <?= json_encode(['nom' => $user['nom'], 'prenom' => $user['prenom'], 'email_pro' => $user['email_pro'] ?? '', 'tel_pro' => $user['tel_pro'] ?? '']) ?>;
@@ -762,8 +783,14 @@ function saveTemplate(prefix) {
 // Formater la date
 function fmtDate(dateStr) {
     if (!dateStr) return '';
-    const d = new Date(dateStr);
+    const d = new Date(dateStr.replace(' ', 'T'));
     return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+}
+function fmtDateHeure(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr.replace(' ', 'T'));
+    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+         + ' à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 }
 
 // Afficher le détail
@@ -807,9 +834,12 @@ function showDetail(id) {
             <div class="lp-corps">${c.corps}</div>
             <div class="lp-footer">${userData.prenom} ${userData.nom}</div>
         </div>
-        <div class="text-center mt-3">
+        <div class="text-center mt-3 d-flex gap-2 justify-content-center flex-wrap">
             <button class="btn btn-ce" onclick="printCourrier(${c.id})"><i class="fas fa-print"></i> Imprimer</button>
-        </div>`;
+            ${c.email_dest ? `<a href="send_mail.php?id=${c.id}" class="btn btn-ce-outline"><i class="fas fa-envelope"></i> Envoyer par mail</a>` : ''}
+        </div>
+        ${c.dernier_envoi ? `<p class="text-center mt-2" style="font-size:12px;color:#aaa"><i class="fas fa-check-circle text-success"></i> Dernier envoi le ${fmtDateHeure(c.dernier_envoi)}</p>` : ''}
+        `;
     new bootstrap.Modal(document.getElementById('detailModal')).show();
 }
 
@@ -880,6 +910,10 @@ function editCourrier(id) {
                 <div class="col-md-6">
                     <label class="form-label">Code postal et ville <span class="text-danger">*</span></label>
                     <input type="text" name="cp_ville_dest" class="form-control" value="${c.cp_ville_dest}" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Email du destinataire <small class="text-muted">(facultatif)</small></label>
+                    <input type="email" name="email_dest" class="form-control" value="${escapeHtml(c.email_dest||'')}" placeholder="client@exemple.fr">
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Lieu</label>
