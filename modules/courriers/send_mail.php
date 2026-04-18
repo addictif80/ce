@@ -105,7 +105,7 @@ $htmlBody = <<<HTML
         <tr>
           <td style="padding:16px 32px;background-color:#fafafa;border-top:1px solid #eeeeee;">
             <p style="margin:0;font-size:11px;color:#aaaaaa;text-align:center;line-height:1.6;">
-              Caisse d&apos;&Eacute;pargne
+              Caisse d&#39;&Eacute;pargne
             </p>
           </td>
         </tr>
