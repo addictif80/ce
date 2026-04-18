@@ -171,7 +171,7 @@ $htmlBody = <<<HTML
                        border-top:1px solid #eeeeee;">
               <p style="margin:0;font-size:11px;color:#aaaaaa;text-align:center;
                         line-height:1.6;">
-                Portail Conseiller &mdash; Caisse d&apos;&Eacute;pargne<br>
+                Portail Conseiller &mdash; Caisse d&#39;&Eacute;pargne<br>
                 Ce message a &eacute;t&eacute; g&eacute;n&eacute;r&eacute; automatiquement &mdash; merci de ne pas y r&eacute;pondre.
               </p>
             </td>
