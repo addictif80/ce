@@ -146,11 +146,11 @@ $stmt->execute([$userId]);
 $courriers = $stmt->fetchAll();
 
 // Historique complet des envois par courrier
-$stmtEnvois = $db->prepare("SELECT cem.courrier_id, cem.sent_at FROM courriers_envoi_mail cem JOIN courriers c ON c.id = cem.courrier_id WHERE c.user_id = ? ORDER BY cem.sent_at DESC");
+$stmtEnvois = $db->prepare("SELECT cem.courrier_id, cem.sent_at, u.prenom, u.nom FROM courriers_envoi_mail cem JOIN courriers c ON c.id = cem.courrier_id JOIN users u ON u.id = cem.user_id WHERE c.user_id = ? ORDER BY cem.sent_at DESC");
 $stmtEnvois->execute([$userId]);
 $envoiHistory = [];
 foreach ($stmtEnvois->fetchAll() as $row) {
-    $envoiHistory[(int)$row['courrier_id']][] = $row['sent_at'];
+    $envoiHistory[(int)$row['courrier_id']][] = ['sent_at' => $row['sent_at'], 'prenom' => $row['prenom'], 'nom' => $row['nom']];
 }
 
 // Liste modèles : ses propres modèles + tous les modèles approuvés
@@ -792,12 +792,12 @@ function saveTemplate(prefix) {
 // Formater la date
 function fmtDate(dateStr) {
     if (!dateStr) return '';
-    const d = new Date(dateStr.replace(' ', 'T'));
+    const d = new Date(dateStr.replace(' ', 'T') + 'Z');
     return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
 }
 function fmtDateHeure(dateStr) {
     if (!dateStr) return '';
-    const d = new Date(dateStr.replace(' ', 'T'));
+    const d = new Date(dateStr.replace(' ', 'T') + 'Z');
     return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
          + ' à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 }
@@ -850,7 +850,7 @@ function showDetail(id) {
         ${(function() {
             const envois = envoiHistory[c.id] || [];
             if (!envois.length) return '';
-            const rows = envois.map(s => `<div style="font-size:12px;color:#666;padding:3px 0;border-bottom:1px solid #f0f0f0"><i class="fas fa-paper-plane" style="color:#28a745;width:16px"></i> ${fmtDateHeure(s)}</div>`).join('');
+            const rows = envois.map(e => `<div style="font-size:12px;color:#666;padding:3px 0;border-bottom:1px solid #f0f0f0"><i class="fas fa-paper-plane" style="color:#28a745;width:16px"></i> ${fmtDateHeure(e.sent_at)} &mdash; <strong>${escapeHtml(e.prenom + ' ' + e.nom)}</strong></div>`).join('');
             return `<div style="margin-top:16px;background:#f9f9f9;border:1px solid #eee;border-radius:8px;padding:12px 16px">
                 <div style="font-size:12px;font-weight:600;color:#555;margin-bottom:8px"><i class="fas fa-history"></i> Historique des envois (${envois.length})</div>
                 ${rows}

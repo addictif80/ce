@@ -3,6 +3,8 @@
  * Configuration de la base de données et paramètres globaux
  */
 
+date_default_timezone_set('Europe/Paris');
+
 define('DB_HOST', 'localhost');
 define('DB_USER', 'cemp_cemp');
 define('DB_PASS', '');
@@ -30,6 +32,7 @@ function getDB() {
                     PDO::ATTR_EMULATE_PREPARES => false
                 ]
             );
+            $pdo->exec("SET time_zone = '+00:00'");
         } catch (PDOException $e) {
             die("Erreur de connexion : " . htmlspecialchars($e->getMessage()));
         }
