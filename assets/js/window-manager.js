@@ -102,8 +102,16 @@
 
     function buildExternalLaunchHTML(url, title) {
         const safeUrl = url.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+        let domain = '';
+        try { domain = new URL(url).hostname; } catch(e) {}
+        const faviconSrc = domain
+            ? `https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(domain)}`
+            : '';
+        const iconHtml = faviconSrc
+            ? `<img src="${faviconSrc}" width="64" height="64" style="border-radius:12px;object-fit:contain" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><i class="fas fa-globe" style="font-size:52px;color:#ddd;display:none"></i>`
+            : `<i class="fas fa-globe" style="font-size:52px;color:#ddd"></i>`;
         return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:40px;gap:16px;font-family:inherit">
-            <i class="fas fa-globe" style="font-size:52px;color:#ddd"></i>
+            ${iconHtml}
             <div style="font-size:18px;font-weight:600;color:#333">${esc(title)}</div>
             <div style="font-size:12px;color:#bbb;word-break:break-all;max-width:400px">${esc(url)}</div>
             <a href="${safeUrl}" target="_blank" style="background:#e4002b;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-size:14px;display:inline-flex;align-items:center;gap:8px;margin-top:8px">
