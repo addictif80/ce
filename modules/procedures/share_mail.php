@@ -110,7 +110,7 @@ $htmlBody = <<<HTML
                 <tr>
                   <td>
                     <p style="margin:0 0 4px 0;font-size:11px;color:#888888;">
-                      Si le bouton ne s&apos;affiche pas, copiez ce lien dans votre navigateur&nbsp;:
+                      Si le bouton ne s&#39;affiche pas, copiez ce lien dans votre navigateur&nbsp;:
                     </p>
                     <a href="{$urlEsc}"
                        style="font-size:12px;color:#CF0A2C;word-break:break-all;">
@@ -129,7 +129,7 @@ $htmlBody = <<<HTML
                        border-top:1px solid #eeeeee;">
               <p style="margin:0;font-size:11px;color:#aaaaaa;text-align:center;
                         line-height:1.6;">
-                Portail Conseiller &mdash; Caisse d&apos;&Eacute;pargne<br>
+                Portail Conseiller &mdash; Caisse d&#39;&Eacute;pargne<br>
                 Ce message a &eacute;t&eacute; g&eacute;n&eacute;r&eacute; automatiquement &mdash; merci de ne pas y r&eacute;pondre.
               </p>
             </td>

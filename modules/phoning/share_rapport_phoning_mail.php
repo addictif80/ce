@@ -292,7 +292,7 @@ $htmlBody = <<<HTML
           <tr>
             <td style="padding:14px 32px;background:#fafafa;border-top:1px solid #eee;">
               <p style="margin:0;font-size:11px;color:#aaa;text-align:center;line-height:1.6;">
-                Portail Conseiller &mdash; Caisse d&apos;&Eacute;pargne<br>
+                Portail Conseiller &mdash; Caisse d&#39;&Eacute;pargne<br>
                 Ce message a &eacute;t&eacute; g&eacute;n&eacute;r&eacute; automatiquement &mdash; merci de ne pas y r&eacute;pondre.
               </p>
             </td>
