@@ -100,7 +100,12 @@
                 iframe.src = embedUrl(loc.href);
                 return;
             }
-        } catch (e) { return; }
+        } catch (e) {
+            // Cross-origin (lien externe) : masquer le loader quand même
+            const frame = document.getElementById(id);
+            if (frame) frame.querySelector('.win-loader').style.display = 'none';
+            return;
+        }
 
         const frame = document.getElementById(id);
         if (frame) frame.querySelector('.win-loader').style.display = 'none';
@@ -317,6 +322,7 @@
             link.addEventListener('click', function (e) {
                 const href = this.getAttribute('href');
                 if (!href || href.includes('logout') || href.startsWith('#')) return;
+                if (this.dataset.reload) { window.location.href = href; return; }
                 e.preventDefault();
 
                 const iconEl = this.querySelector('i');

@@ -228,7 +228,7 @@ $B = rtrim(str_replace($relativeScript, '', $_SERVER['SCRIPT_NAME']), '/');
         }
         ?>
         <nav class="sidebar-nav">
-            <a href="<?= $B ?>/index.php" class="<?= $currentPage === 'index' ? 'active' : '' ?>"><i class="fas fa-home"></i> Accueil</a>
+            <a href="<?= $B ?>/index.php" class="<?= $currentPage === 'index' ? 'active' : '' ?>" data-reload="1"><i class="fas fa-home"></i> Accueil</a>
 
             <?php foreach ($menuConfig as $section):
                 $patterns = array_map('trim', explode(',', $section['uri_patterns'] ?? ''));
@@ -296,8 +296,14 @@ $B = rtrim(str_replace($relativeScript, '', $_SERVER['SCRIPT_NAME']), '/');
                     <span>Liens</span><i class="fas fa-chevron-right nav-chevron"></i>
                 </div>
                 <div class="nav-group" style="display:none">
-                    <?php foreach ($liensExternes as $lien): ?>
-                        <a href="<?= e($lien['url']) ?>" target="_blank"><i class="fas fa-external-link-alt"></i> <?= e($lien['nom']) ?></a>
+                    <?php foreach ($liensExternes as $lien):
+                        $modeOuv = $lien['mode_ouverture'] ?? 'onglet';
+                    ?>
+                        <?php if ($modeOuv === 'fenetre'): ?>
+                            <a href="#" onclick="event.preventDefault();WM.open(<?= json_encode($lien['url']) ?>,<?= json_encode($lien['nom']) ?>,'fas fa-external-link-alt')"><i class="fas fa-external-link-alt"></i> <?= e($lien['nom']) ?></a>
+                        <?php else: ?>
+                            <a href="<?= e($lien['url']) ?>" target="_blank"><i class="fas fa-external-link-alt"></i> <?= e($lien['nom']) ?></a>
+                        <?php endif; ?>
                     <?php endforeach; ?>
                 </div>
             <?php else:
@@ -309,8 +315,14 @@ $B = rtrim(str_replace($relativeScript, '', $_SERVER['SCRIPT_NAME']), '/');
                     <span><?= e($labelCat) ?></span><i class="fas fa-chevron-right nav-chevron"></i>
                 </div>
                 <div class="nav-group" style="display:none">
-                    <?php foreach ($catLiens as $lien): ?>
-                        <a href="<?= e($lien['url']) ?>" target="_blank"><i class="fas fa-external-link-alt"></i> <?= e($lien['nom']) ?></a>
+                    <?php foreach ($catLiens as $lien):
+                        $modeOuv = $lien['mode_ouverture'] ?? 'onglet';
+                    ?>
+                        <?php if ($modeOuv === 'fenetre'): ?>
+                            <a href="#" onclick="event.preventDefault();WM.open(<?= json_encode($lien['url']) ?>,<?= json_encode($lien['nom']) ?>,'fas fa-external-link-alt')"><i class="fas fa-external-link-alt"></i> <?= e($lien['nom']) ?></a>
+                        <?php else: ?>
+                            <a href="<?= e($lien['url']) ?>" target="_blank"><i class="fas fa-external-link-alt"></i> <?= e($lien['nom']) ?></a>
+                        <?php endif; ?>
                     <?php endforeach; ?>
                 </div>
             <?php endforeach; endif; endif; ?>

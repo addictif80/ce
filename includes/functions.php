@@ -108,8 +108,8 @@ function generateShareLink() {
  */
 function getLiensExternes() {
     $db = getDB();
-    // Auto-add categorie_id column
     try { $db->exec("ALTER TABLE liens_externes ADD COLUMN categorie_id INT DEFAULT NULL"); } catch (Exception $e) {}
+    try { $db->exec("ALTER TABLE liens_externes ADD COLUMN mode_ouverture VARCHAR(10) NOT NULL DEFAULT 'onglet'"); } catch (Exception $e) {}
     return $db->query("SELECT l.*, c.nom AS categorie_nom FROM liens_externes l LEFT JOIN categories_liens c ON l.categorie_id = c.id ORDER BY c.ordre ASC, l.ordre ASC, l.nom ASC")->fetchAll();
 }
 

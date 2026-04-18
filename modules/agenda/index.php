@@ -1,15 +1,15 @@
 <?php
-$pageTitle = 'Agenda';
-require_once __DIR__ . '/../../templates/header.php';
-$db = getDB();
-$userId = getCurrentUserId();
-
-// Chargement des événements pour le mois affiché (±2 semaines tampon)
+// AJAX handler must be BEFORE header include to avoid HTML contamination
 if (isset($_GET['action']) && $_GET['action'] === 'events') {
+    require_once __DIR__ . '/../../includes/auth.php';
+    require_once __DIR__ . '/../../includes/functions.php';
+    requireLogin();
     header('Content-Type: application/json');
-    $from = $_GET['from'] ?? date('Y-m-01');
-    $to   = $_GET['to']   ?? date('Y-m-t');
 
+    $db     = getDB();
+    $userId = getCurrentUserId();
+    $from   = $_GET['from'] ?? date('Y-m-01');
+    $to     = $_GET['to']   ?? date('Y-m-t');
     $events = [];
 
     // Formations
@@ -51,7 +51,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'events') {
         }
     } catch (Exception $e) {}
 
-    // Rappels (demandes_rappel)
+    // Rappels
     try {
         $stmt = $db->prepare("SELECT id, numero_personne, date_rappel, motif FROM demandes_rappel WHERE user_id = ? AND traitee = 0 AND date_rappel IS NOT NULL AND date_rappel BETWEEN ? AND ?");
         $stmt->execute([$userId, $from, $to]);
@@ -73,6 +73,11 @@ if (isset($_GET['action']) && $_GET['action'] === 'events') {
     echo json_encode($events);
     exit;
 }
+
+$pageTitle = 'Agenda';
+require_once __DIR__ . '/../../templates/header.php';
+$db     = getDB();
+$userId = getCurrentUserId();
 ?>
 
 <style>
