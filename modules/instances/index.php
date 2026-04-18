@@ -132,6 +132,7 @@ $categories = ['Bancarisation', 'Epargne', 'IARD', 'Prévoyance', 'Placement', '
                 <td class="actions">
                     <button class="btn btn-sm btn-ce-outline" onclick="showDetail(<?= $inst['id'] ?>)" title="Voir"><i class="fas fa-eye"></i></button>
                     <button class="btn btn-sm btn-ce-outline" onclick="editInstance(<?= $inst['id'] ?>)" title="Modifier"><i class="fas fa-edit"></i></button>
+                    <a href="pochette.php?id=<?= $inst['id'] ?>" target="_blank" class="btn btn-sm btn-ce-outline" title="Imprimer pochette"><i class="fas fa-print"></i></a>
                     <form method="POST" class="d-inline" onsubmit="return confirm('Supprimer ?')">
                         <input type="hidden" name="action" value="delete">
                         <input type="hidden" name="id" value="<?= $inst['id'] ?>">
@@ -270,6 +271,9 @@ function showDetail(id) {
                     <button class="btn btn-ce" type="submit"><i class="fas fa-plus"></i></button>
                 </div>
             </form>
+        </div>
+        <div class="mt-3">
+            <a href="pochette.php?id=${id}" target="_blank" class="btn btn-ce-outline"><i class="fas fa-print"></i> Imprimer pochette</a>
         </div>`;
     new bootstrap.Modal(document.getElementById('detailModal')).show();
 }
