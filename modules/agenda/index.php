@@ -385,7 +385,7 @@ let view      = 'month';
 let current   = new Date(); current.setDate(1);
 let allEvents = [];
 
-const fmt        = d => d.toISOString().slice(0,10);
+const fmt        = d => { const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; };
 const addDays    = (d,n) => { const r=new Date(d); r.setDate(r.getDate()+n); return r; };
 const startOfWeek= d => { const r=new Date(d); const day=r.getDay()||7; r.setDate(r.getDate()-(day-1)); return r; };
 const isSameDay  = (a,b) => a.toDateString()===b.toDateString();
