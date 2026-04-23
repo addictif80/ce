@@ -1,4 +1,6 @@
 <?php
+ob_start(); // Capture tout output parasite (notices, warnings) pour ne pas corrompre le JSON
+
 // ═══════════════════════════════════════════════════════
 // AJAX POST – CRUD événements personnels
 // ═══════════════════════════════════════════════════════
@@ -6,6 +8,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_action'])) {
     require_once __DIR__ . '/../../includes/auth.php';
     require_once __DIR__ . '/../../includes/functions.php';
     requireLogin();
+    ob_clean();
     header('Content-Type: application/json');
 
     $db     = getDB();
@@ -108,6 +111,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'events') {
     require_once __DIR__ . '/../../includes/auth.php';
     require_once __DIR__ . '/../../includes/functions.php';
     requireLogin();
+    ob_clean();
     header('Content-Type: application/json');
 
     $db     = getDB();
@@ -523,7 +527,7 @@ async function refresh() {
     } else {
         from=to=fmt(current);
     }
-    await loadEvents(from,to);
+    try { await loadEvents(from,to); } catch(e) { allEvents=[]; }
     view==='month' ? renderMonth() : renderWeek();
 }
 
