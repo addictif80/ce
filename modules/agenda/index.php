@@ -488,7 +488,7 @@ function renderWeek() {
     html+='<div class="week-col-header" style="border-right:1px solid #f0f0f0"></div>';
     for (let d=0;d<days;d++) {
         const day2=addDays(weekStart,d), isToday=isSameDay(day2,today);
-        html+=`<div class="week-col-header${isToday?' today-col':''}"><div>${DAYS_FR[day2.getDay()||7-1]}</div><div style="font-size:18px;font-weight:700">${day2.getDate()}</div></div>`;
+        html+=`<div class="week-col-header${isToday?' today-col':''}"><div>${DAYS_FR[(day2.getDay()+6)%7]}</div><div style="font-size:18px;font-weight:700">${day2.getDate()}</div></div>`;
     }
     for (let h=8;h<=20;h++) {
         html+=`<div class="week-slot"><div class="week-time-label">${h}h</div></div>`;
@@ -506,27 +506,34 @@ function navigate(dir) {
     refresh();
 }
 function goToday() { current=new Date(); if(view==='month') current.setDate(1); refresh(); }
+const VIEW_BTN = {month:'btnMonth', week:'btnWeek', day:'btnDay'};
 function setView(v) {
-    view=v;
-    document.querySelectorAll('.view-btns button').forEach(b=>b.classList.remove('active'));
-    document.getElementById('btn'+v.charAt(0).toUpperCase()+v.slice(1)).classList.add('active');
-    if(v==='month') current.setDate(1);
+    view = v;
+    document.querySelectorAll('.view-btns button').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById(VIEW_BTN[v]);
+    if (btn) btn.classList.add('active');
+    if (v === 'month') current.setDate(1);
     refresh();
 }
 async function refresh() {
-    let from,to;
-    if (view==='month') {
-        const y=current.getFullYear(),m=current.getMonth();
-        from=fmt(addDays(new Date(y,m,1),-6));
-        to  =fmt(addDays(new Date(y,m+1,0),6));
-    } else if (view==='week') {
-        const ws=startOfWeek(current);
-        from=fmt(ws); to=fmt(addDays(ws,6));
+    let from, to;
+    if (view === 'month') {
+        const y = current.getFullYear(), m = current.getMonth();
+        from = fmt(addDays(new Date(y,m,1), -6));
+        to   = fmt(addDays(new Date(y,m+1,0), 6));
+    } else if (view === 'week') {
+        const ws = startOfWeek(current);
+        from = fmt(ws); to = fmt(addDays(ws, 6));
     } else {
-        from=to=fmt(current);
+        from = to = fmt(current);
     }
-    try { await loadEvents(from,to); } catch(e) { allEvents=[]; }
-    view==='month' ? renderMonth() : renderWeek();
+    try { await loadEvents(from, to); } catch(e) { allEvents = []; }
+    try {
+        view === 'month' ? renderMonth() : renderWeek();
+    } catch(e) {
+        console.error('Erreur rendu agenda:', e);
+        document.getElementById('agendaBody').innerHTML = '<div class="p-4 text-danger">Erreur d\'affichage: ' + e.message + '</div>';
+    }
 }
 
 // ── Clic sur une case (vue mois) ──────────────────────
