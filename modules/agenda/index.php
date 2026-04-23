@@ -523,7 +523,7 @@ async function refresh() {
     } else {
         from=to=fmt(current);
     }
-    await loadEvents(from,to);
+    try { await loadEvents(from,to); } catch(e) { allEvents=[]; }
     view==='month' ? renderMonth() : renderWeek();
 }
 
