@@ -1,6 +1,4 @@
 <?php
-ob_start(); // Capture tout output parasite (notices, warnings) pour ne pas corrompre le JSON
-
 // ═══════════════════════════════════════════════════════
 // AJAX POST – CRUD événements personnels
 // ═══════════════════════════════════════════════════════
@@ -631,7 +629,9 @@ async function confirmDelete(id) {
 }
 
 // ── Init ──────────────────────────────────────────────
-document.getElementById('btnMois').classList.add('active');
-setView('month');
+// Rendu immédiat de la grille (sans attendre le fetch des événements)
+renderMonth();
+// Chargement des événements en arrière-plan, puis mise à jour
+refresh();
 </script>
 <?php require_once __DIR__ . '/../../templates/footer.php'; ?>
