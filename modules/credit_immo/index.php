@@ -720,7 +720,7 @@ function calcMensualite(capital, tauxAnnuel, duree) {
 
 function getTotalFinancement(d) {
     return parseFloat(d.montant_acquisition||0) + parseFloat(d.frais_notaire||0) + parseFloat(d.frais_agence||0)
-        + parseFloat(d.frais_courtage||0) + parseFloat(d.frais_dossier||0) + parseFloat(d.cegc||0) + parseFloat(d.ade||0)
+        + parseFloat(d.frais_courtage||0) + parseFloat(d.frais_dossier||0) + parseFloat(d.cegc||0)
         + parseFloat(d.travaux||0);
 }
 
@@ -1172,7 +1172,7 @@ function showSimulation(id) {
             <div class="col-md-12"><h6>Dossier : ${escapeHtml(d.numero_personne)} - Capital emprunté : ${fmt(capital)} &euro;</h6></div>
             <div class="col-md-4">
                 <label class="form-label">Taux d'emprunt (%)</label>
-                <input type="range" class="form-range" id="simTaux" min="0.5" max="8" step="0.1" value="${taux}" oninput="updateSimulation(${id})">
+                <input type="range" class="form-range" id="simTaux" min="0" max="8" step="0.1" value="${taux}" oninput="updateSimulation(${id})">
                 <div class="text-center fw-bold" id="simTauxVal">${taux}%</div>
             </div>
             <div class="col-md-4">
