@@ -313,6 +313,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         }
         exit;
     }
+
+    // --- Événements calendrier (admin) ---
+    if ($action === 'admin_add_event') {
+        try {
+            $db->exec("CREATE TABLE IF NOT EXISTS evenements_perso (
+                id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, created_by INT NOT NULL,
+                titre VARCHAR(255) NOT NULL, description TEXT, date_debut DATE NOT NULL,
+                date_fin DATE, heure_debut TIME, heure_fin TIME, couleur VARCHAR(7) DEFAULT '#8e44ad',
+                is_admin_event TINYINT(1) DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        } catch (Exception $e) {}
+
+        $titre   = trim($_POST['titre'] ?? '');
+        $desc    = trim($_POST['description'] ?? '');
+        $debut   = $_POST['date_debut'] ?? '';
+        $fin     = !empty($_POST['date_fin'])    ? $_POST['date_fin']    : null;
+        $h_debut = !empty($_POST['heure_debut']) ? $_POST['heure_debut'] : null;
+        $h_fin   = !empty($_POST['heure_fin'])   ? $_POST['heure_fin']   : null;
+        $couleur = preg_match('/^#[0-9a-fA-F]{6}$/', $_POST['couleur'] ?? '') ? $_POST['couleur'] : '#8e44ad';
+        $targets = $_POST['user_ids'] ?? [];
+
+        if (!empty($titre) && !empty($debut) && !empty($targets)) {
+            $stmt = $db->prepare("INSERT INTO evenements_perso
+                (user_id, created_by, titre, description, date_debut, date_fin, heure_debut, heure_fin, couleur, is_admin_event)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)");
+            foreach ($targets as $uid) {
+                $stmt->execute([(int)$uid, $adminUserId, $titre, $desc, $debut, $fin, $h_debut, $h_fin, $couleur]);
+            }
+        }
+        header('Location: index.php?tab=calendrier&msg=event_added');
+        exit;
+    }
+
+    if ($action === 'admin_edit_event') {
+        $id      = (int)($_POST['id'] ?? 0);
+        $titre   = trim($_POST['titre'] ?? '');
+        $desc    = trim($_POST['description'] ?? '');
+        $debut   = $_POST['date_debut'] ?? '';
+        $fin     = !empty($_POST['date_fin'])    ? $_POST['date_fin']    : null;
+        $h_debut = !empty($_POST['heure_debut']) ? $_POST['heure_debut'] : null;
+        $h_fin   = !empty($_POST['heure_fin'])   ? $_POST['heure_fin']   : null;
+        $couleur = preg_match('/^#[0-9a-fA-F]{6}$/', $_POST['couleur'] ?? '') ? $_POST['couleur'] : '#8e44ad';
+
+        if ($id > 0 && !empty($titre) && !empty($debut)) {
+            $db->prepare("UPDATE evenements_perso SET titre=?, description=?, date_debut=?, date_fin=?,
+                heure_debut=?, heure_fin=?, couleur=?, updated_at=NOW() WHERE id=? AND is_admin_event=1")
+               ->execute([$titre, $desc, $debut, $fin, $h_debut, $h_fin, $couleur, $id]);
+        }
+        header('Location: index.php?tab=calendrier&msg=event_updated');
+        exit;
+    }
+
+    if ($action === 'admin_delete_event') {
+        $id = (int)($_POST['id'] ?? 0);
+        if ($id > 0) {
+            $db->prepare("DELETE FROM evenements_perso WHERE id = ? AND is_admin_event = 1")->execute([$id]);
+        }
+        header('Location: index.php?tab=calendrier&msg=event_deleted');
+        exit;
+    }
 }
 
 // Données
@@ -331,6 +395,18 @@ $pendingOffres = $db->query("SELECT o.*, u.nom AS author_nom, u.prenom AS author
 $totalPending = count($pendingModeles) + count($pendingProcedures) + count($pendingCodes) + count($pendingContacts) + count($pendingOffres);
 
 $activeTab = $_GET['tab'] ?? 'users';
+
+// Événements calendrier admin
+$adminEvents = [];
+try {
+    $adminEvents = $db->query(
+        "SELECT e.*, u.nom AS user_nom, u.prenom AS user_prenom
+         FROM evenements_perso e
+         LEFT JOIN users u ON e.user_id = u.id
+         WHERE e.is_admin_event = 1
+         ORDER BY e.date_debut DESC"
+    )->fetchAll();
+} catch (Exception $e) {}
 ?>
 
 <?php if (!empty($_GET['msg'])): ?>
@@ -354,8 +430,11 @@ $activeTab = $_GET['tab'] ?? 'users';
         'deleted' => 'Enregistrement supprimé.',
         'updated' => 'Enregistrement modifié avec succès.',
         'smtp_saved' => 'Configuration SMTP enregistrée.',
-        'smtp_test_ok' => 'Email de test envoyé avec succès !',
+        'smtp_test_ok'   => 'Email de test envoyé avec succès !',
         'smtp_test_fail' => 'Échec de l\'envoi du mail de test. Vérifiez la configuration SMTP.',
+        'event_added'    => 'Événement ajouté avec succès.',
+        'event_updated'  => 'Événement modifié avec succès.',
+        'event_deleted'  => 'Événement supprimé.',
     ];
     echo $msgs[$_GET['msg']] ?? 'Opération effectuée.';
     ?>
@@ -387,6 +466,9 @@ $activeTab = $_GET['tab'] ?? 'users';
     </li>
     <li class="nav-item">
         <a class="nav-link <?= $activeTab === 'smtp' ? 'active' : '' ?>" href="?tab=smtp"><i class="fas fa-envelope"></i> Emails</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link <?= $activeTab === 'calendrier' ? 'active' : '' ?>" href="?tab=calendrier"><i class="fas fa-calendar-alt"></i> Calendrier</a>
     </li>
 </ul>
 
@@ -1563,6 +1645,199 @@ function editMenuItem(id) {
     </div>
 </div>
 
+<?php endif; ?>
+
+<?php if ($activeTab === 'calendrier'): ?>
+<!-- =============== CALENDRIER ADMIN =============== -->
+<div class="row g-4">
+    <!-- Formulaire création -->
+    <div class="col-lg-5">
+        <div class="data-table-container">
+            <div class="data-table-header">
+                <h3><i class="fas fa-plus-circle"></i> Créer un événement</h3>
+            </div>
+            <div class="p-4">
+                <form method="POST">
+                    <input type="hidden" name="action" value="admin_add_event">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Titre <span class="text-danger">*</span></label>
+                        <input type="text" name="titre" class="form-control" maxlength="255" required placeholder="Ex : Réunion mensuelle">
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label fw-semibold">Date début <span class="text-danger">*</span></label>
+                            <input type="date" name="date_debut" class="form-control" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-semibold">Date fin</label>
+                            <input type="date" name="date_fin" class="form-control">
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label">Heure début</label>
+                            <input type="time" name="heure_debut" class="form-control">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Heure fin</label>
+                            <input type="time" name="heure_fin" class="form-control">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea name="description" class="form-control" rows="2" placeholder="Détails optionnels..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Couleur</label>
+                        <input type="color" name="couleur" value="#8e44ad" class="form-control form-control-color">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Utilisateurs concernés <span class="text-danger">*</span></label>
+                        <div style="max-height:200px;overflow-y:auto;border:1px solid #dee2e6;border-radius:6px;padding:10px;">
+                            <div class="mb-2">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAllUsers(true)">Tout sélectionner</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary ms-1" onclick="toggleAllUsers(false)">Tout désélectionner</button>
+                            </div>
+                            <?php foreach ($users as $u): ?>
+                            <div class="form-check">
+                                <input class="form-check-input user-cb" type="checkbox" name="user_ids[]" value="<?= $u['id'] ?>" id="u<?= $u['id'] ?>">
+                                <label class="form-check-label" for="u<?= $u['id'] ?>">
+                                    <?= e($u['nom']).' '.e($u['prenom']) ?>
+                                    <?php if ($u['is_admin']): ?><span class="badge bg-primary" style="font-size:10px">Admin</span><?php endif; ?>
+                                </label>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
+                        <small class="text-muted">L'événement sera visible dans le calendrier de chaque utilisateur sélectionné et ne pourra pas être modifié par eux.</small>
+                    </div>
+                    <button type="submit" class="btn btn-ce w-100"><i class="fas fa-calendar-plus"></i> Créer l'événement</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des événements admin existants -->
+    <div class="col-lg-7">
+        <div class="data-table-container">
+            <div class="data-table-header">
+                <h3><i class="fas fa-list"></i> Événements créés par les admins</h3>
+            </div>
+            <?php if (empty($adminEvents)): ?>
+                <div class="p-4 text-center text-muted">Aucun événement admin pour l'instant.</div>
+            <?php else: ?>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Titre</th>
+                        <th>Utilisateur</th>
+                        <th>Date début</th>
+                        <th>Date fin</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($adminEvents as $ev): ?>
+                <tr>
+                    <td>
+                        <span class="d-flex align-items-center gap-2">
+                            <span style="width:12px;height:12px;border-radius:50%;background:<?= e($ev['couleur']) ?>;display:inline-block;flex-shrink:0"></span>
+                            <?= e($ev['titre']) ?>
+                            <?php if ($ev['is_admin_event']): ?><i class="fas fa-lock text-secondary ms-1" title="Non modifiable par l'utilisateur"></i><?php endif; ?>
+                        </span>
+                    </td>
+                    <td><?= e($ev['prenom'] ?? '').' '.e($ev['nom'] ?? '') ?></td>
+                    <td><?= formatDate($ev['date_debut']) ?></td>
+                    <td><?= $ev['date_fin'] ? formatDate($ev['date_fin']) : '—' ?></td>
+                    <td class="actions">
+                        <button class="btn btn-sm btn-ce-outline" title="Modifier"
+                            onclick="openAdminEditModal(<?= htmlspecialchars(json_encode($ev), ENT_QUOTES) ?>)">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <form method="POST" class="d-inline" onsubmit="return confirm('Supprimer cet événement ?')">
+                            <input type="hidden" name="action" value="admin_delete_event">
+                            <input type="hidden" name="id" value="<?= $ev['id'] ?>">
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Supprimer"><i class="fas fa-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            <?php endif; ?>
+        </div>
+    </div>
+</div>
+
+<!-- Modale modification événement admin -->
+<div class="modal fade" id="modalAdminEvent" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Modifier l'événement</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST">
+        <input type="hidden" name="action" value="admin_edit_event">
+        <input type="hidden" name="id" id="adminEvtId">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Titre <span class="text-danger">*</span></label>
+            <input type="text" name="titre" id="adminEvtTitre" class="form-control" required maxlength="255">
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <label class="form-label fw-semibold">Date début <span class="text-danger">*</span></label>
+              <input type="date" name="date_debut" id="adminEvtDebut" class="form-control" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Date fin</label>
+              <input type="date" name="date_fin" id="adminEvtFin" class="form-control">
+            </div>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <label class="form-label">Heure début</label>
+              <input type="time" name="heure_debut" id="adminEvtHDebut" class="form-control">
+            </div>
+            <div class="col-6">
+              <label class="form-label">Heure fin</label>
+              <input type="time" name="heure_fin" id="adminEvtHFin" class="form-control">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Description</label>
+            <textarea name="description" id="adminEvtDesc" class="form-control" rows="2"></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Couleur</label>
+            <input type="color" name="couleur" id="adminEvtCouleur" class="form-control form-control-color" value="#8e44ad">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+          <button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Enregistrer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleAllUsers(state) {
+    document.querySelectorAll('.user-cb').forEach(cb => cb.checked = state);
+}
+function openAdminEditModal(ev) {
+    document.getElementById('adminEvtId').value     = ev.id;
+    document.getElementById('adminEvtTitre').value  = ev.titre;
+    document.getElementById('adminEvtDesc').value   = ev.description || '';
+    document.getElementById('adminEvtDebut').value  = ev.date_debut;
+    document.getElementById('adminEvtFin').value    = ev.date_fin || '';
+    document.getElementById('adminEvtHDebut').value = ev.heure_debut ? ev.heure_debut.slice(0,5) : '';
+    document.getElementById('adminEvtHFin').value   = ev.heure_fin  ? ev.heure_fin.slice(0,5)  : '';
+    document.getElementById('adminEvtCouleur').value= ev.couleur || '#8e44ad';
+    new bootstrap.Modal(document.getElementById('modalAdminEvent')).show();
+}
+</script>
 <?php endif; ?>
 
 <?php require_once __DIR__ . '/../../templates/footer.php'; ?>
