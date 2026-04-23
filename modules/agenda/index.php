@@ -629,9 +629,7 @@ async function confirmDelete(id) {
 }
 
 // ── Init ──────────────────────────────────────────────
-// Rendu immédiat de la grille (sans attendre le fetch des événements)
 renderMonth();
-// Chargement des événements en arrière-plan, puis mise à jour
 refresh();
 </script>
 <?php require_once __DIR__ . '/../../templates/footer.php'; ?>

@@ -38,47 +38,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['field']) && isset($_P
     exit;
 }
 
+// Helper : chaîne vide → null (évite l'erreur ENUM en mode strict MySQL)
+function nullIfEmpty($v) { return ($v !== null && $v !== '') ? $v : null; }
+
 // Ajout
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add') {
-    $stmt = $db->prepare("INSERT INTO credit_immobilier (user_id, numero_personne, type_client, type_occupation, type_residence, type_bien, proprietaire_logement, adresse_bien,
-        type_credit, avec_travaux, montant_acquisition, frais_notaire, frais_agence, frais_courtage, frais_dossier, cegc, ade, travaux, dont_ecoptz_ptz, taux_emprunt, duree_emprunt, apport,
-        ptz_demande, ptz_type, ptz_nombre_bouquets,
-        revenus_mensuels, charges_fixes, loyer, credits_en_cours, epargne, notes, workflow_status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt->execute([
-        $userId,
-        $_POST['numero_personne'] ?? '',
-        $_POST['type_client'] ?? 'Particulier',
-        $_POST['type_occupation'] ?? null,
-        $_POST['type_residence'] ?? null,
-        $_POST['type_bien'] ?? null,
-        isset($_POST['proprietaire_logement']) ? 1 : 0,
-        $_POST['adresse_bien'] ?? '',
-        is_array($_POST['type_credit'] ?? '') ? implode(',', $_POST['type_credit']) : ($_POST['type_credit'] ?? ''),
-        isset($_POST['avec_travaux']) ? 1 : 0,
-        (float)($_POST['montant_acquisition'] ?? 0),
-        (float)($_POST['frais_notaire'] ?? 0),
-        (float)($_POST['frais_agence'] ?? 0),
-        (float)($_POST['frais_courtage'] ?? 0),
-        (float)($_POST['frais_dossier'] ?? 0),
-        (float)($_POST['cegc'] ?? 0),
-        (float)($_POST['ade'] ?? 0),
-        (float)($_POST['travaux'] ?? 0),
-        (float)($_POST['dont_ecoptz_ptz'] ?? 0),
-        (float)($_POST['taux_emprunt'] ?? 0),
-        (int)($_POST['duree_emprunt'] ?? 0),
-        (float)($_POST['apport'] ?? 0),
-        $_POST['ptz_demande'] ?? null,
-        $_POST['ptz_type'] ?? null,
-        $_POST['ptz_nombre_bouquets'] ?? '',
-        (float)($_POST['revenus_mensuels'] ?? 0),
-        (float)($_POST['charges_fixes'] ?? 0),
-        (float)($_POST['loyer'] ?? 0),
-        (float)($_POST['credits_en_cours'] ?? 0),
-        (float)($_POST['epargne'] ?? 0),
-        $_POST['notes'] ?? '',
-        $_POST['workflow_status'] ?? 'etude'
-    ]);
+    try {
+        $stmt = $db->prepare("INSERT INTO credit_immobilier (user_id, numero_personne, type_client, type_occupation, type_residence, type_bien, proprietaire_logement, adresse_bien,
+            type_credit, avec_travaux, montant_acquisition, frais_notaire, frais_agence, frais_courtage, frais_dossier, cegc, ade, travaux, dont_ecoptz_ptz, taux_emprunt, duree_emprunt, apport,
+            ptz_demande, ptz_type, ptz_nombre_bouquets,
+            revenus_mensuels, charges_fixes, loyer, credits_en_cours, epargne, notes, workflow_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([
+            $userId,
+            $_POST['numero_personne'] ?? '',
+            $_POST['type_client'] ?? 'Particulier',
+            nullIfEmpty($_POST['type_occupation'] ?? null),
+            nullIfEmpty($_POST['type_residence'] ?? null),
+            nullIfEmpty($_POST['type_bien'] ?? null),
+            isset($_POST['proprietaire_logement']) ? 1 : 0,
+            $_POST['adresse_bien'] ?? '',
+            is_array($_POST['type_credit'] ?? '') ? implode(',', $_POST['type_credit']) : ($_POST['type_credit'] ?? ''),
+            isset($_POST['avec_travaux']) ? 1 : 0,
+            (float)($_POST['montant_acquisition'] ?? 0),
+            (float)($_POST['frais_notaire'] ?? 0),
+            (float)($_POST['frais_agence'] ?? 0),
+            (float)($_POST['frais_courtage'] ?? 0),
+            (float)($_POST['frais_dossier'] ?? 0),
+            (float)($_POST['cegc'] ?? 0),
+            (float)($_POST['ade'] ?? 0),
+            (float)($_POST['travaux'] ?? 0),
+            (float)($_POST['dont_ecoptz_ptz'] ?? 0),
+            (float)($_POST['taux_emprunt'] ?? 0),
+            (int)($_POST['duree_emprunt'] ?? 0),
+            (float)($_POST['apport'] ?? 0),
+            nullIfEmpty($_POST['ptz_demande'] ?? null),
+            nullIfEmpty($_POST['ptz_type'] ?? null),
+            $_POST['ptz_nombre_bouquets'] ?? '',
+            (float)($_POST['revenus_mensuels'] ?? 0),
+            (float)($_POST['charges_fixes'] ?? 0),
+            (float)($_POST['loyer'] ?? 0),
+            (float)($_POST['credits_en_cours'] ?? 0),
+            (float)($_POST['epargne'] ?? 0),
+            $_POST['notes'] ?? '',
+            $_POST['workflow_status'] ?? 'etude'
+        ]);
+    } catch (Exception $e) {
+        // Erreur SQL silencieuse — retour à la liste sans planter la page
+        error_log('[credit_immo] Erreur INSERT : ' . $e->getMessage());
+    }
     header('Location: index.php');
     exit;
 }
@@ -86,70 +94,74 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 // Edition
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'edit') {
     $id = (int)$_POST['id'];
-    $stmt = $db->prepare("UPDATE credit_immobilier SET
-        numero_personne = ?, type_client = ?, type_occupation = ?, type_residence = ?, type_bien = ?, proprietaire_logement = ?, adresse_bien = ?,
-        type_credit = ?, avec_travaux = ?, montant_acquisition = ?, frais_notaire = ?, frais_agence = ?, frais_courtage = ?, frais_dossier = ?, cegc = ?, ade = ?, travaux = ?, dont_ecoptz_ptz = ?, taux_emprunt = ?, duree_emprunt = ?, apport = ?,
-        ptz_demande = ?, ptz_type = ?, ptz_nombre_bouquets = ?,
-        revenus_mensuels = ?, charges_fixes = ?, loyer = ?, credits_en_cours = ?, epargne = ?,
-        doc_ji = ?, doc_jd = ?, doc_ir = ?, doc_contrat_travail = ?, doc_bulletins_salaire = ?, doc_justif_propriete = ?, doc_releves_externes = ?, doc_epargnes_externes = ?,
-        eco_ademe_emprunteur = ?, eco_ademe_entreprises = ?, eco_dpe = ?, eco_audit = ?, eco_devis_travaux = ?,
-        suivi_synthese_envoyee = ?, suivi_controle_conformite = ?, suivi_edition_offres = ?, suivi_envoi_signature = ?, suivi_offre_signee = ?,
-        notes = ?, workflow_status = ?,
-        suivi_offre_signee_date = ?,
-        updated_at = NOW() WHERE id = ? AND user_id = ?");
-    $stmt->execute([
-        $_POST['numero_personne'] ?? '',
-        $_POST['type_client'] ?? 'Particulier',
-        $_POST['type_occupation'] ?? null,
-        $_POST['type_residence'] ?? null,
-        $_POST['type_bien'] ?? null,
-        isset($_POST['proprietaire_logement']) ? 1 : 0,
-        $_POST['adresse_bien'] ?? '',
-        is_array($_POST['type_credit'] ?? '') ? implode(',', $_POST['type_credit']) : ($_POST['type_credit'] ?? ''),
-        isset($_POST['avec_travaux']) ? 1 : 0,
-        (float)($_POST['montant_acquisition'] ?? 0),
-        (float)($_POST['frais_notaire'] ?? 0),
-        (float)($_POST['frais_agence'] ?? 0),
-        (float)($_POST['frais_courtage'] ?? 0),
-        (float)($_POST['frais_dossier'] ?? 0),
-        (float)($_POST['cegc'] ?? 0),
-        (float)($_POST['ade'] ?? 0),
-        (float)($_POST['travaux'] ?? 0),
-        (float)($_POST['dont_ecoptz_ptz'] ?? 0),
-        (float)($_POST['taux_emprunt'] ?? 0),
-        (int)($_POST['duree_emprunt'] ?? 0),
-        (float)($_POST['apport'] ?? 0),
-        $_POST['ptz_demande'] ?? null,
-        $_POST['ptz_type'] ?? null,
-        $_POST['ptz_nombre_bouquets'] ?? '',
-        (float)($_POST['revenus_mensuels'] ?? 0),
-        (float)($_POST['charges_fixes'] ?? 0),
-        (float)($_POST['loyer'] ?? 0),
-        (float)($_POST['credits_en_cours'] ?? 0),
-        (float)($_POST['epargne'] ?? 0),
-        isset($_POST['doc_ji']) ? 1 : 0,
-        isset($_POST['doc_jd']) ? 1 : 0,
-        isset($_POST['doc_ir']) ? 1 : 0,
-        isset($_POST['doc_contrat_travail']) ? 1 : 0,
-        isset($_POST['doc_bulletins_salaire']) ? 1 : 0,
-        isset($_POST['doc_justif_propriete']) ? 1 : 0,
-        isset($_POST['doc_releves_externes']) ? 1 : 0,
-        isset($_POST['doc_epargnes_externes']) ? 1 : 0,
-        isset($_POST['eco_ademe_emprunteur']) ? 1 : 0,
-        isset($_POST['eco_ademe_entreprises']) ? 1 : 0,
-        isset($_POST['eco_dpe']) ? 1 : 0,
-        isset($_POST['eco_audit']) ? 1 : 0,
-        isset($_POST['eco_devis_travaux']) ? 1 : 0,
-        isset($_POST['suivi_synthese_envoyee']) ? 1 : 0,
-        isset($_POST['suivi_controle_conformite']) ? 1 : 0,
-        isset($_POST['suivi_edition_offres']) ? 1 : 0,
-        isset($_POST['suivi_envoi_signature']) ? 1 : 0,
-        isset($_POST['suivi_offre_signee']) ? 1 : 0,
-        $_POST['notes'] ?? '',
-        $_POST['workflow_status'] ?? 'etude',
-        !empty($_POST['suivi_offre_signee_date']) ? $_POST['suivi_offre_signee_date'] : null,
-        $id, $userId
-    ]);
+    try {
+        $stmt = $db->prepare("UPDATE credit_immobilier SET
+            numero_personne = ?, type_client = ?, type_occupation = ?, type_residence = ?, type_bien = ?, proprietaire_logement = ?, adresse_bien = ?,
+            type_credit = ?, avec_travaux = ?, montant_acquisition = ?, frais_notaire = ?, frais_agence = ?, frais_courtage = ?, frais_dossier = ?, cegc = ?, ade = ?, travaux = ?, dont_ecoptz_ptz = ?, taux_emprunt = ?, duree_emprunt = ?, apport = ?,
+            ptz_demande = ?, ptz_type = ?, ptz_nombre_bouquets = ?,
+            revenus_mensuels = ?, charges_fixes = ?, loyer = ?, credits_en_cours = ?, epargne = ?,
+            doc_ji = ?, doc_jd = ?, doc_ir = ?, doc_contrat_travail = ?, doc_bulletins_salaire = ?, doc_justif_propriete = ?, doc_releves_externes = ?, doc_epargnes_externes = ?,
+            eco_ademe_emprunteur = ?, eco_ademe_entreprises = ?, eco_dpe = ?, eco_audit = ?, eco_devis_travaux = ?,
+            suivi_synthese_envoyee = ?, suivi_controle_conformite = ?, suivi_edition_offres = ?, suivi_envoi_signature = ?, suivi_offre_signee = ?,
+            notes = ?, workflow_status = ?,
+            suivi_offre_signee_date = ?,
+            updated_at = NOW() WHERE id = ? AND user_id = ?");
+        $stmt->execute([
+            $_POST['numero_personne'] ?? '',
+            $_POST['type_client'] ?? 'Particulier',
+            nullIfEmpty($_POST['type_occupation'] ?? null),
+            nullIfEmpty($_POST['type_residence'] ?? null),
+            nullIfEmpty($_POST['type_bien'] ?? null),
+            isset($_POST['proprietaire_logement']) ? 1 : 0,
+            $_POST['adresse_bien'] ?? '',
+            is_array($_POST['type_credit'] ?? '') ? implode(',', $_POST['type_credit']) : ($_POST['type_credit'] ?? ''),
+            isset($_POST['avec_travaux']) ? 1 : 0,
+            (float)($_POST['montant_acquisition'] ?? 0),
+            (float)($_POST['frais_notaire'] ?? 0),
+            (float)($_POST['frais_agence'] ?? 0),
+            (float)($_POST['frais_courtage'] ?? 0),
+            (float)($_POST['frais_dossier'] ?? 0),
+            (float)($_POST['cegc'] ?? 0),
+            (float)($_POST['ade'] ?? 0),
+            (float)($_POST['travaux'] ?? 0),
+            (float)($_POST['dont_ecoptz_ptz'] ?? 0),
+            (float)($_POST['taux_emprunt'] ?? 0),
+            (int)($_POST['duree_emprunt'] ?? 0),
+            (float)($_POST['apport'] ?? 0),
+            nullIfEmpty($_POST['ptz_demande'] ?? null),
+            nullIfEmpty($_POST['ptz_type'] ?? null),
+            $_POST['ptz_nombre_bouquets'] ?? '',
+            (float)($_POST['revenus_mensuels'] ?? 0),
+            (float)($_POST['charges_fixes'] ?? 0),
+            (float)($_POST['loyer'] ?? 0),
+            (float)($_POST['credits_en_cours'] ?? 0),
+            (float)($_POST['epargne'] ?? 0),
+            isset($_POST['doc_ji']) ? 1 : 0,
+            isset($_POST['doc_jd']) ? 1 : 0,
+            isset($_POST['doc_ir']) ? 1 : 0,
+            isset($_POST['doc_contrat_travail']) ? 1 : 0,
+            isset($_POST['doc_bulletins_salaire']) ? 1 : 0,
+            isset($_POST['doc_justif_propriete']) ? 1 : 0,
+            isset($_POST['doc_releves_externes']) ? 1 : 0,
+            isset($_POST['doc_epargnes_externes']) ? 1 : 0,
+            isset($_POST['eco_ademe_emprunteur']) ? 1 : 0,
+            isset($_POST['eco_ademe_entreprises']) ? 1 : 0,
+            isset($_POST['eco_dpe']) ? 1 : 0,
+            isset($_POST['eco_audit']) ? 1 : 0,
+            isset($_POST['eco_devis_travaux']) ? 1 : 0,
+            isset($_POST['suivi_synthese_envoyee']) ? 1 : 0,
+            isset($_POST['suivi_controle_conformite']) ? 1 : 0,
+            isset($_POST['suivi_edition_offres']) ? 1 : 0,
+            isset($_POST['suivi_envoi_signature']) ? 1 : 0,
+            isset($_POST['suivi_offre_signee']) ? 1 : 0,
+            $_POST['notes'] ?? '',
+            $_POST['workflow_status'] ?? 'etude',
+            !empty($_POST['suivi_offre_signee_date']) ? $_POST['suivi_offre_signee_date'] : null,
+            $id, $userId
+        ]);
+    } catch (Exception $e) {
+        error_log('[credit_immo] Erreur UPDATE : ' . $e->getMessage());
+    }
     header('Location: index.php?open=' . $id);
     exit;
 }
