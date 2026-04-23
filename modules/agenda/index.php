@@ -297,9 +297,9 @@ $userId = getCurrentUserId();
                 <i class="fas fa-plus"></i> Ajouter un événement
             </button>
             <div class="view-btns">
-                <button id="btnMois"    onclick="setView('month')" class="active">Mois</button>
-                <button id="btnSemaine" onclick="setView('week')">Semaine</button>
-                <button id="btnJour"    onclick="setView('day')">Jour</button>
+                <button id="btnMonth" onclick="setView('month')" class="active">Mois</button>
+                <button id="btnWeek"  onclick="setView('week')">Semaine</button>
+                <button id="btnDay"   onclick="setView('day')">Jour</button>
             </div>
         </div>
     </div>
