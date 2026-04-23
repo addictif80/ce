@@ -629,9 +629,23 @@ async function confirmDelete(id) {
 }
 
 // ── Init ──────────────────────────────────────────────
-// Rendu immédiat de la grille (sans attendre le fetch des événements)
-renderMonth();
-// Chargement des événements en arrière-plan, puis mise à jour
-refresh();
+(function() {
+    var body = document.getElementById('agendaBody');
+    if (!body) {
+        console.error('[Agenda] agendaBody introuvable dans le DOM');
+        return;
+    }
+    body.innerHTML = '<p style="padding:20px;color:#888;font-size:13px"><i class="fas fa-spinner fa-spin"></i> Chargement du calendrier...</p>';
+    try {
+        renderMonth();
+    } catch(e) {
+        body.innerHTML = '<div style="padding:20px;background:#f8d7da;border-radius:8px;margin:10px;font-family:monospace;font-size:12px"><strong>Erreur JS dans renderMonth() :</strong><br>' + e.message + '</div>';
+        console.error('[Agenda] renderMonth():', e);
+        return;
+    }
+    refresh().catch(function(e) {
+        console.error('[Agenda] refresh():', e);
+    });
+})();
 </script>
 <?php require_once __DIR__ . '/../../templates/footer.php'; ?>
