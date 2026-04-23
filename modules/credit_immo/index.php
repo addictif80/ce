@@ -720,7 +720,7 @@ function calcMensualite(capital, tauxAnnuel, duree) {
 
 function getTotalFinancement(d) {
     return parseFloat(d.montant_acquisition||0) + parseFloat(d.frais_notaire||0) + parseFloat(d.frais_agence||0)
-        + parseFloat(d.frais_courtage||0) + parseFloat(d.frais_dossier||0) + parseFloat(d.cegc||0) + parseFloat(d.ade||0)
+        + parseFloat(d.frais_courtage||0) + parseFloat(d.frais_dossier||0) + parseFloat(d.cegc||0)
         + parseFloat(d.travaux||0);
 }
 
