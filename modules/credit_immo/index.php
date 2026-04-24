@@ -545,13 +545,49 @@ $countRefusees = count(array_filter($dossiers, fn($d) => ($d['workflow_status'] 
                                     <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="eco_devis_travaux" value="1" id="addEcoDT"><label class="form-check-label" for="addEcoDT">Devis travaux</label></div></div>
                                 </div>
                             </div>
-                            <h6>Suivi</h6>
-                            <div class="row g-2">
+                            <h6>Suivi workflow</h6>
+                            <div class="row g-2 mb-2">
                                 <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_synthese_envoyee" value="1" id="addSuiviSE"><label class="form-check-label" for="addSuiviSE">Synthèse envoyée</label></div></div>
                                 <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_controle_conformite" value="1" id="addSuiviCC"><label class="form-check-label" for="addSuiviCC">Contrôle conformité</label></div></div>
                                 <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_edition_offres" value="1" id="addSuiviEO"><label class="form-check-label" for="addSuiviEO">Édition offres</label></div></div>
                                 <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_envoi_signature" value="1" id="addSuiviES"><label class="form-check-label" for="addSuiviES">Envoi signature</label></div></div>
                                 <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_offre_signee" value="1" id="addSuiviOS"><label class="form-check-label" for="addSuiviOS">Offre signée</label></div></div>
+                            </div>
+                            <hr class="my-2">
+                            <h6>CEGC</h6>
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-3"><label class="form-label">Date demande accord</label><input type="date" name="suivi_date_demande_cegc" class="form-control"></div>
+                                <div class="col-md-3"><label class="form-label">Date retour</label><input type="date" name="suivi_date_retour_cegc" class="form-control"></div>
+                                <div class="col-md-3 d-flex align-items-end gap-3 pb-1">
+                                    <div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_cegc_accord" value="1" id="addCegcAccord"><label class="form-check-label" for="addCegcAccord">Accord</label></div>
+                                    <div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_cegc_refus" value="1" id="addCegcRefus"><label class="form-check-label" for="addCegcRefus">Refus</label></div>
+                                </div>
+                            </div>
+                            <h6>CNP</h6>
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-3"><label class="form-label">Date création dossier</label><input type="date" name="suivi_date_creation_cnp" class="form-control"></div>
+                                <div class="col-md-3"><label class="form-label">Date retour</label><input type="date" name="suivi_date_retour_cnp" class="form-control"></div>
+                            </div>
+                            <h6>Liasse (FSI / demande de crédit)</h6>
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-3"><label class="form-label">Date édition liasse</label><input type="date" name="suivi_date_edition_liasse" class="form-control"></div>
+                                <div class="col-md-3"><label class="form-label">Date signature liasse</label><input type="date" name="suivi_date_signature_liasse" class="form-control"></div>
+                            </div>
+                            <h6>Contrôle conformité</h6>
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-3"><label class="form-label">Date envoi</label><input type="date" name="suivi_date_envoi_conformite" class="form-control"></div>
+                                <div class="col-md-3"><label class="form-label">Date retour</label><input type="date" name="suivi_date_retour_conformite" class="form-control"></div>
+                                <div class="col-md-3 d-flex align-items-end gap-3 pb-1">
+                                    <div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_conformite_conforme" value="1" id="addConformeOui"><label class="form-check-label" for="addConformeOui">Conforme</label></div>
+                                    <div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_conformite_non_conforme" value="1" id="addConformeNon"><label class="form-check-label" for="addConformeNon">Non conforme</label></div>
+                                </div>
+                                <div class="col-md-3"><label class="form-label">Motif non conformité</label><input type="text" name="suivi_conformite_motif" class="form-control" placeholder="Motif..."></div>
+                            </div>
+                            <h6>Offres</h6>
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-3"><label class="form-label">Date édition offres</label><input type="date" name="suivi_date_edition_offres_dt" class="form-control"></div>
+                                <div class="col-md-3"><label class="form-label">Date accusé réception</label><input type="date" name="suivi_date_accuse_reception" id="addAccuseReception" class="form-control" oninput="calcJ11Add(this)"></div>
+                                <div class="col-md-3"><label class="form-label">Date J+11</label><input type="date" name="suivi_date_j11" id="addDateJ11" class="form-control"></div>
                             </div>
                         </div>
                     </div>
@@ -790,6 +826,18 @@ function buildWorkflowProgress(status) {
     return html + '</div>';
 }
 
+function calcJ11(inputEl, targetId) {
+    const val = inputEl.value;
+    const target = document.getElementById(targetId);
+    if (!target) return;
+    if (!val) { target.value = ''; return; }
+    const d = new Date(val);
+    d.setDate(d.getDate() + 11);
+    target.value = d.toISOString().split('T')[0];
+}
+function calcJ11Add(el) { calcJ11(el, 'addDateJ11'); }
+function calcJ11Edit(el) { calcJ11(el, 'editDateJ11'); }
+
 function showDetail(id) {
     const d = dossiersData.find(x => x.id == id);
     if (!d) return;
@@ -878,6 +926,30 @@ function showDetail(id) {
                     <tr><td>Édition offres</td><td>${chk(d.suivi_edition_offres)}</td></tr>
                     <tr><td>Envoi signature</td><td>${chk(d.suivi_envoi_signature)}</td></tr>
                     <tr><td>Offre signée</td><td>${chk(d.suivi_offre_signee)} ${d.suivi_offre_signee_date ? '(' + d.suivi_offre_signee_date + ')' : ''}</td></tr>
+                </tbody></table>
+                <h5>CEGC</h5>
+                <table class="table table-sm"><tbody>
+                    <tr><td>Date demande accord</td><td>${d.suivi_date_demande_cegc||'-'}</td><td>Date retour</td><td>${d.suivi_date_retour_cegc||'-'}</td></tr>
+                    <tr><td>Accord</td><td>${chk(d.suivi_cegc_accord)}</td><td>Refus</td><td>${chk(d.suivi_cegc_refus)}</td></tr>
+                </tbody></table>
+                <h5>CNP</h5>
+                <table class="table table-sm"><tbody>
+                    <tr><td>Date création dossier</td><td>${d.suivi_date_creation_cnp||'-'}</td><td>Date retour</td><td>${d.suivi_date_retour_cnp||'-'}</td></tr>
+                </tbody></table>
+                <h5>Liasse (FSI / demande de crédit)</h5>
+                <table class="table table-sm"><tbody>
+                    <tr><td>Date édition liasse</td><td>${d.suivi_date_edition_liasse||'-'}</td><td>Date signature liasse</td><td>${d.suivi_date_signature_liasse||'-'}</td></tr>
+                </tbody></table>
+                <h5>Contrôle conformité</h5>
+                <table class="table table-sm"><tbody>
+                    <tr><td>Date envoi</td><td>${d.suivi_date_envoi_conformite||'-'}</td><td>Date retour</td><td>${d.suivi_date_retour_conformite||'-'}</td></tr>
+                    <tr><td>Conforme</td><td>${chk(d.suivi_conformite_conforme)}</td><td>Non conforme</td><td>${chk(d.suivi_conformite_non_conforme)}</td></tr>
+                    ${d.suivi_conformite_motif ? `<tr><td>Motif</td><td colspan="3">${escapeHtml(d.suivi_conformite_motif)}</td></tr>` : ''}
+                </tbody></table>
+                <h5>Offres</h5>
+                <table class="table table-sm"><tbody>
+                    <tr><td>Date édition offres</td><td>${d.suivi_date_edition_offres_dt||'-'}</td><td>Date accusé réception</td><td>${d.suivi_date_accuse_reception||'-'}</td></tr>
+                    <tr><td>Date J+11</td><td>${d.suivi_date_j11||'-'}</td><td></td><td></td></tr>
                 </tbody></table>
             </div>
             ${d.notes ? `<div class="col-12"><h5>Notes du conseiller</h5><div class="alert alert-light">${escapeHtml(d.notes)}</div></div>` : ''}
@@ -993,14 +1065,50 @@ function editDossier(id) {
                             <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="eco_devis_travaux" value="1" ${d.eco_devis_travaux==1?'checked':''}><label class="form-check-label">Devis travaux</label></div></div>
                         </div>
                     </div>
-                    <h6>Suivi</h6>
-                    <div class="row g-2">
+                    <h6>Suivi workflow</h6>
+                    <div class="row g-2 mb-2">
                         <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_synthese_envoyee" value="1" ${d.suivi_synthese_envoyee==1?'checked':''}><label class="form-check-label">Synthèse envoyée</label></div></div>
                         <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_controle_conformite" value="1" ${d.suivi_controle_conformite==1?'checked':''}><label class="form-check-label">Contrôle conformité</label></div></div>
                         <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_edition_offres" value="1" ${d.suivi_edition_offres==1?'checked':''}><label class="form-check-label">Édition offres</label></div></div>
                         <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_envoi_signature" value="1" ${d.suivi_envoi_signature==1?'checked':''}><label class="form-check-label">Envoi signature</label></div></div>
                         <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_offre_signee" value="1" ${d.suivi_offre_signee==1?'checked':''}><label class="form-check-label">Offre signée</label></div></div>
                         <div class="col-md-3"><label class="form-label">Date offre signée</label><input type="date" name="suivi_offre_signee_date" class="form-control" value="${d.suivi_offre_signee_date || ''}"></div>
+                    </div>
+                    <hr class="my-2">
+                    <h6>CEGC</h6>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-3"><label class="form-label">Date demande accord</label><input type="date" name="suivi_date_demande_cegc" class="form-control" value="${d.suivi_date_demande_cegc||''}"></div>
+                        <div class="col-md-3"><label class="form-label">Date retour</label><input type="date" name="suivi_date_retour_cegc" class="form-control" value="${d.suivi_date_retour_cegc||''}"></div>
+                        <div class="col-md-3 d-flex align-items-end gap-3 pb-1">
+                            <div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_cegc_accord" value="1" ${d.suivi_cegc_accord==1?'checked':''}><label class="form-check-label">Accord</label></div>
+                            <div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_cegc_refus" value="1" ${d.suivi_cegc_refus==1?'checked':''}><label class="form-check-label">Refus</label></div>
+                        </div>
+                    </div>
+                    <h6>CNP</h6>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-3"><label class="form-label">Date création dossier</label><input type="date" name="suivi_date_creation_cnp" class="form-control" value="${d.suivi_date_creation_cnp||''}"></div>
+                        <div class="col-md-3"><label class="form-label">Date retour</label><input type="date" name="suivi_date_retour_cnp" class="form-control" value="${d.suivi_date_retour_cnp||''}"></div>
+                    </div>
+                    <h6>Liasse (FSI / demande de crédit)</h6>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-3"><label class="form-label">Date édition liasse</label><input type="date" name="suivi_date_edition_liasse" class="form-control" value="${d.suivi_date_edition_liasse||''}"></div>
+                        <div class="col-md-3"><label class="form-label">Date signature liasse</label><input type="date" name="suivi_date_signature_liasse" class="form-control" value="${d.suivi_date_signature_liasse||''}"></div>
+                    </div>
+                    <h6>Contrôle conformité</h6>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-3"><label class="form-label">Date envoi</label><input type="date" name="suivi_date_envoi_conformite" class="form-control" value="${d.suivi_date_envoi_conformite||''}"></div>
+                        <div class="col-md-3"><label class="form-label">Date retour</label><input type="date" name="suivi_date_retour_conformite" class="form-control" value="${d.suivi_date_retour_conformite||''}"></div>
+                        <div class="col-md-3 d-flex align-items-end gap-3 pb-1">
+                            <div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_conformite_conforme" value="1" ${d.suivi_conformite_conforme==1?'checked':''}><label class="form-check-label">Conforme</label></div>
+                            <div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_conformite_non_conforme" value="1" ${d.suivi_conformite_non_conforme==1?'checked':''}><label class="form-check-label">Non conforme</label></div>
+                        </div>
+                        <div class="col-md-3"><label class="form-label">Motif non conformité</label><input type="text" name="suivi_conformite_motif" class="form-control" placeholder="Motif..." value="${escapeHtml(d.suivi_conformite_motif||'')}"></div>
+                    </div>
+                    <h6>Offres</h6>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-3"><label class="form-label">Date édition offres</label><input type="date" name="suivi_date_edition_offres_dt" class="form-control" value="${d.suivi_date_edition_offres_dt||''}"></div>
+                        <div class="col-md-3"><label class="form-label">Date accusé réception</label><input type="date" name="suivi_date_accuse_reception" id="editAccuseReception" class="form-control" value="${d.suivi_date_accuse_reception||''}" oninput="calcJ11Edit(this)"></div>
+                        <div class="col-md-3"><label class="form-label">Date J+11</label><input type="date" name="suivi_date_j11" id="editDateJ11" class="form-control" value="${d.suivi_date_j11||''}"></div>
                     </div>
                 </div>
             </div>
