@@ -4,13 +4,30 @@ require_once __DIR__ . '/../../templates/header.php';
 $db = getDB();
 $userId = getCurrentUserId();
 
-// Auto-add columns if missing (notes, workflow_status)
-try {
-    $db->exec("ALTER TABLE credit_immobilier ADD COLUMN notes TEXT DEFAULT NULL");
-} catch (Exception $e) {}
-try {
-    $db->exec("ALTER TABLE credit_immobilier ADD COLUMN workflow_status VARCHAR(50) DEFAULT 'etude'");
-} catch (Exception $e) {}
+// Auto-add columns if missing
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN notes TEXT DEFAULT NULL"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN workflow_status VARCHAR(50) DEFAULT 'etude'"); } catch (Exception $e) {}
+// CEGC
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_demande_cegc DATE DEFAULT NULL"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_retour_cegc DATE DEFAULT NULL"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_cegc_accord TINYINT(1) DEFAULT 0"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_cegc_refus TINYINT(1) DEFAULT 0"); } catch (Exception $e) {}
+// CNP
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_creation_cnp DATE DEFAULT NULL"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_retour_cnp DATE DEFAULT NULL"); } catch (Exception $e) {}
+// Liasse
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_edition_liasse DATE DEFAULT NULL"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_signature_liasse DATE DEFAULT NULL"); } catch (Exception $e) {}
+// Conformité
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_envoi_conformite DATE DEFAULT NULL"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_retour_conformite DATE DEFAULT NULL"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_conformite_conforme TINYINT(1) DEFAULT 0"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_conformite_non_conforme TINYINT(1) DEFAULT 0"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_conformite_motif TEXT DEFAULT NULL"); } catch (Exception $e) {}
+// Offres
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_edition_offres_dt DATE DEFAULT NULL"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_accuse_reception DATE DEFAULT NULL"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_j11 DATE DEFAULT NULL"); } catch (Exception $e) {}
 
 // AJAX: fetch budget data for pre-fill
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'budget') {
@@ -105,6 +122,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             suivi_synthese_envoyee = ?, suivi_controle_conformite = ?, suivi_edition_offres = ?, suivi_envoi_signature = ?, suivi_offre_signee = ?,
             notes = ?, workflow_status = ?,
             suivi_offre_signee_date = ?,
+            suivi_date_demande_cegc = ?, suivi_date_retour_cegc = ?, suivi_cegc_accord = ?, suivi_cegc_refus = ?,
+            suivi_date_creation_cnp = ?, suivi_date_retour_cnp = ?,
+            suivi_date_edition_liasse = ?, suivi_date_signature_liasse = ?,
+            suivi_date_envoi_conformite = ?, suivi_date_retour_conformite = ?, suivi_conformite_conforme = ?, suivi_conformite_non_conforme = ?, suivi_conformite_motif = ?,
+            suivi_date_edition_offres_dt = ?, suivi_date_accuse_reception = ?, suivi_date_j11 = ?,
             updated_at = NOW() WHERE id = ? AND user_id = ?");
         $stmt->execute([
             $_POST['numero_personne'] ?? '',
@@ -157,6 +179,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $_POST['notes'] ?? '',
             $_POST['workflow_status'] ?? 'etude',
             !empty($_POST['suivi_offre_signee_date']) ? $_POST['suivi_offre_signee_date'] : null,
+            !empty($_POST['suivi_date_demande_cegc']) ? $_POST['suivi_date_demande_cegc'] : null,
+            !empty($_POST['suivi_date_retour_cegc']) ? $_POST['suivi_date_retour_cegc'] : null,
+            isset($_POST['suivi_cegc_accord']) ? 1 : 0,
+            isset($_POST['suivi_cegc_refus']) ? 1 : 0,
+            !empty($_POST['suivi_date_creation_cnp']) ? $_POST['suivi_date_creation_cnp'] : null,
+            !empty($_POST['suivi_date_retour_cnp']) ? $_POST['suivi_date_retour_cnp'] : null,
+            !empty($_POST['suivi_date_edition_liasse']) ? $_POST['suivi_date_edition_liasse'] : null,
+            !empty($_POST['suivi_date_signature_liasse']) ? $_POST['suivi_date_signature_liasse'] : null,
+            !empty($_POST['suivi_date_envoi_conformite']) ? $_POST['suivi_date_envoi_conformite'] : null,
+            !empty($_POST['suivi_date_retour_conformite']) ? $_POST['suivi_date_retour_conformite'] : null,
+            isset($_POST['suivi_conformite_conforme']) ? 1 : 0,
+            isset($_POST['suivi_conformite_non_conforme']) ? 1 : 0,
+            $_POST['suivi_conformite_motif'] ?? null,
+            !empty($_POST['suivi_date_edition_offres_dt']) ? $_POST['suivi_date_edition_offres_dt'] : null,
+            !empty($_POST['suivi_date_accuse_reception']) ? $_POST['suivi_date_accuse_reception'] : null,
+            !empty($_POST['suivi_date_j11']) ? $_POST['suivi_date_j11'] : null,
             $id, $userId
         ]);
     } catch (Exception $e) {
@@ -507,13 +545,49 @@ $countRefusees = count(array_filter($dossiers, fn($d) => ($d['workflow_status'] 
                                     <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="eco_devis_travaux" value="1" id="addEcoDT"><label class="form-check-label" for="addEcoDT">Devis travaux</label></div></div>
                                 </div>
                             </div>
-                            <h6>Suivi</h6>
-                            <div class="row g-2">
+                            <h6>Suivi workflow</h6>
+                            <div class="row g-2 mb-2">
                                 <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_synthese_envoyee" value="1" id="addSuiviSE"><label class="form-check-label" for="addSuiviSE">Synthèse envoyée</label></div></div>
                                 <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_controle_conformite" value="1" id="addSuiviCC"><label class="form-check-label" for="addSuiviCC">Contrôle conformité</label></div></div>
                                 <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_edition_offres" value="1" id="addSuiviEO"><label class="form-check-label" for="addSuiviEO">Édition offres</label></div></div>
                                 <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_envoi_signature" value="1" id="addSuiviES"><label class="form-check-label" for="addSuiviES">Envoi signature</label></div></div>
                                 <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_offre_signee" value="1" id="addSuiviOS"><label class="form-check-label" for="addSuiviOS">Offre signée</label></div></div>
+                            </div>
+                            <hr class="my-2">
+                            <h6>CEGC</h6>
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-3"><label class="form-label">Date demande accord</label><input type="date" name="suivi_date_demande_cegc" class="form-control"></div>
+                                <div class="col-md-3"><label class="form-label">Date retour</label><input type="date" name="suivi_date_retour_cegc" class="form-control"></div>
+                                <div class="col-md-3 d-flex align-items-end gap-3 pb-1">
+                                    <div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_cegc_accord" value="1" id="addCegcAccord"><label class="form-check-label" for="addCegcAccord">Accord</label></div>
+                                    <div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_cegc_refus" value="1" id="addCegcRefus"><label class="form-check-label" for="addCegcRefus">Refus</label></div>
+                                </div>
+                            </div>
+                            <h6>CNP</h6>
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-3"><label class="form-label">Date création dossier</label><input type="date" name="suivi_date_creation_cnp" class="form-control"></div>
+                                <div class="col-md-3"><label class="form-label">Date retour</label><input type="date" name="suivi_date_retour_cnp" class="form-control"></div>
+                            </div>
+                            <h6>Liasse (FSI / demande de crédit)</h6>
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-3"><label class="form-label">Date édition liasse</label><input type="date" name="suivi_date_edition_liasse" class="form-control"></div>
+                                <div class="col-md-3"><label class="form-label">Date signature liasse</label><input type="date" name="suivi_date_signature_liasse" class="form-control"></div>
+                            </div>
+                            <h6>Contrôle conformité</h6>
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-3"><label class="form-label">Date envoi</label><input type="date" name="suivi_date_envoi_conformite" class="form-control"></div>
+                                <div class="col-md-3"><label class="form-label">Date retour</label><input type="date" name="suivi_date_retour_conformite" class="form-control"></div>
+                                <div class="col-md-3 d-flex align-items-end gap-3 pb-1">
+                                    <div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_conformite_conforme" value="1" id="addConformeOui"><label class="form-check-label" for="addConformeOui">Conforme</label></div>
+                                    <div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_conformite_non_conforme" value="1" id="addConformeNon"><label class="form-check-label" for="addConformeNon">Non conforme</label></div>
+                                </div>
+                                <div class="col-md-3"><label class="form-label">Motif non conformité</label><input type="text" name="suivi_conformite_motif" class="form-control" placeholder="Motif..."></div>
+                            </div>
+                            <h6>Offres</h6>
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-3"><label class="form-label">Date édition offres</label><input type="date" name="suivi_date_edition_offres_dt" class="form-control"></div>
+                                <div class="col-md-3"><label class="form-label">Date accusé réception</label><input type="date" name="suivi_date_accuse_reception" id="addAccuseReception" class="form-control" oninput="calcJ11Add(this)"></div>
+                                <div class="col-md-3"><label class="form-label">Date J+11</label><input type="date" name="suivi_date_j11" id="addDateJ11" class="form-control"></div>
                             </div>
                         </div>
                     </div>
@@ -752,6 +826,18 @@ function buildWorkflowProgress(status) {
     return html + '</div>';
 }
 
+function calcJ11(inputEl, targetId) {
+    const val = inputEl.value;
+    const target = document.getElementById(targetId);
+    if (!target) return;
+    if (!val) { target.value = ''; return; }
+    const d = new Date(val);
+    d.setDate(d.getDate() + 11);
+    target.value = d.toISOString().split('T')[0];
+}
+function calcJ11Add(el) { calcJ11(el, 'addDateJ11'); }
+function calcJ11Edit(el) { calcJ11(el, 'editDateJ11'); }
+
 function showDetail(id) {
     const d = dossiersData.find(x => x.id == id);
     if (!d) return;
@@ -840,6 +926,30 @@ function showDetail(id) {
                     <tr><td>Édition offres</td><td>${chk(d.suivi_edition_offres)}</td></tr>
                     <tr><td>Envoi signature</td><td>${chk(d.suivi_envoi_signature)}</td></tr>
                     <tr><td>Offre signée</td><td>${chk(d.suivi_offre_signee)} ${d.suivi_offre_signee_date ? '(' + d.suivi_offre_signee_date + ')' : ''}</td></tr>
+                </tbody></table>
+                <h5>CEGC</h5>
+                <table class="table table-sm"><tbody>
+                    <tr><td>Date demande accord</td><td>${d.suivi_date_demande_cegc||'-'}</td><td>Date retour</td><td>${d.suivi_date_retour_cegc||'-'}</td></tr>
+                    <tr><td>Accord</td><td>${chk(d.suivi_cegc_accord)}</td><td>Refus</td><td>${chk(d.suivi_cegc_refus)}</td></tr>
+                </tbody></table>
+                <h5>CNP</h5>
+                <table class="table table-sm"><tbody>
+                    <tr><td>Date création dossier</td><td>${d.suivi_date_creation_cnp||'-'}</td><td>Date retour</td><td>${d.suivi_date_retour_cnp||'-'}</td></tr>
+                </tbody></table>
+                <h5>Liasse (FSI / demande de crédit)</h5>
+                <table class="table table-sm"><tbody>
+                    <tr><td>Date édition liasse</td><td>${d.suivi_date_edition_liasse||'-'}</td><td>Date signature liasse</td><td>${d.suivi_date_signature_liasse||'-'}</td></tr>
+                </tbody></table>
+                <h5>Contrôle conformité</h5>
+                <table class="table table-sm"><tbody>
+                    <tr><td>Date envoi</td><td>${d.suivi_date_envoi_conformite||'-'}</td><td>Date retour</td><td>${d.suivi_date_retour_conformite||'-'}</td></tr>
+                    <tr><td>Conforme</td><td>${chk(d.suivi_conformite_conforme)}</td><td>Non conforme</td><td>${chk(d.suivi_conformite_non_conforme)}</td></tr>
+                    ${d.suivi_conformite_motif ? `<tr><td>Motif</td><td colspan="3">${escapeHtml(d.suivi_conformite_motif)}</td></tr>` : ''}
+                </tbody></table>
+                <h5>Offres</h5>
+                <table class="table table-sm"><tbody>
+                    <tr><td>Date édition offres</td><td>${d.suivi_date_edition_offres_dt||'-'}</td><td>Date accusé réception</td><td>${d.suivi_date_accuse_reception||'-'}</td></tr>
+                    <tr><td>Date J+11</td><td>${d.suivi_date_j11||'-'}</td><td></td><td></td></tr>
                 </tbody></table>
             </div>
             ${d.notes ? `<div class="col-12"><h5>Notes du conseiller</h5><div class="alert alert-light">${escapeHtml(d.notes)}</div></div>` : ''}
@@ -955,14 +1065,50 @@ function editDossier(id) {
                             <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="eco_devis_travaux" value="1" ${d.eco_devis_travaux==1?'checked':''}><label class="form-check-label">Devis travaux</label></div></div>
                         </div>
                     </div>
-                    <h6>Suivi</h6>
-                    <div class="row g-2">
+                    <h6>Suivi workflow</h6>
+                    <div class="row g-2 mb-2">
                         <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_synthese_envoyee" value="1" ${d.suivi_synthese_envoyee==1?'checked':''}><label class="form-check-label">Synthèse envoyée</label></div></div>
                         <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_controle_conformite" value="1" ${d.suivi_controle_conformite==1?'checked':''}><label class="form-check-label">Contrôle conformité</label></div></div>
                         <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_edition_offres" value="1" ${d.suivi_edition_offres==1?'checked':''}><label class="form-check-label">Édition offres</label></div></div>
                         <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_envoi_signature" value="1" ${d.suivi_envoi_signature==1?'checked':''}><label class="form-check-label">Envoi signature</label></div></div>
                         <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_offre_signee" value="1" ${d.suivi_offre_signee==1?'checked':''}><label class="form-check-label">Offre signée</label></div></div>
                         <div class="col-md-3"><label class="form-label">Date offre signée</label><input type="date" name="suivi_offre_signee_date" class="form-control" value="${d.suivi_offre_signee_date || ''}"></div>
+                    </div>
+                    <hr class="my-2">
+                    <h6>CEGC</h6>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-3"><label class="form-label">Date demande accord</label><input type="date" name="suivi_date_demande_cegc" class="form-control" value="${d.suivi_date_demande_cegc||''}"></div>
+                        <div class="col-md-3"><label class="form-label">Date retour</label><input type="date" name="suivi_date_retour_cegc" class="form-control" value="${d.suivi_date_retour_cegc||''}"></div>
+                        <div class="col-md-3 d-flex align-items-end gap-3 pb-1">
+                            <div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_cegc_accord" value="1" ${d.suivi_cegc_accord==1?'checked':''}><label class="form-check-label">Accord</label></div>
+                            <div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_cegc_refus" value="1" ${d.suivi_cegc_refus==1?'checked':''}><label class="form-check-label">Refus</label></div>
+                        </div>
+                    </div>
+                    <h6>CNP</h6>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-3"><label class="form-label">Date création dossier</label><input type="date" name="suivi_date_creation_cnp" class="form-control" value="${d.suivi_date_creation_cnp||''}"></div>
+                        <div class="col-md-3"><label class="form-label">Date retour</label><input type="date" name="suivi_date_retour_cnp" class="form-control" value="${d.suivi_date_retour_cnp||''}"></div>
+                    </div>
+                    <h6>Liasse (FSI / demande de crédit)</h6>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-3"><label class="form-label">Date édition liasse</label><input type="date" name="suivi_date_edition_liasse" class="form-control" value="${d.suivi_date_edition_liasse||''}"></div>
+                        <div class="col-md-3"><label class="form-label">Date signature liasse</label><input type="date" name="suivi_date_signature_liasse" class="form-control" value="${d.suivi_date_signature_liasse||''}"></div>
+                    </div>
+                    <h6>Contrôle conformité</h6>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-3"><label class="form-label">Date envoi</label><input type="date" name="suivi_date_envoi_conformite" class="form-control" value="${d.suivi_date_envoi_conformite||''}"></div>
+                        <div class="col-md-3"><label class="form-label">Date retour</label><input type="date" name="suivi_date_retour_conformite" class="form-control" value="${d.suivi_date_retour_conformite||''}"></div>
+                        <div class="col-md-3 d-flex align-items-end gap-3 pb-1">
+                            <div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_conformite_conforme" value="1" ${d.suivi_conformite_conforme==1?'checked':''}><label class="form-check-label">Conforme</label></div>
+                            <div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_conformite_non_conforme" value="1" ${d.suivi_conformite_non_conforme==1?'checked':''}><label class="form-check-label">Non conforme</label></div>
+                        </div>
+                        <div class="col-md-3"><label class="form-label">Motif non conformité</label><input type="text" name="suivi_conformite_motif" class="form-control" placeholder="Motif..." value="${escapeHtml(d.suivi_conformite_motif||'')}"></div>
+                    </div>
+                    <h6>Offres</h6>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-3"><label class="form-label">Date édition offres</label><input type="date" name="suivi_date_edition_offres_dt" class="form-control" value="${d.suivi_date_edition_offres_dt||''}"></div>
+                        <div class="col-md-3"><label class="form-label">Date accusé réception</label><input type="date" name="suivi_date_accuse_reception" id="editAccuseReception" class="form-control" value="${d.suivi_date_accuse_reception||''}" oninput="calcJ11Edit(this)"></div>
+                        <div class="col-md-3"><label class="form-label">Date J+11</label><input type="date" name="suivi_date_j11" id="editDateJ11" class="form-control" value="${d.suivi_date_j11||''}"></div>
                     </div>
                 </div>
             </div>
@@ -1101,57 +1247,103 @@ function printDossier(id) {
     const d = dossiersData.find(x => x.id == id);
     if (!d) return;
 
-    const totalFinancement = parseFloat(d.montant_acquisition||0) + parseFloat(d.frais_notaire||0) + parseFloat(d.frais_agence||0)
-        + parseFloat(d.frais_courtage||0) + parseFloat(d.frais_dossier||0) + parseFloat(d.cegc||0) + parseFloat(d.ade||0)
-        + parseFloat(d.travaux||0);
-    const montantEmprunte = totalFinancement - parseFloat(d.apport||0);
-    const tauxMensuel = parseFloat(d.taux_emprunt||0) / 100 / 12;
-    const duree = parseInt(d.duree_emprunt||0);
-    let mensualite = 0;
-    if (tauxMensuel > 0 && duree > 0) {
-        mensualite = montantEmprunte * tauxMensuel / (1 - Math.pow(1 + tauxMensuel, -duree));
-    } else if (duree > 0) {
-        mensualite = montantEmprunte / duree;
-    }
+    const totalFinancement = getTotalFinancement(d);
+    const montantEmprunte = getCapital(d);
+    const mensualite = calcMensualite(montantEmprunte, parseFloat(d.taux_emprunt||0), parseInt(d.duree_emprunt||0));
     const tauxEndettement = parseFloat(d.revenus_mensuels||0) > 0
         ? ((mensualite + parseFloat(d.credits_en_cours||0)) / parseFloat(d.revenus_mensuels) * 100).toFixed(1)
         : 'N/A';
+    const wfLabel = (workflowLabels[d.workflow_status] || ['Inconnu'])[0];
+    const coutCredit = mensualite > 0 ? (mensualite * parseInt(d.duree_emprunt||0) - montantEmprunte) : 0;
 
     const printArea = document.getElementById('printArea');
     printArea.innerHTML = `
-        <h2 style="text-align:center;margin-bottom:20px;">Dossier Crédit Immobilier - ${escapeHtml(d.numero_personne)}</h2>
-        <p style="text-align:center;color:#666;margin-bottom:30px;">Généré le ${new Date().toLocaleDateString('fr-FR')}</p>
+        <h2 style="text-align:center;margin-bottom:10px;">Synthèse - Crédit Immobilier</h2>
+        <p style="text-align:center;margin-bottom:5px;font-size:13pt;"><strong>Dossier N° ${escapeHtml(d.numero_personne)}</strong></p>
+        <p style="text-align:center;color:#666;margin-bottom:25px;">Généré le ${new Date().toLocaleDateString('fr-FR')} &bull; Statut : <strong>${wfLabel}</strong></p>
 
         <h3>Informations client</h3>
         <table><tbody>
-            <tr><td><strong>N° personne</strong></td><td>${escapeHtml(d.numero_personne)}</td><td><strong>Type</strong></td><td>${escapeHtml(d.type_client)}</td></tr>
-            <tr><td><strong>Occupation</strong></td><td>${escapeHtml(d.type_occupation)}</td><td><strong>Résidence</strong></td><td>${d.type_residence === 'RP' ? 'Principale' : d.type_residence === 'RS' ? 'Secondaire' : '-'}</td></tr>
-            <tr><td><strong>Type bien</strong></td><td>${escapeHtml(d.type_bien)}</td><td><strong>Adresse</strong></td><td>${escapeHtml(d.adresse_bien)}</td></tr>
+            <tr><td><strong>N° personne</strong></td><td>${escapeHtml(d.numero_personne)}</td><td><strong>Type client</strong></td><td>${escapeHtml(d.type_client)}</td></tr>
+            <tr><td><strong>Occupation</strong></td><td>${escapeHtml(d.type_occupation)}</td><td><strong>Résidence</strong></td><td>${d.type_residence === 'RP' ? 'Principale' : d.type_residence === 'RS' ? 'Secondaire' : (escapeHtml(d.type_residence)||'-')}</td></tr>
+            <tr><td><strong>Type bien</strong></td><td>${escapeHtml(d.type_bien)}</td><td><strong>Adresse du bien</strong></td><td>${escapeHtml(d.adresse_bien)||'-'}</td></tr>
         </tbody></table>
 
         <h3>Plan de financement</h3>
         <table><tbody>
-            <tr><td><strong>Montant acquisition</strong></td><td>${fmt(d.montant_acquisition)} &euro;</td><td><strong>Apport</strong></td><td>${fmt(d.apport)} &euro;</td></tr>
-            <tr><td><strong>Frais notaire</strong></td><td>${fmt(d.frais_notaire)} &euro;</td><td><strong>Frais agence</strong></td><td>${fmt(d.frais_agence)} &euro;</td></tr>
-            <tr><td><strong>Frais courtage</strong></td><td>${fmt(d.frais_courtage)} &euro;</td><td><strong>Frais dossier</strong></td><td>${fmt(d.frais_dossier)} &euro;</td></tr>
-            <tr><td><strong>CEGC</strong></td><td>${fmt(d.cegc)} &euro;</td><td><strong>ADE</strong></td><td>${fmt(d.ade)} &euro;</td></tr>
+            <tr><td><strong>Montant acquisition</strong></td><td>${fmt(d.montant_acquisition)} &euro;</td><td><strong>Apport personnel</strong></td><td>${fmt(d.apport)} &euro;</td></tr>
+            <tr><td><strong>Frais de notaire</strong></td><td>${fmt(d.frais_notaire)} &euro;</td><td><strong>Frais d'agence</strong></td><td>${fmt(d.frais_agence)} &euro;</td></tr>
+            <tr><td><strong>Frais de courtage</strong></td><td>${fmt(d.frais_courtage)} &euro;</td><td><strong>Frais de dossier</strong></td><td>${fmt(d.frais_dossier)} &euro;</td></tr>
+            <tr><td><strong>CEGC</strong></td><td>${fmt(d.cegc)} &euro;</td><td><strong>ADE (assurance)</strong></td><td>${fmt(d.ade)} &euro;</td></tr>
             <tr><td><strong>Travaux</strong></td><td>${fmt(d.travaux)} &euro;</td><td><strong>Dont EcoPTZ/PTZ</strong></td><td>${fmt(d.dont_ecoptz_ptz)} &euro;</td></tr>
+            <tr style="background:#f5f5f5;"><td><strong>Total à financer</strong></td><td><strong>${fmt(totalFinancement)} &euro;</strong></td><td><strong>Capital emprunté</strong></td><td><strong>${fmt(montantEmprunte)} &euro;</strong></td></tr>
         </tbody></table>
 
         <h3>Conditions du crédit</h3>
         <table><tbody>
-            <tr><td><strong>Type crédit</strong></td><td>${escapeHtml(d.type_credit)}</td><td><strong>Avec travaux</strong></td><td>${d.avec_travaux == 1 ? 'Oui' : 'Non'}</td></tr>
-            <tr><td><strong>Taux</strong></td><td>${d.taux_emprunt}%</td><td><strong>Durée</strong></td><td>${d.duree_emprunt} mois</td></tr>
-            <tr><td><strong>Total financement</strong></td><td><strong>${fmt(totalFinancement)} &euro;</strong></td><td><strong>Montant emprunté</strong></td><td><strong>${fmt(montantEmprunte)} &euro;</strong></td></tr>
-            <tr><td><strong>Mensualité estimée</strong></td><td colspan="3"><strong style="font-size:1.2em;">${fmt(mensualite)} &euro;</strong></td></tr>
+            <tr><td><strong>Type de crédit</strong></td><td>${escapeHtml(d.type_credit)}</td><td><strong>Avec travaux</strong></td><td>${d.avec_travaux == 1 ? 'Oui' : 'Non'}</td></tr>
+            <tr><td><strong>Taux d'emprunt</strong></td><td>${d.taux_emprunt} %</td><td><strong>Durée</strong></td><td>${d.duree_emprunt} mois (${Math.round(parseInt(d.duree_emprunt||0)/12*10)/10} ans)</td></tr>
+            <tr style="background:#f5f5f5;"><td><strong>Mensualité estimée</strong></td><td><strong style="font-size:1.1em;">${fmt(mensualite)} &euro;/mois</strong></td><td><strong>Coût total du crédit</strong></td><td><strong>${fmt(coutCredit)} &euro;</strong></td></tr>
         </tbody></table>
 
         <h3>Situation financière</h3>
         <table><tbody>
             <tr><td><strong>Revenus mensuels</strong></td><td>${fmt(d.revenus_mensuels)} &euro;</td><td><strong>Charges fixes</strong></td><td>${fmt(d.charges_fixes)} &euro;</td></tr>
             <tr><td><strong>Loyer actuel</strong></td><td>${fmt(d.loyer)} &euro;</td><td><strong>Crédits en cours</strong></td><td>${fmt(d.credits_en_cours)} &euro;</td></tr>
-            <tr><td><strong>Épargne</strong></td><td>${fmt(d.epargne)} &euro;</td><td><strong>Taux endettement</strong></td><td><strong>${tauxEndettement}%</strong></td></tr>
+            <tr><td><strong>Épargne disponible</strong></td><td>${fmt(d.epargne)} &euro;</td><td><strong>Taux d'endettement</strong></td><td><strong>${tauxEndettement} %</strong></td></tr>
         </tbody></table>
+        <h3>Suivi</h3>
+        <table><tbody>
+            <tr>
+                <td colspan="4"><strong>CEGC</strong></td>
+            </tr>
+            <tr>
+                <td>Date demande accord CEGC</td><td>${d.suivi_date_demande_cegc||'-'}</td>
+                <td>Date retour CEGC</td><td>${d.suivi_date_retour_cegc||'-'}</td>
+            </tr>
+            <tr>
+                <td>Accord CEGC</td><td>${chk(d.suivi_cegc_accord)}</td>
+                <td>Refus CEGC</td><td>${chk(d.suivi_cegc_refus)}</td>
+            </tr>
+            <tr>
+                <td colspan="4"><strong>CNP</strong></td>
+            </tr>
+            <tr>
+                <td>Date création dossier CNP</td><td>${d.suivi_date_creation_cnp||'-'}</td>
+                <td>Date retour CNP</td><td>${d.suivi_date_retour_cnp||'-'}</td>
+            </tr>
+            <tr>
+                <td colspan="4"><strong>Liasse (FSI / demande de crédit)</strong></td>
+            </tr>
+            <tr>
+                <td>Date édition liasse</td><td>${d.suivi_date_edition_liasse||'-'}</td>
+                <td>Date signature liasse</td><td>${d.suivi_date_signature_liasse||'-'}</td>
+            </tr>
+            <tr>
+                <td colspan="4"><strong>Contrôle conformité</strong></td>
+            </tr>
+            <tr>
+                <td>Date envoi conformité</td><td>${d.suivi_date_envoi_conformite||'-'}</td>
+                <td>Date retour conformité</td><td>${d.suivi_date_retour_conformite||'-'}</td>
+            </tr>
+            <tr>
+                <td>Conforme</td><td>${chk(d.suivi_conformite_conforme)}</td>
+                <td>Non conforme</td><td>${chk(d.suivi_conformite_non_conforme)}</td>
+            </tr>
+            ${d.suivi_conformite_motif ? `<tr><td>Motif non conformité</td><td colspan="3">${escapeHtml(d.suivi_conformite_motif)}</td></tr>` : ''}
+            <tr>
+                <td colspan="4"><strong>Offres</strong></td>
+            </tr>
+            <tr>
+                <td>Date édition des offres</td><td>${d.suivi_date_edition_offres_dt||'-'}</td>
+                <td>Date accusé réception</td><td>${d.suivi_date_accuse_reception||'-'}</td>
+            </tr>
+            <tr>
+                <td>Date J+11</td><td>${d.suivi_date_j11||'-'}</td>
+                <td></td><td></td>
+            </tr>
+        </tbody></table>
+        ${d.notes ? `<h3>Notes</h3><p style="border:1px solid #ddd;padding:8px;margin:0;">${escapeHtml(d.notes)}</p>` : ''}
     `;
 
     window.print();
