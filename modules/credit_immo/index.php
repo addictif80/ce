@@ -1101,57 +1101,52 @@ function printDossier(id) {
     const d = dossiersData.find(x => x.id == id);
     if (!d) return;
 
-    const totalFinancement = parseFloat(d.montant_acquisition||0) + parseFloat(d.frais_notaire||0) + parseFloat(d.frais_agence||0)
-        + parseFloat(d.frais_courtage||0) + parseFloat(d.frais_dossier||0) + parseFloat(d.cegc||0) + parseFloat(d.ade||0)
-        + parseFloat(d.travaux||0);
-    const montantEmprunte = totalFinancement - parseFloat(d.apport||0);
-    const tauxMensuel = parseFloat(d.taux_emprunt||0) / 100 / 12;
-    const duree = parseInt(d.duree_emprunt||0);
-    let mensualite = 0;
-    if (tauxMensuel > 0 && duree > 0) {
-        mensualite = montantEmprunte * tauxMensuel / (1 - Math.pow(1 + tauxMensuel, -duree));
-    } else if (duree > 0) {
-        mensualite = montantEmprunte / duree;
-    }
+    const totalFinancement = getTotalFinancement(d);
+    const montantEmprunte = getCapital(d);
+    const mensualite = calcMensualite(montantEmprunte, parseFloat(d.taux_emprunt||0), parseInt(d.duree_emprunt||0));
     const tauxEndettement = parseFloat(d.revenus_mensuels||0) > 0
         ? ((mensualite + parseFloat(d.credits_en_cours||0)) / parseFloat(d.revenus_mensuels) * 100).toFixed(1)
         : 'N/A';
+    const wfLabel = (workflowLabels[d.workflow_status] || ['Inconnu'])[0];
+    const coutCredit = mensualite > 0 ? (mensualite * parseInt(d.duree_emprunt||0) - montantEmprunte) : 0;
 
     const printArea = document.getElementById('printArea');
     printArea.innerHTML = `
-        <h2 style="text-align:center;margin-bottom:20px;">Dossier Crédit Immobilier - ${escapeHtml(d.numero_personne)}</h2>
-        <p style="text-align:center;color:#666;margin-bottom:30px;">Généré le ${new Date().toLocaleDateString('fr-FR')}</p>
+        <h2 style="text-align:center;margin-bottom:10px;">Synthèse - Crédit Immobilier</h2>
+        <p style="text-align:center;margin-bottom:5px;font-size:13pt;"><strong>Dossier N° ${escapeHtml(d.numero_personne)}</strong></p>
+        <p style="text-align:center;color:#666;margin-bottom:25px;">Généré le ${new Date().toLocaleDateString('fr-FR')} &bull; Statut : <strong>${wfLabel}</strong></p>
 
         <h3>Informations client</h3>
         <table><tbody>
-            <tr><td><strong>N° personne</strong></td><td>${escapeHtml(d.numero_personne)}</td><td><strong>Type</strong></td><td>${escapeHtml(d.type_client)}</td></tr>
-            <tr><td><strong>Occupation</strong></td><td>${escapeHtml(d.type_occupation)}</td><td><strong>Résidence</strong></td><td>${d.type_residence === 'RP' ? 'Principale' : d.type_residence === 'RS' ? 'Secondaire' : '-'}</td></tr>
-            <tr><td><strong>Type bien</strong></td><td>${escapeHtml(d.type_bien)}</td><td><strong>Adresse</strong></td><td>${escapeHtml(d.adresse_bien)}</td></tr>
+            <tr><td><strong>N° personne</strong></td><td>${escapeHtml(d.numero_personne)}</td><td><strong>Type client</strong></td><td>${escapeHtml(d.type_client)}</td></tr>
+            <tr><td><strong>Occupation</strong></td><td>${escapeHtml(d.type_occupation)}</td><td><strong>Résidence</strong></td><td>${d.type_residence === 'RP' ? 'Principale' : d.type_residence === 'RS' ? 'Secondaire' : (escapeHtml(d.type_residence)||'-')}</td></tr>
+            <tr><td><strong>Type bien</strong></td><td>${escapeHtml(d.type_bien)}</td><td><strong>Adresse du bien</strong></td><td>${escapeHtml(d.adresse_bien)||'-'}</td></tr>
         </tbody></table>
 
         <h3>Plan de financement</h3>
         <table><tbody>
-            <tr><td><strong>Montant acquisition</strong></td><td>${fmt(d.montant_acquisition)} &euro;</td><td><strong>Apport</strong></td><td>${fmt(d.apport)} &euro;</td></tr>
-            <tr><td><strong>Frais notaire</strong></td><td>${fmt(d.frais_notaire)} &euro;</td><td><strong>Frais agence</strong></td><td>${fmt(d.frais_agence)} &euro;</td></tr>
-            <tr><td><strong>Frais courtage</strong></td><td>${fmt(d.frais_courtage)} &euro;</td><td><strong>Frais dossier</strong></td><td>${fmt(d.frais_dossier)} &euro;</td></tr>
-            <tr><td><strong>CEGC</strong></td><td>${fmt(d.cegc)} &euro;</td><td><strong>ADE</strong></td><td>${fmt(d.ade)} &euro;</td></tr>
+            <tr><td><strong>Montant acquisition</strong></td><td>${fmt(d.montant_acquisition)} &euro;</td><td><strong>Apport personnel</strong></td><td>${fmt(d.apport)} &euro;</td></tr>
+            <tr><td><strong>Frais de notaire</strong></td><td>${fmt(d.frais_notaire)} &euro;</td><td><strong>Frais d'agence</strong></td><td>${fmt(d.frais_agence)} &euro;</td></tr>
+            <tr><td><strong>Frais de courtage</strong></td><td>${fmt(d.frais_courtage)} &euro;</td><td><strong>Frais de dossier</strong></td><td>${fmt(d.frais_dossier)} &euro;</td></tr>
+            <tr><td><strong>CEGC</strong></td><td>${fmt(d.cegc)} &euro;</td><td><strong>ADE (assurance)</strong></td><td>${fmt(d.ade)} &euro;</td></tr>
             <tr><td><strong>Travaux</strong></td><td>${fmt(d.travaux)} &euro;</td><td><strong>Dont EcoPTZ/PTZ</strong></td><td>${fmt(d.dont_ecoptz_ptz)} &euro;</td></tr>
+            <tr style="background:#f5f5f5;"><td><strong>Total à financer</strong></td><td><strong>${fmt(totalFinancement)} &euro;</strong></td><td><strong>Capital emprunté</strong></td><td><strong>${fmt(montantEmprunte)} &euro;</strong></td></tr>
         </tbody></table>
 
         <h3>Conditions du crédit</h3>
         <table><tbody>
-            <tr><td><strong>Type crédit</strong></td><td>${escapeHtml(d.type_credit)}</td><td><strong>Avec travaux</strong></td><td>${d.avec_travaux == 1 ? 'Oui' : 'Non'}</td></tr>
-            <tr><td><strong>Taux</strong></td><td>${d.taux_emprunt}%</td><td><strong>Durée</strong></td><td>${d.duree_emprunt} mois</td></tr>
-            <tr><td><strong>Total financement</strong></td><td><strong>${fmt(totalFinancement)} &euro;</strong></td><td><strong>Montant emprunté</strong></td><td><strong>${fmt(montantEmprunte)} &euro;</strong></td></tr>
-            <tr><td><strong>Mensualité estimée</strong></td><td colspan="3"><strong style="font-size:1.2em;">${fmt(mensualite)} &euro;</strong></td></tr>
+            <tr><td><strong>Type de crédit</strong></td><td>${escapeHtml(d.type_credit)}</td><td><strong>Avec travaux</strong></td><td>${d.avec_travaux == 1 ? 'Oui' : 'Non'}</td></tr>
+            <tr><td><strong>Taux d'emprunt</strong></td><td>${d.taux_emprunt} %</td><td><strong>Durée</strong></td><td>${d.duree_emprunt} mois (${Math.round(parseInt(d.duree_emprunt||0)/12*10)/10} ans)</td></tr>
+            <tr style="background:#f5f5f5;"><td><strong>Mensualité estimée</strong></td><td><strong style="font-size:1.1em;">${fmt(mensualite)} &euro;/mois</strong></td><td><strong>Coût total du crédit</strong></td><td><strong>${fmt(coutCredit)} &euro;</strong></td></tr>
         </tbody></table>
 
         <h3>Situation financière</h3>
         <table><tbody>
             <tr><td><strong>Revenus mensuels</strong></td><td>${fmt(d.revenus_mensuels)} &euro;</td><td><strong>Charges fixes</strong></td><td>${fmt(d.charges_fixes)} &euro;</td></tr>
             <tr><td><strong>Loyer actuel</strong></td><td>${fmt(d.loyer)} &euro;</td><td><strong>Crédits en cours</strong></td><td>${fmt(d.credits_en_cours)} &euro;</td></tr>
-            <tr><td><strong>Épargne</strong></td><td>${fmt(d.epargne)} &euro;</td><td><strong>Taux endettement</strong></td><td><strong>${tauxEndettement}%</strong></td></tr>
+            <tr><td><strong>Épargne disponible</strong></td><td>${fmt(d.epargne)} &euro;</td><td><strong>Taux d'endettement</strong></td><td><strong>${tauxEndettement} %</strong></td></tr>
         </tbody></table>
+        ${d.notes ? `<h3>Notes</h3><p style="border:1px solid #ddd;padding:8px;margin:0;">${escapeHtml(d.notes)}</p>` : ''}
     `;
 
     window.print();
