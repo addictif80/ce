@@ -4,13 +4,30 @@ require_once __DIR__ . '/../../templates/header.php';
 $db = getDB();
 $userId = getCurrentUserId();
 
-// Auto-add columns if missing (notes, workflow_status)
-try {
-    $db->exec("ALTER TABLE credit_immobilier ADD COLUMN notes TEXT DEFAULT NULL");
-} catch (Exception $e) {}
-try {
-    $db->exec("ALTER TABLE credit_immobilier ADD COLUMN workflow_status VARCHAR(50) DEFAULT 'etude'");
-} catch (Exception $e) {}
+// Auto-add columns if missing
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN notes TEXT DEFAULT NULL"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN workflow_status VARCHAR(50) DEFAULT 'etude'"); } catch (Exception $e) {}
+// CEGC
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_demande_cegc DATE DEFAULT NULL"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_retour_cegc DATE DEFAULT NULL"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_cegc_accord TINYINT(1) DEFAULT 0"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_cegc_refus TINYINT(1) DEFAULT 0"); } catch (Exception $e) {}
+// CNP
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_creation_cnp DATE DEFAULT NULL"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_retour_cnp DATE DEFAULT NULL"); } catch (Exception $e) {}
+// Liasse
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_edition_liasse DATE DEFAULT NULL"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_signature_liasse DATE DEFAULT NULL"); } catch (Exception $e) {}
+// Conformité
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_envoi_conformite DATE DEFAULT NULL"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_retour_conformite DATE DEFAULT NULL"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_conformite_conforme TINYINT(1) DEFAULT 0"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_conformite_non_conforme TINYINT(1) DEFAULT 0"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_conformite_motif TEXT DEFAULT NULL"); } catch (Exception $e) {}
+// Offres
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_edition_offres_dt DATE DEFAULT NULL"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_accuse_reception DATE DEFAULT NULL"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_j11 DATE DEFAULT NULL"); } catch (Exception $e) {}
 
 // AJAX: fetch budget data for pre-fill
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'budget') {
@@ -105,6 +122,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             suivi_synthese_envoyee = ?, suivi_controle_conformite = ?, suivi_edition_offres = ?, suivi_envoi_signature = ?, suivi_offre_signee = ?,
             notes = ?, workflow_status = ?,
             suivi_offre_signee_date = ?,
+            suivi_date_demande_cegc = ?, suivi_date_retour_cegc = ?, suivi_cegc_accord = ?, suivi_cegc_refus = ?,
+            suivi_date_creation_cnp = ?, suivi_date_retour_cnp = ?,
+            suivi_date_edition_liasse = ?, suivi_date_signature_liasse = ?,
+            suivi_date_envoi_conformite = ?, suivi_date_retour_conformite = ?, suivi_conformite_conforme = ?, suivi_conformite_non_conforme = ?, suivi_conformite_motif = ?,
+            suivi_date_edition_offres_dt = ?, suivi_date_accuse_reception = ?, suivi_date_j11 = ?,
             updated_at = NOW() WHERE id = ? AND user_id = ?");
         $stmt->execute([
             $_POST['numero_personne'] ?? '',
@@ -157,6 +179,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $_POST['notes'] ?? '',
             $_POST['workflow_status'] ?? 'etude',
             !empty($_POST['suivi_offre_signee_date']) ? $_POST['suivi_offre_signee_date'] : null,
+            !empty($_POST['suivi_date_demande_cegc']) ? $_POST['suivi_date_demande_cegc'] : null,
+            !empty($_POST['suivi_date_retour_cegc']) ? $_POST['suivi_date_retour_cegc'] : null,
+            isset($_POST['suivi_cegc_accord']) ? 1 : 0,
+            isset($_POST['suivi_cegc_refus']) ? 1 : 0,
+            !empty($_POST['suivi_date_creation_cnp']) ? $_POST['suivi_date_creation_cnp'] : null,
+            !empty($_POST['suivi_date_retour_cnp']) ? $_POST['suivi_date_retour_cnp'] : null,
+            !empty($_POST['suivi_date_edition_liasse']) ? $_POST['suivi_date_edition_liasse'] : null,
+            !empty($_POST['suivi_date_signature_liasse']) ? $_POST['suivi_date_signature_liasse'] : null,
+            !empty($_POST['suivi_date_envoi_conformite']) ? $_POST['suivi_date_envoi_conformite'] : null,
+            !empty($_POST['suivi_date_retour_conformite']) ? $_POST['suivi_date_retour_conformite'] : null,
+            isset($_POST['suivi_conformite_conforme']) ? 1 : 0,
+            isset($_POST['suivi_conformite_non_conforme']) ? 1 : 0,
+            $_POST['suivi_conformite_motif'] ?? null,
+            !empty($_POST['suivi_date_edition_offres_dt']) ? $_POST['suivi_date_edition_offres_dt'] : null,
+            !empty($_POST['suivi_date_accuse_reception']) ? $_POST['suivi_date_accuse_reception'] : null,
+            !empty($_POST['suivi_date_j11']) ? $_POST['suivi_date_j11'] : null,
             $id, $userId
         ]);
     } catch (Exception $e) {
