@@ -1292,6 +1292,57 @@ function printDossier(id) {
             <tr><td><strong>Loyer actuel</strong></td><td>${fmt(d.loyer)} &euro;</td><td><strong>Crédits en cours</strong></td><td>${fmt(d.credits_en_cours)} &euro;</td></tr>
             <tr><td><strong>Épargne disponible</strong></td><td>${fmt(d.epargne)} &euro;</td><td><strong>Taux d'endettement</strong></td><td><strong>${tauxEndettement} %</strong></td></tr>
         </tbody></table>
+        <h3>Suivi</h3>
+        <table><tbody>
+            <tr>
+                <td colspan="4"><strong>CEGC</strong></td>
+            </tr>
+            <tr>
+                <td>Date demande accord CEGC</td><td>${d.suivi_date_demande_cegc||'-'}</td>
+                <td>Date retour CEGC</td><td>${d.suivi_date_retour_cegc||'-'}</td>
+            </tr>
+            <tr>
+                <td>Accord CEGC</td><td>${chk(d.suivi_cegc_accord)}</td>
+                <td>Refus CEGC</td><td>${chk(d.suivi_cegc_refus)}</td>
+            </tr>
+            <tr>
+                <td colspan="4"><strong>CNP</strong></td>
+            </tr>
+            <tr>
+                <td>Date création dossier CNP</td><td>${d.suivi_date_creation_cnp||'-'}</td>
+                <td>Date retour CNP</td><td>${d.suivi_date_retour_cnp||'-'}</td>
+            </tr>
+            <tr>
+                <td colspan="4"><strong>Liasse (FSI / demande de crédit)</strong></td>
+            </tr>
+            <tr>
+                <td>Date édition liasse</td><td>${d.suivi_date_edition_liasse||'-'}</td>
+                <td>Date signature liasse</td><td>${d.suivi_date_signature_liasse||'-'}</td>
+            </tr>
+            <tr>
+                <td colspan="4"><strong>Contrôle conformité</strong></td>
+            </tr>
+            <tr>
+                <td>Date envoi conformité</td><td>${d.suivi_date_envoi_conformite||'-'}</td>
+                <td>Date retour conformité</td><td>${d.suivi_date_retour_conformite||'-'}</td>
+            </tr>
+            <tr>
+                <td>Conforme</td><td>${chk(d.suivi_conformite_conforme)}</td>
+                <td>Non conforme</td><td>${chk(d.suivi_conformite_non_conforme)}</td>
+            </tr>
+            ${d.suivi_conformite_motif ? `<tr><td>Motif non conformité</td><td colspan="3">${escapeHtml(d.suivi_conformite_motif)}</td></tr>` : ''}
+            <tr>
+                <td colspan="4"><strong>Offres</strong></td>
+            </tr>
+            <tr>
+                <td>Date édition des offres</td><td>${d.suivi_date_edition_offres_dt||'-'}</td>
+                <td>Date accusé réception</td><td>${d.suivi_date_accuse_reception||'-'}</td>
+            </tr>
+            <tr>
+                <td>Date J+11</td><td>${d.suivi_date_j11||'-'}</td>
+                <td></td><td></td>
+            </tr>
+        </tbody></table>
         ${d.notes ? `<h3>Notes</h3><p style="border:1px solid #ddd;padding:8px;margin:0;">${escapeHtml(d.notes)}</p>` : ''}
     `;
 
