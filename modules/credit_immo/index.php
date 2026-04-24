@@ -111,6 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 // Edition
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'edit') {
     $id = (int)$_POST['id'];
+    // Requête principale (champs toujours présents dans le schéma d'origine)
     try {
         $stmt = $db->prepare("UPDATE credit_immobilier SET
             numero_personne = ?, type_client = ?, type_occupation = ?, type_residence = ?, type_bien = ?, proprietaire_logement = ?, adresse_bien = ?,
@@ -122,11 +123,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             suivi_synthese_envoyee = ?, suivi_controle_conformite = ?, suivi_edition_offres = ?, suivi_envoi_signature = ?, suivi_offre_signee = ?,
             notes = ?, workflow_status = ?,
             suivi_offre_signee_date = ?,
-            suivi_date_demande_cegc = ?, suivi_date_retour_cegc = ?, suivi_cegc_accord = ?, suivi_cegc_refus = ?,
-            suivi_date_creation_cnp = ?, suivi_date_retour_cnp = ?,
-            suivi_date_edition_liasse = ?, suivi_date_signature_liasse = ?,
-            suivi_date_envoi_conformite = ?, suivi_date_retour_conformite = ?, suivi_conformite_conforme = ?, suivi_conformite_non_conforme = ?, suivi_conformite_motif = ?,
-            suivi_date_edition_offres_dt = ?, suivi_date_accuse_reception = ?, suivi_date_j11 = ?,
             updated_at = NOW() WHERE id = ? AND user_id = ?");
         $stmt->execute([
             $_POST['numero_personne'] ?? '',
@@ -179,6 +175,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $_POST['notes'] ?? '',
             $_POST['workflow_status'] ?? 'etude',
             !empty($_POST['suivi_offre_signee_date']) ? $_POST['suivi_offre_signee_date'] : null,
+            $id, $userId
+        ]);
+    } catch (Exception $e) {
+        error_log('[credit_immo] Erreur UPDATE principal : ' . $e->getMessage());
+    }
+    // Requête séparée pour les nouveaux champs suivi (isolée pour ne pas bloquer le save principal)
+    try {
+        $stmt2 = $db->prepare("UPDATE credit_immobilier SET
+            suivi_date_demande_cegc = ?, suivi_date_retour_cegc = ?, suivi_cegc_accord = ?, suivi_cegc_refus = ?,
+            suivi_date_creation_cnp = ?, suivi_date_retour_cnp = ?,
+            suivi_date_edition_liasse = ?, suivi_date_signature_liasse = ?,
+            suivi_date_envoi_conformite = ?, suivi_date_retour_conformite = ?,
+            suivi_conformite_conforme = ?, suivi_conformite_non_conforme = ?, suivi_conformite_motif = ?,
+            suivi_date_edition_offres_dt = ?, suivi_date_accuse_reception = ?, suivi_date_j11 = ?
+            WHERE id = ? AND user_id = ?");
+        $stmt2->execute([
             !empty($_POST['suivi_date_demande_cegc']) ? $_POST['suivi_date_demande_cegc'] : null,
             !empty($_POST['suivi_date_retour_cegc']) ? $_POST['suivi_date_retour_cegc'] : null,
             isset($_POST['suivi_cegc_accord']) ? 1 : 0,
@@ -198,7 +210,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $id, $userId
         ]);
     } catch (Exception $e) {
-        error_log('[credit_immo] Erreur UPDATE : ' . $e->getMessage());
+        error_log('[credit_immo] Erreur UPDATE suivi : ' . $e->getMessage());
     }
     header('Location: index.php?open=' . $id);
     exit;
@@ -1250,100 +1262,152 @@ function printDossier(id) {
     const totalFinancement = getTotalFinancement(d);
     const montantEmprunte = getCapital(d);
     const mensualite = calcMensualite(montantEmprunte, parseFloat(d.taux_emprunt||0), parseInt(d.duree_emprunt||0));
-    const tauxEndettement = parseFloat(d.revenus_mensuels||0) > 0
-        ? ((mensualite + parseFloat(d.credits_en_cours||0)) / parseFloat(d.revenus_mensuels) * 100).toFixed(1)
+    const revenus = parseFloat(d.revenus_mensuels||0);
+    const tauxEndettement = revenus > 0
+        ? ((mensualite + parseFloat(d.credits_en_cours||0)) / revenus * 100).toFixed(1)
         : 'N/A';
     const wfLabel = (workflowLabels[d.workflow_status] || ['Inconnu'])[0];
     const coutCredit = mensualite > 0 ? (mensualite * parseInt(d.duree_emprunt||0) - montantEmprunte) : 0;
+    const dureeAns = Math.round(parseInt(d.duree_emprunt||0) / 12 * 10) / 10;
+    const p = (label, val) => `<tr><td class="lbl">${label}</td><td class="val">${val}</td></tr>`;
+    const ck = val => val == 1 ? '<span class="ck-ok">✓</span>' : '<span class="ck-no">—</span>';
 
-    const printArea = document.getElementById('printArea');
-    printArea.innerHTML = `
-        <h2 style="text-align:center;margin-bottom:10px;">Synthèse - Crédit Immobilier</h2>
-        <p style="text-align:center;margin-bottom:5px;font-size:13pt;"><strong>Dossier N° ${escapeHtml(d.numero_personne)}</strong></p>
-        <p style="text-align:center;color:#666;margin-bottom:25px;">Généré le ${new Date().toLocaleDateString('fr-FR')} &bull; Statut : <strong>${wfLabel}</strong></p>
+    document.getElementById('printArea').innerHTML = `
+<div class="pr-wrap">
+  <!-- EN-TÊTE -->
+  <div class="pr-header">
+    <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRKmky9-XoScC_uRBERr-pjPJuedYPHmyGh5w&s" alt="Caisse d'Épargne" class="pr-logo">
+    <div class="pr-header-center">
+      <div class="pr-title">SYNTHÈSE CRÉDIT IMMOBILIER</div>
+      <div class="pr-subtitle">Dossier N° <strong>${escapeHtml(d.numero_personne)}</strong></div>
+    </div>
+    <div class="pr-header-right">
+      <div class="pr-date">${new Date().toLocaleDateString('fr-FR')}</div>
+      <div class="pr-statut">${wfLabel}</div>
+    </div>
+  </div>
 
-        <h3>Informations client</h3>
+  <!-- LIGNE 1 : CLIENT + SITUATION -->
+  <div class="pr-cols">
+    <div class="pr-col">
+      <div class="pr-section">
+        <div class="pr-section-title">CLIENT</div>
         <table><tbody>
-            <tr><td><strong>N° personne</strong></td><td>${escapeHtml(d.numero_personne)}</td><td><strong>Type client</strong></td><td>${escapeHtml(d.type_client)}</td></tr>
-            <tr><td><strong>Occupation</strong></td><td>${escapeHtml(d.type_occupation)}</td><td><strong>Résidence</strong></td><td>${d.type_residence === 'RP' ? 'Principale' : d.type_residence === 'RS' ? 'Secondaire' : (escapeHtml(d.type_residence)||'-')}</td></tr>
-            <tr><td><strong>Type bien</strong></td><td>${escapeHtml(d.type_bien)}</td><td><strong>Adresse du bien</strong></td><td>${escapeHtml(d.adresse_bien)||'-'}</td></tr>
+          ${p('N° personne', escapeHtml(d.numero_personne))}
+          ${p('Type client', escapeHtml(d.type_client)||'-')}
+          ${p('Occupation', escapeHtml(d.type_occupation)||'-')}
+          ${p('Résidence', d.type_residence==='RP'?'Principale':d.type_residence==='RS'?'Secondaire':'-')}
+          ${p('Type bien', escapeHtml(d.type_bien)||'-')}
+          ${p('Adresse', escapeHtml(d.adresse_bien)||'-')}
         </tbody></table>
+      </div>
+    </div>
+    <div class="pr-col">
+      <div class="pr-section">
+        <div class="pr-section-title">SITUATION FINANCIÈRE</div>
+        <table><tbody>
+          ${p('Revenus mensuels', fmt(d.revenus_mensuels)+' €')}
+          ${p('Charges fixes', fmt(d.charges_fixes)+' €')}
+          ${p('Loyer actuel', fmt(d.loyer)+' €')}
+          ${p('Crédits en cours', fmt(d.credits_en_cours)+' €')}
+          ${p('Épargne disponible', fmt(d.epargne)+' €')}
+        </tbody></table>
+        <div class="pr-kpi-row">
+          <div class="pr-kpi ${parseFloat(tauxEndettement)>35?'pr-kpi-warn':'pr-kpi-ok'}">
+            <div class="pr-kpi-val">${tauxEndettement}%</div>
+            <div class="pr-kpi-lbl">Taux d'endettement</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-        <h3>Plan de financement</h3>
+  <!-- LIGNE 2 : FINANCEMENT + CONDITIONS -->
+  <div class="pr-cols">
+    <div class="pr-col">
+      <div class="pr-section">
+        <div class="pr-section-title">PLAN DE FINANCEMENT</div>
         <table><tbody>
-            <tr><td><strong>Montant acquisition</strong></td><td>${fmt(d.montant_acquisition)} &euro;</td><td><strong>Apport personnel</strong></td><td>${fmt(d.apport)} &euro;</td></tr>
-            <tr><td><strong>Frais de notaire</strong></td><td>${fmt(d.frais_notaire)} &euro;</td><td><strong>Frais d'agence</strong></td><td>${fmt(d.frais_agence)} &euro;</td></tr>
-            <tr><td><strong>Frais de courtage</strong></td><td>${fmt(d.frais_courtage)} &euro;</td><td><strong>Frais de dossier</strong></td><td>${fmt(d.frais_dossier)} &euro;</td></tr>
-            <tr><td><strong>CEGC</strong></td><td>${fmt(d.cegc)} &euro;</td><td><strong>ADE (assurance)</strong></td><td>${fmt(d.ade)} &euro;</td></tr>
-            <tr><td><strong>Travaux</strong></td><td>${fmt(d.travaux)} &euro;</td><td><strong>Dont EcoPTZ/PTZ</strong></td><td>${fmt(d.dont_ecoptz_ptz)} &euro;</td></tr>
-            <tr style="background:#f5f5f5;"><td><strong>Total à financer</strong></td><td><strong>${fmt(totalFinancement)} &euro;</strong></td><td><strong>Capital emprunté</strong></td><td><strong>${fmt(montantEmprunte)} &euro;</strong></td></tr>
+          ${p('Montant acquisition', fmt(d.montant_acquisition)+' €')}
+          ${p('Frais notaire', fmt(d.frais_notaire)+' €')}
+          ${p('Frais agence', fmt(d.frais_agence)+' €')}
+          ${p('Frais courtage', fmt(d.frais_courtage)+' €')}
+          ${p('Frais dossier / CEGC', fmt(d.frais_dossier)+' € / '+fmt(d.cegc)+' €')}
+          ${p('ADE (assurance)', fmt(d.ade)+' €')}
+          ${d.travaux>0?p('Travaux (dont EcoPTZ/PTZ)', fmt(d.travaux)+' € ('+fmt(d.dont_ecoptz_ptz)+' €)'):''}
+          ${p('Apport personnel', fmt(d.apport)+' €')}
         </tbody></table>
+        <div class="pr-kpi-row">
+          <div class="pr-kpi pr-kpi-green">
+            <div class="pr-kpi-val">${fmt(totalFinancement)} €</div>
+            <div class="pr-kpi-lbl">Total à financer</div>
+          </div>
+          <div class="pr-kpi pr-kpi-green">
+            <div class="pr-kpi-val">${fmt(montantEmprunte)} €</div>
+            <div class="pr-kpi-lbl">Capital emprunté</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="pr-col">
+      <div class="pr-section">
+        <div class="pr-section-title">CONDITIONS DU CRÉDIT</div>
+        <table><tbody>
+          ${p('Type de crédit', escapeHtml(d.type_credit)||'-')}
+          ${p('Avec travaux', d.avec_travaux==1?'Oui':'Non')}
+          ${p('Taux d\'emprunt', d.taux_emprunt+' %')}
+          ${p('Durée', d.duree_emprunt+' mois ('+dureeAns+' ans)')}
+          ${p('Coût total crédit', fmt(coutCredit)+' €')}
+        </tbody></table>
+        <div class="pr-kpi-row">
+          <div class="pr-kpi pr-kpi-primary">
+            <div class="pr-kpi-val">${fmt(mensualite)} €</div>
+            <div class="pr-kpi-lbl">Mensualité estimée</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-        <h3>Conditions du crédit</h3>
+  <!-- SUIVI DOSSIER -->
+  <div class="pr-section">
+    <div class="pr-section-title">SUIVI DOSSIER</div>
+    <div class="pr-cols">
+      <div class="pr-col">
         <table><tbody>
-            <tr><td><strong>Type de crédit</strong></td><td>${escapeHtml(d.type_credit)}</td><td><strong>Avec travaux</strong></td><td>${d.avec_travaux == 1 ? 'Oui' : 'Non'}</td></tr>
-            <tr><td><strong>Taux d'emprunt</strong></td><td>${d.taux_emprunt} %</td><td><strong>Durée</strong></td><td>${d.duree_emprunt} mois (${Math.round(parseInt(d.duree_emprunt||0)/12*10)/10} ans)</td></tr>
-            <tr style="background:#f5f5f5;"><td><strong>Mensualité estimée</strong></td><td><strong style="font-size:1.1em;">${fmt(mensualite)} &euro;/mois</strong></td><td><strong>Coût total du crédit</strong></td><td><strong>${fmt(coutCredit)} &euro;</strong></td></tr>
+          <tr><td colspan="2" class="pr-sub-title">CEGC</td></tr>
+          ${p('Demande accord', d.suivi_date_demande_cegc||'—')}
+          ${p('Retour CEGC', d.suivi_date_retour_cegc||'—')}
+          <tr><td class="lbl">Accord / Refus</td><td class="val">${ck(d.suivi_cegc_accord)} Accord &nbsp; ${ck(d.suivi_cegc_refus)} Refus</td></tr>
+          <tr><td colspan="2" class="pr-sub-title">CNP</td></tr>
+          ${p('Création dossier', d.suivi_date_creation_cnp||'—')}
+          ${p('Retour CNP', d.suivi_date_retour_cnp||'—')}
+          <tr><td colspan="2" class="pr-sub-title">Liasse (FSI)</td></tr>
+          ${p('Édition liasse', d.suivi_date_edition_liasse||'—')}
+          ${p('Signature liasse', d.suivi_date_signature_liasse||'—')}
         </tbody></table>
+      </div>
+      <div class="pr-col">
+        <table><tbody>
+          <tr><td colspan="2" class="pr-sub-title">Contrôle conformité</td></tr>
+          ${p('Envoi', d.suivi_date_envoi_conformite||'—')}
+          ${p('Retour', d.suivi_date_retour_conformite||'—')}
+          <tr><td class="lbl">Résultat</td><td class="val">${ck(d.suivi_conformite_conforme)} Conforme &nbsp; ${ck(d.suivi_conformite_non_conforme)} Non conforme</td></tr>
+          ${d.suivi_conformite_motif?p('Motif', escapeHtml(d.suivi_conformite_motif)):''}
+          <tr><td colspan="2" class="pr-sub-title">Offres</td></tr>
+          ${p('Édition offres', d.suivi_date_edition_offres_dt||'—')}
+          ${p('Accusé réception', d.suivi_date_accuse_reception||'—')}
+          ${p('Date J+11', d.suivi_date_j11||'—')}
+        </tbody></table>
+      </div>
+    </div>
+  </div>
 
-        <h3>Situation financière</h3>
-        <table><tbody>
-            <tr><td><strong>Revenus mensuels</strong></td><td>${fmt(d.revenus_mensuels)} &euro;</td><td><strong>Charges fixes</strong></td><td>${fmt(d.charges_fixes)} &euro;</td></tr>
-            <tr><td><strong>Loyer actuel</strong></td><td>${fmt(d.loyer)} &euro;</td><td><strong>Crédits en cours</strong></td><td>${fmt(d.credits_en_cours)} &euro;</td></tr>
-            <tr><td><strong>Épargne disponible</strong></td><td>${fmt(d.epargne)} &euro;</td><td><strong>Taux d'endettement</strong></td><td><strong>${tauxEndettement} %</strong></td></tr>
-        </tbody></table>
-        <h3>Suivi</h3>
-        <table><tbody>
-            <tr>
-                <td colspan="4"><strong>CEGC</strong></td>
-            </tr>
-            <tr>
-                <td>Date demande accord CEGC</td><td>${d.suivi_date_demande_cegc||'-'}</td>
-                <td>Date retour CEGC</td><td>${d.suivi_date_retour_cegc||'-'}</td>
-            </tr>
-            <tr>
-                <td>Accord CEGC</td><td>${chk(d.suivi_cegc_accord)}</td>
-                <td>Refus CEGC</td><td>${chk(d.suivi_cegc_refus)}</td>
-            </tr>
-            <tr>
-                <td colspan="4"><strong>CNP</strong></td>
-            </tr>
-            <tr>
-                <td>Date création dossier CNP</td><td>${d.suivi_date_creation_cnp||'-'}</td>
-                <td>Date retour CNP</td><td>${d.suivi_date_retour_cnp||'-'}</td>
-            </tr>
-            <tr>
-                <td colspan="4"><strong>Liasse (FSI / demande de crédit)</strong></td>
-            </tr>
-            <tr>
-                <td>Date édition liasse</td><td>${d.suivi_date_edition_liasse||'-'}</td>
-                <td>Date signature liasse</td><td>${d.suivi_date_signature_liasse||'-'}</td>
-            </tr>
-            <tr>
-                <td colspan="4"><strong>Contrôle conformité</strong></td>
-            </tr>
-            <tr>
-                <td>Date envoi conformité</td><td>${d.suivi_date_envoi_conformite||'-'}</td>
-                <td>Date retour conformité</td><td>${d.suivi_date_retour_conformite||'-'}</td>
-            </tr>
-            <tr>
-                <td>Conforme</td><td>${chk(d.suivi_conformite_conforme)}</td>
-                <td>Non conforme</td><td>${chk(d.suivi_conformite_non_conforme)}</td>
-            </tr>
-            ${d.suivi_conformite_motif ? `<tr><td>Motif non conformité</td><td colspan="3">${escapeHtml(d.suivi_conformite_motif)}</td></tr>` : ''}
-            <tr>
-                <td colspan="4"><strong>Offres</strong></td>
-            </tr>
-            <tr>
-                <td>Date édition des offres</td><td>${d.suivi_date_edition_offres_dt||'-'}</td>
-                <td>Date accusé réception</td><td>${d.suivi_date_accuse_reception||'-'}</td>
-            </tr>
-            <tr>
-                <td>Date J+11</td><td>${d.suivi_date_j11||'-'}</td>
-                <td></td><td></td>
-            </tr>
-        </tbody></table>
-        ${d.notes ? `<h3>Notes</h3><p style="border:1px solid #ddd;padding:8px;margin:0;">${escapeHtml(d.notes)}</p>` : ''}
+  ${d.notes ? `<div class="pr-section pr-notes"><div class="pr-section-title">NOTES</div><p>${escapeHtml(d.notes)}</p></div>` : ''}
+
+  <!-- PIED DE PAGE -->
+  <div class="pr-footer">Document confidentiel — Caisse d'Épargne — ${new Date().toLocaleDateString('fr-FR')}</div>
+</div>
     `;
 
     window.print();
@@ -1546,7 +1610,10 @@ if (openId) {
 
 <style>
 .bg-orange { background-color: #fd7e14 !important; }
+
+/* ── PRINT ────────────────────────────────────────────── */
 @media print {
+    @page { size: A4 portrait; margin: 7mm 8mm; }
     body * { visibility: hidden !important; }
     #printArea, #printArea * { visibility: visible !important; }
     #printArea {
@@ -1554,15 +1621,70 @@ if (openId) {
         position: absolute;
         left: 0; top: 0;
         width: 100%;
-        font-family: Arial, sans-serif;
-        font-size: 11pt;
-        color: #000;
+        font-family: 'Segoe UI', Arial, sans-serif;
+        font-size: 7.8pt;
+        color: #1a1a1a;
+        line-height: 1.3;
     }
-    #printArea h2 { font-size: 16pt; border-bottom: 2px solid #333; padding-bottom: 8px; }
-    #printArea h3 { font-size: 12pt; margin-top: 15px; margin-bottom: 8px; color: #333; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
-    #printArea table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-    #printArea td { border: 1px solid #ddd; padding: 4px 8px; font-size: 10pt; }
 }
+/* Styles communs (visibles en prévisualisation et en impression) */
+.pr-wrap { font-family: 'Segoe UI', Arial, sans-serif; font-size: 7.8pt; color: #1a1a1a; }
+
+/* En-tête */
+.pr-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 3px solid #1B6234;
+    padding-bottom: 5px;
+    margin-bottom: 7px;
+}
+.pr-logo { height: 38px; width: auto; object-fit: contain; }
+.pr-header-center { text-align: center; flex: 1; padding: 0 10px; }
+.pr-title { font-size: 13pt; font-weight: 700; color: #1B6234; letter-spacing: 1px; }
+.pr-subtitle { font-size: 8.5pt; color: #444; margin-top: 2px; }
+.pr-header-right { text-align: right; min-width: 90px; }
+.pr-date { font-size: 7pt; color: #666; }
+.pr-statut { font-size: 7.5pt; font-weight: 600; color: #1B6234; margin-top: 2px; background: #e8f5ee; padding: 2px 5px; border-radius: 3px; display: inline-block; }
+
+/* Colonnes 50/50 */
+.pr-cols { display: flex; gap: 6px; margin-bottom: 6px; }
+.pr-col { flex: 1; min-width: 0; }
+
+/* Section */
+.pr-section { border: 1px solid #d0e8d8; border-radius: 4px; padding: 5px 6px; margin-bottom: 6px; background: #fff; }
+.pr-section-title {
+    font-size: 7.5pt; font-weight: 700; color: #fff;
+    background: #1B6234; padding: 2px 6px; border-radius: 2px;
+    margin: -5px -6px 5px -6px; letter-spacing: 0.5px;
+}
+.pr-sub-title { font-size: 7pt; font-weight: 700; color: #1B6234; background: #edf7f1; padding: 1px 4px; }
+
+/* Tables */
+.pr-wrap table { width: 100%; border-collapse: collapse; }
+.pr-wrap table td { padding: 2px 5px; font-size: 7.5pt; border-bottom: 1px solid #eee; vertical-align: top; }
+.pr-wrap table td.lbl { color: #555; width: 48%; }
+.pr-wrap table td.val { font-weight: 600; color: #111; }
+
+/* KPI boxes */
+.pr-kpi-row { display: flex; gap: 5px; margin-top: 5px; }
+.pr-kpi { flex: 1; text-align: center; border-radius: 4px; padding: 4px 3px; }
+.pr-kpi-val { font-size: 10pt; font-weight: 700; }
+.pr-kpi-lbl { font-size: 6.5pt; margin-top: 1px; opacity: .85; }
+.pr-kpi-green { background: #e8f5ee; color: #1B6234; border: 1px solid #b2dfc2; }
+.pr-kpi-primary { background: #1B6234; color: #fff; }
+.pr-kpi-ok { background: #e8f5ee; color: #1B6234; border: 1px solid #b2dfc2; }
+.pr-kpi-warn { background: #fff3cd; color: #856404; border: 1px solid #ffe08a; }
+
+/* Check marks */
+.ck-ok { color: #1B6234; font-weight: 700; }
+.ck-no { color: #bbb; }
+
+/* Notes */
+.pr-notes p { margin: 0; padding: 4px; background: #fafafa; border: 1px solid #eee; border-radius: 3px; font-size: 7.5pt; }
+
+/* Pied de page */
+.pr-footer { margin-top: 5px; border-top: 1px solid #ccc; padding-top: 4px; text-align: center; font-size: 6.5pt; color: #888; }
 </style>
 
 <?php require_once __DIR__ . '/../../templates/footer.php'; ?>
