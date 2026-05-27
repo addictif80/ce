@@ -57,6 +57,16 @@ $db->exec("CREATE TABLE IF NOT EXISTS `stock_alert_users` (
     `user_id` INT NOT NULL PRIMARY KEY
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+// Demandes de commande émises depuis l'accès standalone
+$db->exec("CREATE TABLE IF NOT EXISTS `stock_demandes_commande` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `produit_id` INT NOT NULL,
+    `quantite_souhaitee` DECIMAL(10,2) DEFAULT NULL,
+    `notes` TEXT DEFAULT NULL,
+    `statut` ENUM('nouvelle','traitee') DEFAULT 'nouvelle',
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
 // Seed credentials par défaut (login: stock / mdp: stock)
 if ((int)$db->query("SELECT COUNT(*) FROM stock_credentials")->fetchColumn() === 0) {
     $db->prepare("INSERT INTO stock_credentials (login, password_hash) VALUES (?, ?)")
@@ -74,8 +84,11 @@ if ((int)$db->query("SELECT COUNT(*) FROM stock_types_unite")->fetchColumn() ===
 // ─── Auth ────────────────────────────────────────────────────────────────────
 $isPortalUser  = isset($_SESSION['user_id']);
 $isPortalAdmin = $isPortalUser && !empty($_SESSION['is_admin']);
-$isStockUser   = !empty($_SESSION['stock_auth']);
-$loginError    = '';
+$isStockUser   = !empty($_SESSION['stock_auth']); // accès via identifiants partagés
+// Accès restreint = connecté uniquement via identifiants partagés (pas via portail)
+$isRestreint   = $isStockUser && !$isPortalUser;
+
+$loginError = '';
 
 // Logout standalone
 if (!$isPortalUser && isset($_GET['logout'])) {
@@ -100,7 +113,11 @@ if (!$isPortalUser && !$isStockUser) {
     }
 
     if (!$isStockUser) {
-        // ── Page de connexion standalone ──────────────────────────────────
+        // ── Page de connexion standalone ─────────────────────────────────
+        $projectRootFs  = str_replace('\\', '/', realpath(__DIR__ . '/../..'));
+        $scriptFs       = str_replace('\\', '/', realpath($_SERVER['SCRIPT_FILENAME'] ?? $_SERVER['PHP_SELF']));
+        $relativeScript = str_replace($projectRootFs, '', $scriptFs);
+        $B              = rtrim(str_replace($relativeScript, '', $_SERVER['SCRIPT_NAME']), '/');
         ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -108,13 +125,6 @@ if (!$isPortalUser && !$isStockUser) {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gestion des fournitures — Connexion</title>
-  <?php
-  // Calcul du chemin de base
-  $projectRootFs = str_replace('\\', '/', realpath(__DIR__ . '/../..'));
-  $scriptFs = str_replace('\\', '/', realpath($_SERVER['SCRIPT_FILENAME'] ?? $_SERVER['PHP_SELF']));
-  $relativeScript = str_replace($projectRootFs, '', $scriptFs);
-  $B = rtrim(str_replace($relativeScript, '', $_SERVER['SCRIPT_NAME']), '/');
-  ?>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
   <link href="<?= $B ?>/assets/css/style.css" rel="stylesheet">
@@ -180,47 +190,7 @@ function stockFmt($n) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
-    // Ajouter un produit
-    if ($action === 'add_produit') {
-        $seuil = $_POST['seuil_alerte'] !== '' ? (float)$_POST['seuil_alerte'] : null;
-        $db->prepare("INSERT INTO stock_produits (nom, type_unite_id, quantite_stock, seuil_alerte, alerte_active, plateforme_commande)
-                      VALUES (?, ?, ?, ?, ?, ?)")
-           ->execute([
-               trim($_POST['nom']),
-               (int)$_POST['type_unite_id'],
-               (float)$_POST['quantite_stock'],
-               $seuil,
-               isset($_POST['alerte_active']) ? 1 : 0,
-               trim($_POST['plateforme_commande'] ?? '') ?: null,
-           ]);
-        header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?') . '?tab=stock');
-        exit;
-    }
-
-    // Modifier un produit
-    if ($action === 'edit_produit') {
-        $id    = (int)$_POST['id'];
-        $seuil = $_POST['seuil_alerte'] !== '' ? (float)$_POST['seuil_alerte'] : null;
-        $db->prepare("UPDATE stock_produits SET nom=?, type_unite_id=?, seuil_alerte=?, alerte_active=?, plateforme_commande=? WHERE id=?")
-           ->execute([
-               trim($_POST['nom']),
-               (int)$_POST['type_unite_id'],
-               $seuil,
-               isset($_POST['alerte_active']) ? 1 : 0,
-               trim($_POST['plateforme_commande'] ?? '') ?: null,
-               $id,
-           ]);
-        header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?') . '?tab=stock');
-        exit;
-    }
-
-    // Supprimer un produit
-    if ($action === 'delete_produit') {
-        $id = (int)$_POST['id'];
-        $db->prepare("DELETE FROM stock_produits WHERE id = ?")->execute([$id]);
-        header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?') . '?tab=stock');
-        exit;
-    }
+    // ── Actions autorisées pour TOUS (portail + standalone) ──────────────────
 
     // Retrait de stock
     if ($action === 'retrait') {
@@ -234,7 +204,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Ajout de stock (inventaire)
+    // Ajout de stock (manuel)
     if ($action === 'ajout') {
         $id  = (int)$_POST['produit_id'];
         $qte = max(0.01, (float)$_POST['quantite']);
@@ -246,36 +216,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Correction d'inventaire (remettre à zéro ou à une valeur)
-    if ($action === 'inventaire') {
-        $id  = (int)$_POST['produit_id'];
-        $qte = max(0, (float)$_POST['quantite']);
-        $stmt = $db->prepare("SELECT quantite_stock FROM stock_produits WHERE id = ?");
-        $stmt->execute([$id]);
-        $ancienne = (float)($stmt->fetchColumn() ?? 0);
-        $db->prepare("UPDATE stock_produits SET quantite_stock = ? WHERE id = ?")
-           ->execute([$qte, $id]);
-        $diff = $qte - $ancienne;
-        $db->prepare("INSERT INTO stock_mouvements (produit_id, type, quantite, notes, auteur) VALUES (?, 'inventaire', ?, ?, ?)")
-           ->execute([$id, abs($diff), 'Correction inventaire : ' . stockFmt($ancienne) . ' → ' . stockFmt($qte), $auteur]);
-        header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?') . '?tab=stock');
-        exit;
-    }
-
-    // Nouvelle commande
-    if ($action === 'add_commande') {
-        $db->prepare("INSERT INTO stock_commandes (produit_id, quantite, notes, date_commande) VALUES (?, ?, ?, ?)")
-           ->execute([
-               (int)$_POST['produit_id'],
-               (float)$_POST['quantite'],
-               trim($_POST['notes'] ?? '') ?: null,
-               $_POST['date_commande'],
-           ]);
-        header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?') . '?tab=commandes');
-        exit;
-    }
-
-    // Réception commande
+    // Réception commande (portail + standalone)
     if ($action === 'recu_commande') {
         $id  = (int)$_POST['id'];
         $qte = (float)$_POST['quantite_recue'];
@@ -294,68 +235,163 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Annuler commande
-    if ($action === 'annule_commande') {
-        $id = (int)$_POST['id'];
-        $db->prepare("UPDATE stock_commandes SET statut='annule' WHERE id=? AND statut='en_cours'")
-           ->execute([$id]);
-        header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?') . '?tab=commandes');
+    // Demande de commande (standalone uniquement — notifie les admins portail)
+    if ($action === 'demande_commande') {
+        $db->prepare("INSERT INTO stock_demandes_commande (produit_id, quantite_souhaitee, notes) VALUES (?, ?, ?)")
+           ->execute([
+               (int)$_POST['produit_id'],
+               $_POST['quantite_souhaitee'] !== '' ? (float)$_POST['quantite_souhaitee'] : null,
+               trim($_POST['notes'] ?? '') ?: null,
+           ]);
+        header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?') . '?tab=stock&demande_ok=1');
         exit;
     }
 
-    // ── Admin only ────────────────────────────────────────────────────────────
+    // ── Actions réservées au portail ──────────────────────────────────────────
 
-    // Modifier les credentials
-    if ($action === 'save_credentials' && $isPortalAdmin) {
-        $login   = trim($_POST['stock_login_val'] ?? '');
-        $newPass = trim($_POST['new_password'] ?? '');
-        if ($login !== '') {
-            if ($newPass !== '') {
-                $db->prepare("UPDATE stock_credentials SET login=?, password_hash=? WHERE id=1")
-                   ->execute([$login, password_hash($newPass, PASSWORD_DEFAULT)]);
-            } else {
-                $db->prepare("UPDATE stock_credentials SET login=? WHERE id=1")
-                   ->execute([$login]);
+    if ($isPortalUser) {
+
+        // Ajouter un produit
+        if ($action === 'add_produit') {
+            $seuil = $_POST['seuil_alerte'] !== '' ? (float)$_POST['seuil_alerte'] : null;
+            $db->prepare("INSERT INTO stock_produits (nom, type_unite_id, quantite_stock, seuil_alerte, alerte_active, plateforme_commande)
+                          VALUES (?, ?, ?, ?, ?, ?)")
+               ->execute([
+                   trim($_POST['nom']),
+                   (int)$_POST['type_unite_id'],
+                   (float)$_POST['quantite_stock'],
+                   $seuil,
+                   isset($_POST['alerte_active']) ? 1 : 0,
+                   trim($_POST['plateforme_commande'] ?? '') ?: null,
+               ]);
+            header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?') . '?tab=stock');
+            exit;
+        }
+
+        // Modifier un produit
+        if ($action === 'edit_produit') {
+            $id    = (int)$_POST['id'];
+            $seuil = $_POST['seuil_alerte'] !== '' ? (float)$_POST['seuil_alerte'] : null;
+            $db->prepare("UPDATE stock_produits SET nom=?, type_unite_id=?, seuil_alerte=?, alerte_active=?, plateforme_commande=? WHERE id=?")
+               ->execute([
+                   trim($_POST['nom']),
+                   (int)$_POST['type_unite_id'],
+                   $seuil,
+                   isset($_POST['alerte_active']) ? 1 : 0,
+                   trim($_POST['plateforme_commande'] ?? '') ?: null,
+                   $id,
+               ]);
+            header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?') . '?tab=stock');
+            exit;
+        }
+
+        // Supprimer un produit
+        if ($action === 'delete_produit') {
+            $db->prepare("DELETE FROM stock_produits WHERE id = ?")->execute([(int)$_POST['id']]);
+            header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?') . '?tab=stock');
+            exit;
+        }
+
+        // Correction inventaire (portail uniquement)
+        if ($action === 'inventaire') {
+            $id  = (int)$_POST['produit_id'];
+            $qte = max(0, (float)$_POST['quantite']);
+            $stmt = $db->prepare("SELECT quantite_stock FROM stock_produits WHERE id = ?");
+            $stmt->execute([$id]);
+            $ancienne = (float)($stmt->fetchColumn() ?? 0);
+            $db->prepare("UPDATE stock_produits SET quantite_stock = ? WHERE id = ?")->execute([$qte, $id]);
+            $db->prepare("INSERT INTO stock_mouvements (produit_id, type, quantite, notes, auteur) VALUES (?, 'inventaire', ?, ?, ?)")
+               ->execute([$id, abs($qte - $ancienne), 'Correction inventaire : ' . stockFmt($ancienne) . ' → ' . stockFmt($qte), $auteur]);
+            header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?') . '?tab=stock');
+            exit;
+        }
+
+        // Nouvelle commande
+        if ($action === 'add_commande') {
+            $db->prepare("INSERT INTO stock_commandes (produit_id, quantite, notes, date_commande) VALUES (?, ?, ?, ?)")
+               ->execute([
+                   (int)$_POST['produit_id'],
+                   (float)$_POST['quantite'],
+                   trim($_POST['notes'] ?? '') ?: null,
+                   $_POST['date_commande'],
+               ]);
+            // Si cette commande provient d'une demande standalone, la marquer traitée
+            if (!empty($_POST['demande_id'])) {
+                $db->prepare("UPDATE stock_demandes_commande SET statut='traitee' WHERE id=?")
+                   ->execute([(int)$_POST['demande_id']]);
             }
+            header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?') . '?tab=commandes');
+            exit;
         }
-        header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?') . '?tab=admin&saved=1');
-        exit;
+
+        // Annuler commande
+        if ($action === 'annule_commande') {
+            $db->prepare("UPDATE stock_commandes SET statut='annule' WHERE id=? AND statut='en_cours'")
+               ->execute([(int)$_POST['id']]);
+            header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?') . '?tab=commandes');
+            exit;
+        }
+
+        // Marquer une demande standalone comme traitée sans commander
+        if ($action === 'dismiss_demande') {
+            $db->prepare("UPDATE stock_demandes_commande SET statut='traitee' WHERE id=?")
+               ->execute([(int)$_POST['id']]);
+            header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?') . '?tab=commandes');
+            exit;
+        }
     }
 
-    // Ajouter / supprimer un type d'unité
-    if ($action === 'add_unite' && $isPortalAdmin) {
-        $lib = trim($_POST['libelle'] ?? '');
-        if ($lib !== '') {
-            $db->prepare("INSERT INTO stock_types_unite (libelle, ordre) VALUES (?, (SELECT COALESCE(MAX(ordre),0)+1 FROM stock_types_unite t2))")
-               ->execute([$lib]);
-        }
-        header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?') . '?tab=admin');
-        exit;
-    }
-    if ($action === 'delete_unite' && $isPortalAdmin) {
-        $id = (int)$_POST['id'];
-        // Ne pas supprimer si des produits l'utilisent
-        $used = $db->prepare("SELECT COUNT(*) FROM stock_produits WHERE type_unite_id=?");
-        $used->execute([$id]);
-        if ((int)$used->fetchColumn() === 0) {
-            $db->prepare("DELETE FROM stock_types_unite WHERE id=?")->execute([$id]);
-        }
-        header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?') . '?tab=admin');
-        exit;
-    }
+    // ── Actions admin portail ─────────────────────────────────────────────────
+    if ($isPortalAdmin) {
 
-    // Gérer les utilisateurs d'alerte
-    if ($action === 'toggle_alert_user' && $isPortalAdmin) {
-        $uid = (int)$_POST['user_id'];
-        $stmt = $db->prepare("SELECT 1 FROM stock_alert_users WHERE user_id=?");
-        $stmt->execute([$uid]);
-        if ($stmt->fetchColumn()) {
-            $db->prepare("DELETE FROM stock_alert_users WHERE user_id=?")->execute([$uid]);
-        } else {
-            $db->prepare("INSERT IGNORE INTO stock_alert_users (user_id) VALUES (?)")->execute([$uid]);
+        if ($action === 'save_credentials') {
+            $login   = trim($_POST['stock_login_val'] ?? '');
+            $newPass = trim($_POST['new_password'] ?? '');
+            if ($login !== '') {
+                if ($newPass !== '') {
+                    $db->prepare("UPDATE stock_credentials SET login=?, password_hash=? WHERE id=1")
+                       ->execute([$login, password_hash($newPass, PASSWORD_DEFAULT)]);
+                } else {
+                    $db->prepare("UPDATE stock_credentials SET login=? WHERE id=1")->execute([$login]);
+                }
+            }
+            header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?') . '?tab=admin&saved=1');
+            exit;
         }
-        header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?') . '?tab=admin');
-        exit;
+
+        if ($action === 'add_unite') {
+            $lib = trim($_POST['libelle'] ?? '');
+            if ($lib !== '') {
+                $db->prepare("INSERT INTO stock_types_unite (libelle, ordre) VALUES (?, (SELECT COALESCE(MAX(o),0)+1 FROM (SELECT ordre AS o FROM stock_types_unite) t))")
+                   ->execute([$lib]);
+            }
+            header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?') . '?tab=admin');
+            exit;
+        }
+
+        if ($action === 'delete_unite') {
+            $id   = (int)$_POST['id'];
+            $used = $db->prepare("SELECT COUNT(*) FROM stock_produits WHERE type_unite_id=?");
+            $used->execute([$id]);
+            if ((int)$used->fetchColumn() === 0) {
+                $db->prepare("DELETE FROM stock_types_unite WHERE id=?")->execute([$id]);
+            }
+            header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?') . '?tab=admin');
+            exit;
+        }
+
+        if ($action === 'toggle_alert_user') {
+            $uid  = (int)$_POST['user_id'];
+            $stmt = $db->prepare("SELECT 1 FROM stock_alert_users WHERE user_id=?");
+            $stmt->execute([$uid]);
+            if ($stmt->fetchColumn()) {
+                $db->prepare("DELETE FROM stock_alert_users WHERE user_id=?")->execute([$uid]);
+            } else {
+                $db->prepare("INSERT IGNORE INTO stock_alert_users (user_id) VALUES (?)")->execute([$uid]);
+            }
+            header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?') . '?tab=admin');
+            exit;
+        }
     }
 }
 
@@ -363,7 +399,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $tab = $_GET['tab'] ?? 'stock';
 
 $typesUnite = $db->query("SELECT * FROM stock_types_unite ORDER BY ordre ASC, libelle ASC")->fetchAll();
-$typesById  = array_column($typesUnite, 'libelle', 'id');
 
 $produits = $db->query("
     SELECT p.*, t.libelle AS unite
@@ -391,23 +426,35 @@ $mouvements = $db->query("
     LIMIT 300
 ")->fetchAll();
 
-$nbEnCoursCmd = count(array_filter($commandes, fn($c) => $c['statut'] === 'en_cours'));
+// Demandes standalone en attente (visibles aux utilisateurs portail)
+$demandesEnAttente = [];
+$nbDemandesNouvelles = 0;
+if ($isPortalUser) {
+    $demandesEnAttente = $db->query("
+        SELECT d.*, p.nom AS produit_nom, t.libelle AS unite, p.plateforme_commande
+        FROM stock_demandes_commande d
+        JOIN stock_produits p ON p.id = d.produit_id
+        LEFT JOIN stock_types_unite t ON t.id = p.type_unite_id
+        ORDER BY d.created_at DESC
+    ")->fetchAll();
+    $nbDemandesNouvelles = count(array_filter($demandesEnAttente, fn($d) => $d['statut'] === 'nouvelle'));
+}
 
-$nbAlertes = count(array_filter($produits, fn($p) =>
+$nbEnCoursCmd    = count(array_filter($commandes, fn($c) => $c['statut'] === 'en_cours'));
+$nbAlertes       = count(array_filter($produits, fn($p) =>
     $p['alerte_active'] && $p['seuil_alerte'] !== null && (float)$p['quantite_stock'] <= (float)$p['seuil_alerte']
 ));
 
-// Données admin
-$credentials = $db->query("SELECT login FROM stock_credentials LIMIT 1")->fetch();
+// Admin
+$credentials    = $db->query("SELECT login FROM stock_credentials LIMIT 1")->fetch();
 $allPortalUsers = [];
 $alertUserIds   = [];
 if ($isPortalAdmin) {
-    $allPortalUsers = $db->query("SELECT id, prenom, nom, username FROM users ORDER BY nom, prenom")->fetchAll();
+    $allPortalUsers = $db->query("SELECT id, prenom, nom FROM users ORDER BY nom, prenom")->fetchAll();
     $alertUserIds   = $db->query("SELECT user_id FROM stock_alert_users")->fetchAll(PDO::FETCH_COLUMN);
 }
 
 // ─── Layout ───────────────────────────────────────────────────────────────────
-// Chemin de base
 $projectRootFs  = str_replace('\\', '/', realpath(__DIR__ . '/../..'));
 $scriptFs       = str_replace('\\', '/', realpath($_SERVER['SCRIPT_FILENAME'] ?? $_SERVER['PHP_SELF']));
 $relativeScript = str_replace($projectRootFs, '', $scriptFs);
@@ -417,7 +464,6 @@ if ($isPortalUser) {
     $pageTitle = 'Gestion des fournitures';
     require_once __DIR__ . '/../../templates/header.php';
 } else {
-    // Standalone header
     ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -443,25 +489,35 @@ if ($isPortalUser) {
   </script>
 </head>
 <body>
-  <div style="background:#CF0A2C;padding:14px 28px;display:flex;align-items:center;gap:16px;margin-bottom:0;">
+  <div style="background:#CF0A2C;padding:14px 28px;display:flex;align-items:center;gap:16px;">
     <img src="https://www.img.caisse-epargne.fr/app/uploads/sites/16/2021/05/31152836/ce-logo-midi-pyrennees.png"
          alt="CE" style="height:34px;">
     <span style="color:#fff;font-weight:600;font-size:1.05rem;">
       <i class="fas fa-boxes"></i> Gestion des fournitures
     </span>
-    <a href="?logout=1" class="btn btn-sm ms-auto" style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);">
+    <a href="?logout=1" class="btn btn-sm ms-auto"
+       style="background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.3);">
       <i class="fas fa-sign-out-alt"></i> Déconnexion
     </a>
   </div>
   <div class="page-content" style="padding:24px;max-width:1400px;margin:0 auto;">
-    <?php } /* End standalone header */ ?>
+<?php } ?>
 
-<!-- ─── Navigation tabs ─────────────────────────────────────────────────────── -->
+<!-- ─── Message confirmation demande ─────────────────────────────────────────── -->
+<?php if (isset($_GET['demande_ok'])): ?>
+<div class="alert alert-success alert-dismissible fade show" role="alert">
+  <i class="fas fa-check-circle"></i>
+  Votre demande de commande a bien été transmise.
+  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+<?php endif; ?>
+
+<!-- ─── Navigation tabs ──────────────────────────────────────────────────────── -->
 <ul class="nav nav-tabs mb-4">
   <li class="nav-item">
     <a class="nav-link <?= $tab === 'stock' ? 'active' : '' ?>" href="?tab=stock">
       <i class="fas fa-boxes"></i> Stock
-      <?php if ($nbAlertes > 0): ?>
+      <?php if ($nbAlertes > 0 && $isPortalUser): ?>
         <span class="badge bg-danger ms-1"><?= $nbAlertes ?></span>
       <?php endif; ?>
     </a>
@@ -469,11 +525,14 @@ if ($isPortalUser) {
   <li class="nav-item">
     <a class="nav-link <?= $tab === 'commandes' ? 'active' : '' ?>" href="?tab=commandes">
       <i class="fas fa-shopping-cart"></i> Commandes
-      <?php if ($nbEnCoursCmd > 0): ?>
-        <span class="badge bg-warning text-dark ms-1"><?= $nbEnCoursCmd ?></span>
+      <?php
+        $badgeCmd = $nbEnCoursCmd + ($isPortalUser ? $nbDemandesNouvelles : 0);
+        if ($badgeCmd > 0): ?>
+        <span class="badge <?= $nbDemandesNouvelles > 0 ? 'bg-danger' : 'bg-warning text-dark' ?> ms-1"><?= $badgeCmd ?></span>
       <?php endif; ?>
     </a>
   </li>
+  <?php if ($isPortalUser): ?>
   <li class="nav-item">
     <a class="nav-link <?= $tab === 'historique' ? 'active' : '' ?>" href="?tab=historique">
       <i class="fas fa-history"></i> Historique
@@ -486,17 +545,20 @@ if ($isPortalUser) {
     </a>
   </li>
   <?php endif; ?>
+  <?php endif; ?>
 </ul>
 
-<?php // ═══════════════════════════════════════════════════════════════════════
+<?php // ══════════════════════════════════════════════════════════════════════
 // ── TAB : STOCK ──────────────────────────────────────────────────────────────
 if ($tab === 'stock'): ?>
 
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
   <h4 class="mb-0"><i class="fas fa-boxes"></i> Produits en stock</h4>
+  <?php if ($isPortalUser): ?>
   <button class="btn btn-ce" data-bs-toggle="modal" data-bs-target="#addProduitModal">
     <i class="fas fa-plus"></i> Nouveau produit
   </button>
+  <?php endif; ?>
 </div>
 
 <div class="data-table-container">
@@ -509,66 +571,61 @@ if ($tab === 'stock'): ?>
       <tr>
         <th>Produit</th>
         <th>Type</th>
-        <th>Stock</th>
-        <th>Seuil alerte</th>
+        <th>Stock actuel</th>
+        <?php if ($isPortalUser): ?><th>Seuil alerte</th><?php endif; ?>
         <th>Se commande sur</th>
         <th>Actions</th>
       </tr>
     </thead>
     <tbody>
     <?php foreach ($produits as $p):
-        $enAlerte = $p['alerte_active'] && $p['seuil_alerte'] !== null && (float)$p['quantite_stock'] <= (float)$p['seuil_alerte'];
+        $enAlerte = $p['alerte_active'] && $p['seuil_alerte'] !== null
+                 && (float)$p['quantite_stock'] <= (float)$p['seuil_alerte'];
     ?>
-      <tr class="<?= $enAlerte ? 'table-danger' : '' ?>">
-        <td>
-          <strong><?= e($p['nom']) ?></strong>
-          <?php if ($enAlerte): ?>
-            <span class="badge bg-danger ms-1"><i class="fas fa-exclamation-triangle"></i> Alerte</span>
-          <?php endif; ?>
-        </td>
+      <tr <?= $enAlerte && $isPortalUser ? 'class="table-danger"' : '' ?>>
+        <td><strong><?= e($p['nom']) ?></strong></td>
         <td><?= e($p['unite'] ?? '—') ?></td>
         <td>
-          <span class="fw-bold <?= $enAlerte ? 'text-danger' : 'text-success' ?>">
+          <span class="fw-bold <?= $enAlerte && $isPortalUser ? 'text-danger' : '' ?>">
             <?= stockFmt($p['quantite_stock']) ?>
           </span>
         </td>
+        <?php if ($isPortalUser): ?>
         <td>
           <?php if ($p['seuil_alerte'] !== null): ?>
             <?= stockFmt($p['seuil_alerte']) ?>
-            <?php if ($p['alerte_active']): ?>
-              <i class="fas fa-bell text-warning ms-1" title="Alerte active"></i>
-            <?php else: ?>
-              <i class="fas fa-bell-slash text-muted ms-1" title="Alerte inactive"></i>
-            <?php endif; ?>
+            <i class="fas fa-bell<?= $p['alerte_active'] ? '' : '-slash text-muted' ?> ms-1
+               <?= $p['alerte_active'] ? 'text-warning' : '' ?>"
+               title="Alerte <?= $p['alerte_active'] ? 'active' : 'inactive' ?>"></i>
           <?php else: ?>
             <span class="text-muted">—</span>
           <?php endif; ?>
         </td>
-        <td>
-          <?= $p['plateforme_commande'] ? e($p['plateforme_commande']) : '<span class="text-muted">—</span>' ?>
-        </td>
+        <?php endif; ?>
+        <td><?= $p['plateforme_commande'] ? e($p['plateforme_commande']) : '<span class="text-muted">—</span>' ?></td>
         <td class="actions">
           <!-- Retrait -->
           <button class="btn btn-sm btn-outline-danger"
-                  onclick="openMvt('retrait',<?= $p['id'] ?>, '<?= e(addslashes($p['nom'])) ?>', '<?= e($p['unite'] ?? '') ?>')"
+                  onclick="openMvt('retrait',<?= $p['id'] ?>,'<?= e(addslashes($p['nom'])) ?>','<?= e($p['unite'] ?? '') ?>')"
                   title="Retirer du stock">
             <i class="fas fa-minus-circle"></i>
           </button>
-          <!-- Ajout manuel -->
+          <!-- Ajout -->
           <button class="btn btn-sm btn-outline-success"
-                  onclick="openMvt('ajout',<?= $p['id'] ?>, '<?= e(addslashes($p['nom'])) ?>', '<?= e($p['unite'] ?? '') ?>')"
+                  onclick="openMvt('ajout',<?= $p['id'] ?>,'<?= e(addslashes($p['nom'])) ?>','<?= e($p['unite'] ?? '') ?>')"
                   title="Ajouter au stock">
             <i class="fas fa-plus-circle"></i>
           </button>
-          <!-- Correction inventaire -->
+          <?php if ($isPortalUser): ?>
+          <!-- Inventaire (portail uniquement) -->
           <button class="btn btn-sm btn-ce-outline"
-                  onclick="openMvt('inventaire',<?= $p['id'] ?>, '<?= e(addslashes($p['nom'])) ?>', '<?= e($p['unite'] ?? '') ?>', <?= (float)$p['quantite_stock'] ?>)"
+                  onclick="openMvt('inventaire',<?= $p['id'] ?>,'<?= e(addslashes($p['nom'])) ?>','<?= e($p['unite'] ?? '') ?>',<?= (float)$p['quantite_stock'] ?>)"
                   title="Correction inventaire">
             <i class="fas fa-clipboard-check"></i>
           </button>
-          <!-- Commander -->
+          <!-- Commander (portail uniquement) -->
           <button class="btn btn-sm btn-ce-outline"
-                  onclick="openCommande(<?= $p['id'] ?>, '<?= e(addslashes($p['nom'])) ?>', '<?= e($p['unite'] ?? '') ?>')"
+                  onclick="openCommande(<?= $p['id'] ?>,'<?= e(addslashes($p['nom'])) ?>','<?= e($p['unite'] ?? '') ?>')"
                   title="Passer une commande">
             <i class="fas fa-shopping-cart"></i>
           </button>
@@ -582,13 +639,21 @@ if ($tab === 'stock'): ?>
           <form method="POST" class="d-inline" onsubmit="return confirm('Supprimer ce produit et tout son historique ?')">
             <input type="hidden" name="action" value="delete_produit">
             <input type="hidden" name="id" value="<?= $p['id'] ?>">
-            <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+            <button class="btn btn-sm btn-outline-danger" title="Supprimer"><i class="fas fa-trash"></i></button>
           </form>
+          <?php else: ?>
+          <!-- Demande de commande (standalone uniquement) -->
+          <button class="btn btn-sm btn-ce-outline"
+                  onclick="openDemande(<?= $p['id'] ?>,'<?= e(addslashes($p['nom'])) ?>','<?= e($p['unite'] ?? '') ?>')"
+                  title="Demander une commande">
+            <i class="fas fa-bell"></i> Demander
+          </button>
+          <?php endif; ?>
         </td>
       </tr>
     <?php endforeach; ?>
     <?php if (empty($produits)): ?>
-      <tr><td colspan="6" class="text-center text-muted py-4">Aucun produit — ajoutez-en un avec le bouton ci-dessus.</td></tr>
+      <tr><td colspan="6" class="text-center text-muted py-4">Aucun produit.</td></tr>
     <?php endif; ?>
     </tbody>
   </table>
@@ -597,11 +662,74 @@ if ($tab === 'stock'): ?>
 <?php // ── TAB : COMMANDES ───────────────────────────────────────────────────
 elseif ($tab === 'commandes'): ?>
 
+<?php if ($isPortalUser && !empty($demandesEnAttente)): ?>
+<!-- ─ Demandes standalone en attente ──────────────────────────────────────── -->
+<div class="mb-4">
+  <h5 class="mb-3">
+    <i class="fas fa-bell text-danger"></i> Demandes de commande
+    <?php $nbNouvelles = count(array_filter($demandesEnAttente, fn($d) => $d['statut'] === 'nouvelle')); ?>
+    <?php if ($nbNouvelles > 0): ?>
+      <span class="badge bg-danger"><?= $nbNouvelles ?> nouvelle<?= $nbNouvelles > 1 ? 's' : '' ?></span>
+    <?php endif; ?>
+  </h5>
+  <div class="data-table-container">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Produit</th>
+          <th>Qté souhaitée</th>
+          <th>Message</th>
+          <th>Se commande sur</th>
+          <th>Date</th>
+          <th>Statut</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+      <?php foreach ($demandesEnAttente as $d): ?>
+        <tr class="<?= $d['statut'] === 'nouvelle' ? 'table-warning' : 'text-muted' ?>">
+          <td><strong><?= e($d['produit_nom']) ?></strong></td>
+          <td><?= $d['quantite_souhaitee'] !== null ? stockFmt($d['quantite_souhaitee']) . ' ' . e($d['unite'] ?? '') : '—' ?></td>
+          <td><?= e($d['notes'] ?? '') ?></td>
+          <td><?= $d['plateforme_commande'] ? e($d['plateforme_commande']) : '<span class="text-muted">—</span>' ?></td>
+          <td><?= date('d/m/Y H:i', strtotime($d['created_at'])) ?></td>
+          <td>
+            <?= $d['statut'] === 'nouvelle'
+                ? '<span class="badge bg-danger">Nouvelle</span>'
+                : '<span class="badge bg-secondary">Traitée</span>' ?>
+          </td>
+          <td class="actions">
+            <?php if ($d['statut'] === 'nouvelle'): ?>
+            <!-- Convertir en commande -->
+            <button class="btn btn-sm btn-ce"
+                    onclick="convertirDemande(<?= $d['id'] ?>,<?= $d['produit_id'] ?>,'<?= e(addslashes($d['produit_nom'])) ?>','<?= e($d['unite'] ?? '') ?>',<?= $d['quantite_souhaitee'] !== null ? (float)$d['quantite_souhaitee'] : 'null' ?>)"
+                    title="Créer la commande">
+              <i class="fas fa-cart-plus"></i> Commander
+            </button>
+            <!-- Ignorer -->
+            <form method="POST" class="d-inline">
+              <input type="hidden" name="action" value="dismiss_demande">
+              <input type="hidden" name="id" value="<?= $d['id'] ?>">
+              <button class="btn btn-sm btn-outline-secondary" title="Ignorer"><i class="fas fa-times"></i></button>
+            </form>
+            <?php endif; ?>
+          </td>
+        </tr>
+      <?php endforeach; ?>
+      </tbody>
+    </table>
+  </div>
+</div>
+<?php endif; ?>
+
+<!-- ─ Commandes ──────────────────────────────────────────────────────────────── -->
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-  <h4 class="mb-0"><i class="fas fa-shopping-cart"></i> Commandes</h4>
+  <h5 class="mb-0"><i class="fas fa-shopping-cart"></i> Commandes</h5>
+  <?php if ($isPortalUser): ?>
   <button class="btn btn-ce" onclick="openCommande(0,'','')">
     <i class="fas fa-plus"></i> Nouvelle commande
   </button>
+  <?php endif; ?>
 </div>
 
 <div class="data-table-container">
@@ -641,15 +769,17 @@ elseif ($tab === 'commandes'): ?>
         <td class="actions">
           <?php if ($c['statut'] === 'en_cours'): ?>
             <button class="btn btn-sm btn-success"
-                    onclick="recuCommande(<?= $c['id'] ?>, <?= (float)$c['quantite'] ?>, '<?= e(addslashes($c['produit_nom'])) ?>', '<?= e($c['unite'] ?? '') ?>')"
+                    onclick="recuCommande(<?= $c['id'] ?>,<?= (float)$c['quantite'] ?>,'<?= e(addslashes($c['produit_nom'])) ?>','<?= e($c['unite'] ?? '') ?>')"
                     title="Marquer comme reçue">
               <i class="fas fa-check"></i> Reçue
             </button>
+            <?php if ($isPortalUser): ?>
             <form method="POST" class="d-inline" onsubmit="return confirm('Annuler cette commande ?')">
               <input type="hidden" name="action" value="annule_commande">
               <input type="hidden" name="id" value="<?= $c['id'] ?>">
-              <button class="btn btn-sm btn-outline-secondary"><i class="fas fa-times"></i></button>
+              <button class="btn btn-sm btn-outline-secondary" title="Annuler"><i class="fas fa-times"></i></button>
             </form>
+            <?php endif; ?>
           <?php endif; ?>
         </td>
       </tr>
@@ -661,11 +791,10 @@ elseif ($tab === 'commandes'): ?>
   </table>
 </div>
 
-<?php // ── TAB : HISTORIQUE ──────────────────────────────────────────────────
-elseif ($tab === 'historique'): ?>
+<?php // ── TAB : HISTORIQUE (portail uniquement) ────────────────────────────
+elseif ($tab === 'historique' && $isPortalUser): ?>
 
 <h4 class="mb-3"><i class="fas fa-history"></i> Historique des mouvements</h4>
-
 <div class="data-table-container">
   <div class="data-table-header">
     <div></div>
@@ -673,14 +802,7 @@ elseif ($tab === 'historique'): ?>
   </div>
   <table class="data-table" id="tableHisto">
     <thead>
-      <tr>
-        <th>Date</th>
-        <th>Produit</th>
-        <th>Mouvement</th>
-        <th>Quantité</th>
-        <th>Notes</th>
-        <th>Auteur</th>
-      </tr>
+      <tr><th>Date</th><th>Produit</th><th>Mouvement</th><th>Quantité</th><th>Notes</th><th>Auteur</th></tr>
     </thead>
     <tbody>
     <?php foreach ($mouvements as $m): ?>
@@ -702,7 +824,7 @@ elseif ($tab === 'historique'): ?>
       </tr>
     <?php endforeach; ?>
     <?php if (empty($mouvements)): ?>
-      <tr><td colspan="6" class="text-center text-muted py-4">Aucun mouvement enregistré.</td></tr>
+      <tr><td colspan="6" class="text-center text-muted py-4">Aucun mouvement.</td></tr>
     <?php endif; ?>
     </tbody>
   </table>
@@ -711,13 +833,11 @@ elseif ($tab === 'historique'): ?>
 <?php // ── TAB : ADMIN ───────────────────────────────────────────────────────
 elseif ($tab === 'admin' && $isPortalAdmin): ?>
 
-<?php $saved = isset($_GET['saved']); ?>
-<?php if ($saved): ?>
+<?php if (isset($_GET['saved'])): ?>
   <div class="alert alert-success"><i class="fas fa-check-circle"></i> Paramètres enregistrés.</div>
 <?php endif; ?>
 
 <div class="row g-4">
-
   <!-- Credentials -->
   <div class="col-md-6">
     <div class="card border-0 shadow-sm">
@@ -726,7 +846,6 @@ elseif ($tab === 'admin' && $isPortalAdmin): ?>
       </div>
       <div class="card-body">
         <p class="text-muted small mb-3">
-          Ces identifiants permettent l'accès au module fournitures sans compte portail.<br>
           Identifiant actuel : <strong><?= e($credentials['login'] ?? '—') ?></strong>
         </p>
         <form method="POST">
@@ -737,12 +856,10 @@ elseif ($tab === 'admin' && $isPortalAdmin): ?>
                    value="<?= e($credentials['login'] ?? '') ?>" required autocomplete="off">
           </div>
           <div class="mb-3">
-            <label class="form-label">Nouveau mot de passe <small class="text-muted">(laisser vide pour ne pas changer)</small></label>
+            <label class="form-label">Nouveau mot de passe <small class="text-muted">(vide = inchangé)</small></label>
             <input type="password" name="new_password" class="form-control" autocomplete="new-password">
           </div>
-          <button type="submit" class="btn btn-ce">
-            <i class="fas fa-save"></i> Enregistrer
-          </button>
+          <button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Enregistrer</button>
         </form>
       </div>
     </div>
@@ -762,7 +879,7 @@ elseif ($tab === 'admin' && $isPortalAdmin): ?>
             <form method="POST" class="d-inline" onsubmit="return confirm('Supprimer ce type ?')">
               <input type="hidden" name="action" value="delete_unite">
               <input type="hidden" name="id" value="<?= $u['id'] ?>">
-              <button class="btn btn-sm btn-outline-danger" title="Supprimer"><i class="fas fa-trash"></i></button>
+              <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
             </form>
           </li>
           <?php endforeach; ?>
@@ -773,7 +890,7 @@ elseif ($tab === 'admin' && $isPortalAdmin): ?>
           <button type="submit" class="btn btn-ce btn-sm"><i class="fas fa-plus"></i></button>
         </form>
         <p class="text-muted small mt-2 mb-0">
-          <i class="fas fa-info-circle"></i> Un type ne peut être supprimé que s'il n'est utilisé par aucun produit.
+          <i class="fas fa-info-circle"></i> Un type utilisé par un produit ne peut pas être supprimé.
         </p>
       </div>
     </div>
@@ -787,8 +904,8 @@ elseif ($tab === 'admin' && $isPortalAdmin): ?>
       </div>
       <div class="card-body">
         <p class="text-muted small mb-3">
-          Les utilisateurs cochés verront un badge d'alerte dans leur menu lorsqu'un produit
-          passe en dessous de son seuil (si l'alerte est activée sur le produit).
+          Les utilisateurs cochés voient un badge d'alerte dans leur menu lorsqu'un produit
+          passe sous son seuil (alerte active sur le produit).
         </p>
         <div class="row g-2">
           <?php foreach ($allPortalUsers as $u): ?>
@@ -804,14 +921,10 @@ elseif ($tab === 'admin' && $isPortalAdmin): ?>
             </form>
           </div>
           <?php endforeach; ?>
-          <?php if (empty($allPortalUsers)): ?>
-            <div class="col-12"><p class="text-muted">Aucun utilisateur portail.</p></div>
-          <?php endif; ?>
         </div>
       </div>
     </div>
   </div>
-
 </div>
 <?php endif; // End tabs ?>
 
@@ -819,7 +932,8 @@ elseif ($tab === 'admin' && $isPortalAdmin): ?>
      MODALS
 ════════════════════════════════════════════════════════════════════════════ -->
 
-<!-- Modal : Nouveau produit -->
+<?php if ($isPortalUser): ?>
+<!-- Modal : Nouveau produit (portail uniquement) -->
 <div class="modal fade modal-fullscreen-custom" id="addProduitModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -849,7 +963,8 @@ elseif ($tab === 'admin' && $isPortalAdmin): ?>
             </div>
             <div class="col-md-6">
               <label class="form-label">Seuil d'alerte <small class="text-muted">(optionnel)</small></label>
-              <input type="number" name="seuil_alerte" class="form-control" min="0" step="0.01" placeholder="Laisser vide = pas de seuil">
+              <input type="number" name="seuil_alerte" class="form-control" min="0" step="0.01"
+                     placeholder="Laisser vide = pas de seuil">
             </div>
             <div class="col-md-6">
               <div class="form-check mt-2">
@@ -861,7 +976,8 @@ elseif ($tab === 'admin' && $isPortalAdmin): ?>
             </div>
             <div class="col-12">
               <label class="form-label">Se commande sur <small class="text-muted">(optionnel)</small></label>
-              <input type="text" name="plateforme_commande" class="form-control" placeholder="Ex : Amazon Business, Lyreco...">
+              <input type="text" name="plateforme_commande" class="form-control"
+                     placeholder="Ex : Amazon Business, Lyreco...">
             </div>
             <div class="col-12">
               <button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Enregistrer</button>
@@ -873,7 +989,7 @@ elseif ($tab === 'admin' && $isPortalAdmin): ?>
   </div>
 </div>
 
-<!-- Modal : Modifier produit (contenu injecté par JS) -->
+<!-- Modal : Modifier produit -->
 <div class="modal fade modal-fullscreen-custom" id="editProduitModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -885,6 +1001,53 @@ elseif ($tab === 'admin' && $isPortalAdmin): ?>
     </div>
   </div>
 </div>
+
+<!-- Modal : Commande (portail uniquement) -->
+<div class="modal fade" id="commandeModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-shopping-cart"></i> Passer une commande</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form method="POST" id="commandeForm">
+          <input type="hidden" name="action" value="add_commande">
+          <input type="hidden" name="demande_id" id="commandeDemandId" value="">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Produit</label>
+              <select name="produit_id" id="cmdProduitSelect" class="form-select" required>
+                <option value="">— Choisir —</option>
+                <?php foreach ($produits as $p): ?>
+                  <option value="<?= $p['id'] ?>"><?= e($p['nom']) ?> (<?= e($p['unite'] ?? '') ?>)</option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Quantité commandée</label>
+              <input type="number" name="quantite" id="cmdQuantite" class="form-control" min="0.01" step="0.01" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Date de commande</label>
+              <input type="date" name="date_commande" class="form-control" value="<?= date('Y-m-d') ?>" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Notes <small class="text-muted">(optionnel)</small></label>
+              <input type="text" name="notes" class="form-control" placeholder="Référence, fournisseur...">
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-ce">
+                <i class="fas fa-cart-plus"></i> Enregistrer la commande
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<?php endif; // isPortalUser modals ?>
 
 <!-- Modal : Mouvement de stock (retrait / ajout / inventaire) -->
 <div class="modal fade" id="mvtModal" tabindex="-1">
@@ -900,57 +1063,13 @@ elseif ($tab === 'admin' && $isPortalAdmin): ?>
           <input type="hidden" name="produit_id" id="mvtProduitId">
           <div class="mb-3">
             <label class="form-label" id="mvtQteLabel">Quantité</label>
-            <input type="number" name="quantite" id="mvtQte" class="form-control"
-                   min="0" step="0.01" required>
+            <input type="number" name="quantite" id="mvtQte" class="form-control" min="0" step="0.01" required>
           </div>
           <div class="mb-3" id="mvtNotesRow">
             <label class="form-label">Notes <small class="text-muted">(optionnel)</small></label>
             <input type="text" name="notes" class="form-control" placeholder="Raison, référence...">
           </div>
-          <button type="submit" class="btn btn-ce" id="mvtSubmitBtn">Valider</button>
-        </form>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Modal : Commande -->
-<div class="modal fade" id="commandeModal" tabindex="-1">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title"><i class="fas fa-shopping-cart"></i> Passer une commande</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <form method="POST">
-          <input type="hidden" name="action" value="add_commande">
-          <div class="row g-3">
-            <div class="col-12">
-              <label class="form-label">Produit</label>
-              <select name="produit_id" id="cmdProduitSelect" class="form-select" required>
-                <option value="">— Choisir —</option>
-                <?php foreach ($produits as $p): ?>
-                  <option value="<?= $p['id'] ?>"><?= e($p['nom']) ?> (<?= e($p['unite'] ?? '') ?>)</option>
-                <?php endforeach; ?>
-              </select>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Quantité commandée</label>
-              <input type="number" name="quantite" class="form-control" min="0.01" step="0.01" required>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Date de commande</label>
-              <input type="date" name="date_commande" class="form-control" value="<?= date('Y-m-d') ?>" required>
-            </div>
-            <div class="col-12">
-              <label class="form-label">Notes <small class="text-muted">(optionnel)</small></label>
-              <input type="text" name="notes" class="form-control" placeholder="Référence, fournisseur...">
-            </div>
-            <div class="col-12">
-              <button type="submit" class="btn btn-ce"><i class="fas fa-cart-plus"></i> Enregistrer la commande</button>
-            </div>
-          </div>
+          <button type="submit" class="btn" id="mvtSubmitBtn">Valider</button>
         </form>
       </div>
     </div>
@@ -972,8 +1091,7 @@ elseif ($tab === 'admin' && $isPortalAdmin): ?>
           <input type="hidden" name="id" id="recuId">
           <div class="mb-3">
             <label class="form-label">Quantité effectivement reçue</label>
-            <input type="number" name="quantite_recue" id="recuQte" class="form-control"
-                   min="0.01" step="0.01" required>
+            <input type="number" name="quantite_recue" id="recuQte" class="form-control" min="0.01" step="0.01" required>
           </div>
           <button type="submit" class="btn btn-success">
             <i class="fas fa-check"></i> Valider la réception
@@ -984,6 +1102,44 @@ elseif ($tab === 'admin' && $isPortalAdmin): ?>
   </div>
 </div>
 
+<!-- Modal : Demande de commande (standalone uniquement) -->
+<?php if ($isRestreint): ?>
+<div class="modal fade" id="demandeModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#CF0A2C;color:#fff;">
+        <h5 class="modal-title" id="demandeModalTitle">
+          <i class="fas fa-bell"></i> Demande de commande
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small">
+          <i class="fas fa-info-circle"></i>
+          Votre demande sera transmise et visible par les responsables.
+        </p>
+        <form method="POST">
+          <input type="hidden" name="action" value="demande_commande">
+          <input type="hidden" name="produit_id" id="demandeProduitId">
+          <div class="mb-3">
+            <label class="form-label">Quantité souhaitée <small class="text-muted">(optionnel)</small></label>
+            <input type="number" name="quantite_souhaitee" id="demandeQte"
+                   class="form-control" min="0.01" step="0.01" placeholder="Laisser vide si non précisée">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Message / précisions <small class="text-muted">(optionnel)</small></label>
+            <input type="text" name="notes" class="form-control" placeholder="Urgence, référence...">
+          </div>
+          <button type="submit" class="btn btn-ce w-100">
+            <i class="fas fa-paper-plane"></i> Envoyer la demande
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
+
 <!-- ═══════════════════════════════════════════════════════════════════════════
      JAVASCRIPT
 ════════════════════════════════════════════════════════════════════════════ -->
@@ -992,35 +1148,29 @@ filterTable('searchStock',  'tableStock');
 filterTable('searchCmd',    'tableCmd');
 filterTable('searchHisto',  'tableHisto');
 
-const typesUnite = <?= json_encode(array_values($typesUnite)) ?>;
+const typesUnite   = <?= json_encode(array_values($typesUnite)) ?>;
+const isPortalUser = <?= $isPortalUser ? 'true' : 'false' ?>;
 
 // ── Mouvement de stock ────────────────────────────────────────────────────────
 function openMvt(type, id, nom, unite, currentQte) {
     const cfg = {
-        retrait:    { title:'Retrait de stock', action:'retrait',    btn:'btn-danger',  qteLabel:'Quantité à retirer', qteMin:0.01, qteVal:'' },
-        ajout:      { title:'Ajout au stock',   action:'ajout',      btn:'btn-success', qteLabel:'Quantité à ajouter', qteMin:0.01, qteVal:'' },
-        inventaire: { title:'Correction inventaire', action:'inventaire', btn:'btn-ce', qteLabel:'Nouvelle quantité totale', qteMin:0, qteVal: currentQte ?? '' },
+        retrait:    { title:'Retrait de stock',      action:'retrait',    headerCls:'bg-danger text-white',  qteLabel:'Quantité à retirer', qteMin:0.01, qteVal:'',         btnCls:'btn-danger'  },
+        ajout:      { title:'Ajout au stock',        action:'ajout',      headerCls:'bg-success text-white', qteLabel:'Quantité à ajouter', qteMin:0.01, qteVal:'',         btnCls:'btn-success' },
+        inventaire: { title:'Correction inventaire', action:'inventaire', headerCls:'',                      qteLabel:'Nouvelle quantité totale', qteMin:0, qteVal:currentQte ?? '', btnCls:'btn-ce' },
     };
     const c = cfg[type];
-    document.getElementById('mvtModalTitle').innerHTML = `<i class="fas fa-${type==='retrait'?'minus':'plus'}-circle"></i> ${c.title} — <em>${nom}</em>`;
-    document.getElementById('mvtModalHeader').className = 'modal-header' + (type==='retrait' ? ' bg-danger text-white' : type==='ajout' ? ' bg-success text-white' : '');
+    document.getElementById('mvtModalTitle').innerHTML =
+        `<i class="fas fa-${type==='retrait'?'minus':'plus'}-circle"></i> ${c.title} — <em>${nom}</em>`;
+    document.getElementById('mvtModalHeader').className = 'modal-header ' + c.headerCls;
     document.getElementById('mvtAction').value    = c.action;
     document.getElementById('mvtProduitId').value = id;
     document.getElementById('mvtQteLabel').textContent = c.qteLabel + (unite ? ` (${unite})` : '');
     document.getElementById('mvtQte').min   = c.qteMin;
     document.getElementById('mvtQte').value = c.qteVal;
-    document.getElementById('mvtSubmitBtn').className = 'btn ' + c.btn;
+    document.getElementById('mvtSubmitBtn').className = 'btn ' + c.btnCls;
     document.getElementById('mvtNotesRow').style.display = type === 'inventaire' ? 'none' : '';
     new bootstrap.Modal(document.getElementById('mvtModal')).show();
     setTimeout(() => document.getElementById('mvtQte').focus(), 300);
-}
-
-// ── Commande ──────────────────────────────────────────────────────────────────
-function openCommande(produitId, nom, unite) {
-    if (produitId) {
-        document.getElementById('cmdProduitSelect').value = produitId;
-    }
-    new bootstrap.Modal(document.getElementById('commandeModal')).show();
 }
 
 // ── Réception commande ────────────────────────────────────────────────────────
@@ -1034,12 +1184,26 @@ function recuCommande(id, qte, nom, unite) {
     setTimeout(() => document.getElementById('recuQte').focus(), 300);
 }
 
-// ── Modifier produit ──────────────────────────────────────────────────────────
+<?php if ($isPortalUser): ?>
+// ── Commande (portail) ────────────────────────────────────────────────────────
+function openCommande(produitId, nom, unite) {
+    document.getElementById('commandeDemandId').value = '';
+    if (produitId) document.getElementById('cmdProduitSelect').value = produitId;
+    new bootstrap.Modal(document.getElementById('commandeModal')).show();
+}
+
+function convertirDemande(demandeId, produitId, nom, unite, qte) {
+    document.getElementById('commandeDemandId').value   = demandeId;
+    document.getElementById('cmdProduitSelect').value   = produitId;
+    document.getElementById('cmdQuantite').value        = qte || '';
+    new bootstrap.Modal(document.getElementById('commandeModal')).show();
+}
+
+// ── Modifier produit (portail) ────────────────────────────────────────────────
 function editProduit(p) {
     const optionsHtml = typesUnite.map(t =>
         `<option value="${t.id}" ${t.id == p.type_unite_id ? 'selected' : ''}>${t.libelle}</option>`
     ).join('');
-
     document.getElementById('editProduitContent').innerHTML = `
         <form method="POST">
           <input type="hidden" name="action" value="edit_produit">
@@ -1056,8 +1220,7 @@ function editProduit(p) {
             </div>
             <div class="col-md-6">
               <label class="form-label">Seuil d'alerte</label>
-              <input type="number" name="seuil_alerte" class="form-control"
-                     min="0" step="0.01"
+              <input type="number" name="seuil_alerte" class="form-control" min="0" step="0.01"
                      value="${p.seuil_alerte !== null ? p.seuil_alerte : ''}"
                      placeholder="Laisser vide = pas de seuil">
             </div>
@@ -1083,10 +1246,22 @@ function editProduit(p) {
         </form>`;
     new bootstrap.Modal(document.getElementById('editProduitModal')).show();
 }
+<?php endif; ?>
+
+<?php if ($isRestreint): ?>
+// ── Demande de commande (standalone) ─────────────────────────────────────────
+function openDemande(id, nom, unite) {
+    document.getElementById('demandeProduitId').value = id;
+    document.getElementById('demandeModalTitle').innerHTML =
+        `<i class="fas fa-bell"></i> Demande de commande — <em>${nom}</em>`;
+    document.getElementById('demandeQte').value = '';
+    new bootstrap.Modal(document.getElementById('demandeModal')).show();
+    setTimeout(() => document.getElementById('demandeQte').focus(), 300);
+}
+<?php endif; ?>
 </script>
 
 <?php
-// ─── Fermeture layout ─────────────────────────────────────────────────────────
 if ($isPortalUser) {
     require_once __DIR__ . '/../../templates/footer.php';
 } else {
