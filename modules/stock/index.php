@@ -67,6 +67,10 @@ $db->exec("CREATE TABLE IF NOT EXISTS `stock_demandes_commande` (
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+// Migration : ajout des colonnes de conditionnement si absentes
+try { $db->exec("ALTER TABLE stock_produits ADD COLUMN unite_commande VARCHAR(100) DEFAULT NULL"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE stock_produits ADD COLUMN facteur_conditionnement DECIMAL(10,4) DEFAULT NULL COMMENT '1 unité commande = N unités stock'"); } catch (Exception $e) {}
+
 // Seed credentials par défaut (login: stock / mdp: stock)
 if ((int)$db->query("SELECT COUNT(*) FROM stock_credentials")->fetchColumn() === 0) {
     $db->prepare("INSERT INTO stock_credentials (login, password_hash) VALUES (?, ?)")
@@ -218,18 +222,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Réception commande (portail + standalone)
     if ($action === 'recu_commande') {
-        $id  = (int)$_POST['id'];
-        $qte = (float)$_POST['quantite_recue'];
-        $stmt = $db->prepare("SELECT * FROM stock_commandes WHERE id = ?");
+        $id       = (int)$_POST['id'];
+        $qteOrder = (float)$_POST['quantite_recue']; // saisi en unité de commande
+        $stmt = $db->prepare("
+            SELECT c.*, p.facteur_conditionnement, p.unite_commande
+            FROM stock_commandes c
+            JOIN stock_produits p ON p.id = c.produit_id
+            WHERE c.id = ?");
         $stmt->execute([$id]);
         $cmd = $stmt->fetch();
         if ($cmd && $cmd['statut'] === 'en_cours') {
-            $db->prepare("UPDATE stock_commandes SET statut='recu', date_reception=CURDATE(), quantite=? WHERE id=?")
-               ->execute([$qte, $id]);
+            $facteur   = (float)($cmd['facteur_conditionnement'] ?: 1);
+            $qteStock  = $qteOrder * $facteur; // conversion en unité de stock
+            $noteRecu  = $cmd['facteur_conditionnement']
+                ? 'Réception commande #' . $id . ' (' . stockFmt($qteOrder) . ' ' . $cmd['unite_commande'] . ')'
+                : 'Réception commande #' . $id;
+            $db->prepare("UPDATE stock_commandes SET statut='recu', date_reception=CURDATE() WHERE id=?")
+               ->execute([$id]);
             $db->prepare("UPDATE stock_produits SET quantite_stock = quantite_stock + ? WHERE id = ?")
-               ->execute([$qte, $cmd['produit_id']]);
+               ->execute([$qteStock, $cmd['produit_id']]);
             $db->prepare("INSERT INTO stock_mouvements (produit_id, type, quantite, notes, auteur) VALUES (?, 'ajout', ?, ?, ?)")
-               ->execute([$cmd['produit_id'], $qte, 'Réception commande #' . $id, $auteur]);
+               ->execute([$cmd['produit_id'], $qteStock, $noteRecu, $auteur]);
         }
         header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?') . '?tab=commandes');
         exit;
@@ -253,9 +266,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Ajouter un produit
         if ($action === 'add_produit') {
-            $seuil = $_POST['seuil_alerte'] !== '' ? (float)$_POST['seuil_alerte'] : null;
-            $db->prepare("INSERT INTO stock_produits (nom, type_unite_id, quantite_stock, seuil_alerte, alerte_active, plateforme_commande)
-                          VALUES (?, ?, ?, ?, ?, ?)")
+            $seuil   = $_POST['seuil_alerte'] !== '' ? (float)$_POST['seuil_alerte'] : null;
+            $ucmd    = trim($_POST['unite_commande'] ?? '') ?: null;
+            $facteur = ($_POST['facteur_conditionnement'] ?? '') !== '' ? (float)$_POST['facteur_conditionnement'] : null;
+            // Cohérence : les deux champs vont ensemble
+            if (!$ucmd || !$facteur || $facteur <= 0) { $ucmd = null; $facteur = null; }
+            $db->prepare("INSERT INTO stock_produits (nom, type_unite_id, quantite_stock, seuil_alerte, alerte_active, plateforme_commande, unite_commande, facteur_conditionnement)
+                          VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
                ->execute([
                    trim($_POST['nom']),
                    (int)$_POST['type_unite_id'],
@@ -263,6 +280,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                    $seuil,
                    isset($_POST['alerte_active']) ? 1 : 0,
                    trim($_POST['plateforme_commande'] ?? '') ?: null,
+                   $ucmd,
+                   $facteur,
                ]);
             header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?') . '?tab=stock');
             exit;
@@ -270,15 +289,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Modifier un produit
         if ($action === 'edit_produit') {
-            $id    = (int)$_POST['id'];
-            $seuil = $_POST['seuil_alerte'] !== '' ? (float)$_POST['seuil_alerte'] : null;
-            $db->prepare("UPDATE stock_produits SET nom=?, type_unite_id=?, seuil_alerte=?, alerte_active=?, plateforme_commande=? WHERE id=?")
+            $id      = (int)$_POST['id'];
+            $seuil   = $_POST['seuil_alerte'] !== '' ? (float)$_POST['seuil_alerte'] : null;
+            $ucmd    = trim($_POST['unite_commande'] ?? '') ?: null;
+            $facteur = ($_POST['facteur_conditionnement'] ?? '') !== '' ? (float)$_POST['facteur_conditionnement'] : null;
+            if (!$ucmd || !$facteur || $facteur <= 0) { $ucmd = null; $facteur = null; }
+            $db->prepare("UPDATE stock_produits SET nom=?, type_unite_id=?, seuil_alerte=?, alerte_active=?, plateforme_commande=?, unite_commande=?, facteur_conditionnement=? WHERE id=?")
                ->execute([
                    trim($_POST['nom']),
                    (int)$_POST['type_unite_id'],
                    $seuil,
                    isset($_POST['alerte_active']) ? 1 : 0,
                    trim($_POST['plateforme_commande'] ?? '') ?: null,
+                   $ucmd,
+                   $facteur,
                    $id,
                ]);
             header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?') . '?tab=stock');
@@ -308,10 +332,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Nouvelle commande
         if ($action === 'add_commande') {
+            $pid      = (int)$_POST['produit_id'];
+            $qteOrder = (float)$_POST['quantite']; // saisie en unité de commande
+            // Récupérer le facteur pour stocker en unité de stock
+            $stmtF = $db->prepare("SELECT facteur_conditionnement FROM stock_produits WHERE id=?");
+            $stmtF->execute([$pid]);
+            $facteurCmd = (float)($stmtF->fetchColumn() ?: 1);
+            $qteStock   = $qteOrder * $facteurCmd;
             $db->prepare("INSERT INTO stock_commandes (produit_id, quantite, notes, date_commande) VALUES (?, ?, ?, ?)")
                ->execute([
-                   (int)$_POST['produit_id'],
-                   (float)$_POST['quantite'],
+                   $pid,
+                   $qteStock, // stocké en unité de base
                    trim($_POST['notes'] ?? '') ?: null,
                    $_POST['date_commande'],
                ]);
@@ -409,7 +440,8 @@ $produits = $db->query("
 ")->fetchAll();
 
 $commandes = $db->query("
-    SELECT c.*, p.nom AS produit_nom, t.libelle AS unite
+    SELECT c.*, p.nom AS produit_nom, p.unite_commande, p.facteur_conditionnement,
+           t.libelle AS unite
     FROM stock_commandes c
     JOIN stock_produits p ON p.id = c.produit_id
     LEFT JOIN stock_types_unite t ON t.id = p.type_unite_id
@@ -431,7 +463,8 @@ $demandesEnAttente = [];
 $nbDemandesNouvelles = 0;
 if ($isPortalUser) {
     $demandesEnAttente = $db->query("
-        SELECT d.*, p.nom AS produit_nom, t.libelle AS unite, p.plateforme_commande
+        SELECT d.*, p.nom AS produit_nom, p.unite_commande, p.facteur_conditionnement,
+               t.libelle AS unite, p.plateforme_commande
         FROM stock_demandes_commande d
         JOIN stock_produits p ON p.id = d.produit_id
         LEFT JOIN stock_types_unite t ON t.id = p.type_unite_id
@@ -584,11 +617,25 @@ if ($tab === 'stock'): ?>
     ?>
       <tr <?= $enAlerte && $isPortalUser ? 'class="table-danger"' : '' ?>>
         <td><strong><?= e($p['nom']) ?></strong></td>
-        <td><?= e($p['unite'] ?? '—') ?></td>
+        <td>
+          <?= e($p['unite'] ?? '—') ?>
+          <?php if ($p['facteur_conditionnement'] && $p['unite_commande']): ?>
+            <br><small class="text-muted">
+              <i class="fas fa-layer-group"></i>
+              1 <?= e($p['unite_commande']) ?> = <?= stockFmt($p['facteur_conditionnement']) ?> <?= e($p['unite'] ?? '') ?>
+            </small>
+          <?php endif; ?>
+        </td>
         <td>
           <span class="fw-bold <?= $enAlerte && $isPortalUser ? 'text-danger' : '' ?>">
-            <?= stockFmt($p['quantite_stock']) ?>
+            <?= stockFmt($p['quantite_stock']) ?> <?= e($p['unite'] ?? '') ?>
           </span>
+          <?php if ($p['facteur_conditionnement'] && $p['unite_commande']): ?>
+            <br><small class="text-muted">
+              ≈ <?= stockFmt((float)$p['quantite_stock'] / (float)$p['facteur_conditionnement']) ?>
+              <?= e($p['unite_commande']) ?>
+            </small>
+          <?php endif; ?>
         </td>
         <?php if ($isPortalUser): ?>
         <td>
@@ -625,7 +672,7 @@ if ($tab === 'stock'): ?>
           </button>
           <!-- Commander (portail uniquement) -->
           <button class="btn btn-sm btn-ce-outline"
-                  onclick="openCommande(<?= $p['id'] ?>,'<?= e(addslashes($p['nom'])) ?>','<?= e($p['unite'] ?? '') ?>')"
+                  onclick="openCommande(<?= $p['id'] ?>,'<?= e(addslashes($p['nom'])) ?>','<?= e($p['unite'] ?? '') ?>','<?= e($p['unite_commande'] ?? '') ?>',<?= (float)($p['facteur_conditionnement'] ?: 0) ?>)"
                   title="Passer une commande">
             <i class="fas fa-shopping-cart"></i>
           </button>
@@ -644,7 +691,7 @@ if ($tab === 'stock'): ?>
           <?php else: ?>
           <!-- Demande de commande (standalone uniquement) -->
           <button class="btn btn-sm btn-ce-outline"
-                  onclick="openDemande(<?= $p['id'] ?>,'<?= e(addslashes($p['nom'])) ?>','<?= e($p['unite'] ?? '') ?>')"
+                  onclick="openDemande(<?= $p['id'] ?>,'<?= e(addslashes($p['nom'])) ?>','<?= e($p['unite'] ?? '') ?>','<?= e($p['unite_commande'] ?? '') ?>',<?= (float)($p['facteur_conditionnement'] ?: 0) ?>)"
                   title="Demander une commande">
             <i class="fas fa-bell"></i> Demander
           </button>
@@ -689,7 +736,15 @@ elseif ($tab === 'commandes'): ?>
       <?php foreach ($demandesEnAttente as $d): ?>
         <tr class="<?= $d['statut'] === 'nouvelle' ? 'table-warning' : 'text-muted' ?>">
           <td><strong><?= e($d['produit_nom']) ?></strong></td>
-          <td><?= $d['quantite_souhaitee'] !== null ? stockFmt($d['quantite_souhaitee']) . ' ' . e($d['unite'] ?? '') : '—' ?></td>
+          <td>
+            <?php if ($d['quantite_souhaitee'] !== null): ?>
+              <?= stockFmt($d['quantite_souhaitee']) ?>
+              <?= e($d['unite_commande'] ?? $d['unite'] ?? '') ?>
+              <?php if ($d['facteur_conditionnement'] && $d['unite_commande']): ?>
+                <br><small class="text-muted">= <?= stockFmt((float)$d['quantite_souhaitee'] * (float)$d['facteur_conditionnement']) ?> <?= e($d['unite'] ?? '') ?></small>
+              <?php endif; ?>
+            <?php else: ?>—<?php endif; ?>
+          </td>
           <td><?= e($d['notes'] ?? '') ?></td>
           <td><?= $d['plateforme_commande'] ? e($d['plateforme_commande']) : '<span class="text-muted">—</span>' ?></td>
           <td><?= date('d/m/Y H:i', strtotime($d['created_at'])) ?></td>
@@ -702,7 +757,7 @@ elseif ($tab === 'commandes'): ?>
             <?php if ($d['statut'] === 'nouvelle'): ?>
             <!-- Convertir en commande -->
             <button class="btn btn-sm btn-ce"
-                    onclick="convertirDemande(<?= $d['id'] ?>,<?= $d['produit_id'] ?>,'<?= e(addslashes($d['produit_nom'])) ?>','<?= e($d['unite'] ?? '') ?>',<?= $d['quantite_souhaitee'] !== null ? (float)$d['quantite_souhaitee'] : 'null' ?>)"
+                    onclick="convertirDemande(<?= $d['id'] ?>,<?= $d['produit_id'] ?>,'<?= e(addslashes($d['produit_nom'])) ?>','<?= e($d['unite'] ?? '') ?>',<?= $d['quantite_souhaitee'] !== null ? (float)$d['quantite_souhaitee'] : 'null' ?>,'<?= e($d['unite_commande'] ?? '') ?>',<?= (float)($d['facteur_conditionnement'] ?? 0) ?>)"
                     title="Créer la commande">
               <i class="fas fa-cart-plus"></i> Commander
             </button>
@@ -753,7 +808,15 @@ elseif ($tab === 'commandes'): ?>
     <?php foreach ($commandes as $c): ?>
       <tr>
         <td><?= e($c['produit_nom']) ?></td>
-        <td><?= stockFmt($c['quantite']) ?> <?= e($c['unite'] ?? '') ?></td>
+        <td>
+          <?php if ($c['facteur_conditionnement'] && $c['unite_commande']): ?>
+            <?= stockFmt((float)$c['quantite'] / (float)$c['facteur_conditionnement']) ?>
+            <?= e($c['unite_commande']) ?>
+            <br><small class="text-muted">= <?= stockFmt($c['quantite']) ?> <?= e($c['unite'] ?? '') ?></small>
+          <?php else: ?>
+            <?= stockFmt($c['quantite']) ?> <?= e($c['unite'] ?? '') ?>
+          <?php endif; ?>
+        </td>
         <td><?= date('d/m/Y', strtotime($c['date_commande'])) ?></td>
         <td><?= e($c['notes'] ?? '') ?></td>
         <td>
@@ -769,7 +832,7 @@ elseif ($tab === 'commandes'): ?>
         <td class="actions">
           <?php if ($c['statut'] === 'en_cours'): ?>
             <button class="btn btn-sm btn-success"
-                    onclick="recuCommande(<?= $c['id'] ?>,<?= (float)$c['quantite'] ?>,'<?= e(addslashes($c['produit_nom'])) ?>','<?= e($c['unite'] ?? '') ?>')"
+                    onclick="recuCommande(<?= $c['id'] ?>,<?= (float)$c['quantite'] ?>,'<?= e(addslashes($c['produit_nom'])) ?>','<?= e($c['unite'] ?? '') ?>','<?= e($c['unite_commande'] ?? '') ?>',<?= (float)($c['facteur_conditionnement'] ?: 0) ?>)"
                     title="Marquer comme reçue">
               <i class="fas fa-check"></i> Reçue
             </button>
@@ -979,6 +1042,28 @@ elseif ($tab === 'admin' && $isPortalAdmin): ?>
               <input type="text" name="plateforme_commande" class="form-control"
                      placeholder="Ex : Amazon Business, Lyreco...">
             </div>
+            <!-- Conditionnement -->
+            <div class="col-12">
+              <hr class="my-1">
+              <label class="form-label fw-semibold">
+                <i class="fas fa-layer-group"></i> Conditionnement
+                <small class="text-muted fw-normal">(optionnel — si on commande en carton mais retire à l'unité)</small>
+              </label>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Unité de commande</label>
+              <input type="text" name="unite_commande" class="form-control"
+                     placeholder="Ex : Carton, Pack, Lot...">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" id="facteurLabel">1 unité de commande =</label>
+              <div class="input-group">
+                <input type="number" name="facteur_conditionnement" id="addFacteur"
+                       class="form-control" min="0.01" step="0.01"
+                       placeholder="Ex : 10">
+                <span class="input-group-text" id="addFacteurSuffix">unités</span>
+              </div>
+            </div>
             <div class="col-12">
               <button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Enregistrer</button>
             </div>
@@ -1025,8 +1110,9 @@ elseif ($tab === 'admin' && $isPortalAdmin): ?>
               </select>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Quantité commandée</label>
+              <label class="form-label" id="cmdQteLabel">Quantité commandée</label>
               <input type="number" name="quantite" id="cmdQuantite" class="form-control" min="0.01" step="0.01" required>
+              <small id="cmdQteHint" class="text-muted"></small>
             </div>
             <div class="col-md-6">
               <label class="form-label">Date de commande</label>
@@ -1090,8 +1176,9 @@ elseif ($tab === 'admin' && $isPortalAdmin): ?>
           <input type="hidden" name="action" value="recu_commande">
           <input type="hidden" name="id" id="recuId">
           <div class="mb-3">
-            <label class="form-label">Quantité effectivement reçue</label>
+            <label class="form-label" id="recuQteLabel">Quantité effectivement reçue</label>
             <input type="number" name="quantite_recue" id="recuQte" class="form-control" min="0.01" step="0.01" required>
+            <small id="recuQteHint" class="text-muted mt-1 d-block"></small>
           </div>
           <button type="submit" class="btn btn-success">
             <i class="fas fa-check"></i> Valider la réception
@@ -1122,9 +1209,10 @@ elseif ($tab === 'admin' && $isPortalAdmin): ?>
           <input type="hidden" name="action" value="demande_commande">
           <input type="hidden" name="produit_id" id="demandeProduitId">
           <div class="mb-3">
-            <label class="form-label">Quantité souhaitée <small class="text-muted">(optionnel)</small></label>
+            <label class="form-label" id="demandeQteLabel">Quantité souhaitée <small class="text-muted">(optionnel)</small></label>
             <input type="number" name="quantite_souhaitee" id="demandeQte"
                    class="form-control" min="0.01" step="0.01" placeholder="Laisser vide si non précisée">
+            <small id="demandeQteHint" class="text-muted mt-1 d-block"></small>
           </div>
           <div class="mb-3">
             <label class="form-label">Message / précisions <small class="text-muted">(optionnel)</small></label>
@@ -1174,28 +1262,72 @@ function openMvt(type, id, nom, unite, currentQte) {
 }
 
 // ── Réception commande ────────────────────────────────────────────────────────
-function recuCommande(id, qte, nom, unite) {
+// qteBase = stocké en unité de base ; uniteCmd/facteur = conditionnement éventuel
+function recuCommande(id, qteBase, nom, unite, uniteCmd, facteur) {
+    const hasFacteur = uniteCmd && facteur > 0;
+    // Pré-remplir en unité de commande si conditionnement défini
+    const qteOrder = hasFacteur ? Math.round((qteBase / facteur) * 100) / 100 : qteBase;
+
     document.getElementById('recuId').value  = id;
-    document.getElementById('recuQte').value = qte;
-    document.getElementById('recuDesc').innerHTML =
-        `Commande de <strong>${qte} ${unite}</strong> — <em>${nom}</em><br>
-         Confirmez ou ajustez la quantité réellement reçue.`;
+    document.getElementById('recuQte').value = qteOrder;
+
+    const desc = hasFacteur
+        ? `Commande de <strong>${qteOrder} ${uniteCmd}</strong> (= ${qteBase} ${unite}) — <em>${nom}</em><br>Confirmez ou ajustez la quantité réellement reçue.`
+        : `Commande de <strong>${qteBase} ${unite}</strong> — <em>${nom}</em><br>Confirmez ou ajustez la quantité réellement reçue.`;
+    document.getElementById('recuDesc').innerHTML = desc;
+
+    const label = hasFacteur
+        ? `Quantité reçue (${uniteCmd})`
+        : `Quantité effectivement reçue (${unite})`;
+    document.getElementById('recuQteLabel').textContent = label;
+
+    // Hint de conversion mis à jour à la saisie
+    const hint = document.getElementById('recuQteHint');
+    function updateHint() {
+        const v = parseFloat(document.getElementById('recuQte').value);
+        hint.textContent = hasFacteur && v > 0
+            ? `= ${Math.round(v * facteur * 100) / 100} ${unite} ajoutés au stock`
+            : '';
+    }
+    document.getElementById('recuQte').oninput = updateHint;
+    updateHint();
+
     new bootstrap.Modal(document.getElementById('recuModal')).show();
     setTimeout(() => document.getElementById('recuQte').focus(), 300);
 }
 
 <?php if ($isPortalUser): ?>
 // ── Commande (portail) ────────────────────────────────────────────────────────
-function openCommande(produitId, nom, unite) {
+function _setCmdLabels(uniteCmd, facteur, unite) {
+    const hasFacteur = uniteCmd && facteur > 0;
+    document.getElementById('cmdQteLabel').textContent = hasFacteur
+        ? `Quantité commandée (${uniteCmd})`
+        : `Quantité commandée (${unite || 'unités'})`;
+    const hint = document.getElementById('cmdQteHint');
+    function updateHint() {
+        const v = parseFloat(document.getElementById('cmdQuantite').value);
+        hint.textContent = hasFacteur && v > 0
+            ? `= ${Math.round(v * facteur * 100) / 100} ${unite} ajoutés au stock à la réception`
+            : '';
+    }
+    document.getElementById('cmdQuantite').oninput = updateHint;
+    updateHint();
+}
+
+function openCommande(produitId, nom, unite, uniteCmd, facteur) {
     document.getElementById('commandeDemandId').value = '';
     if (produitId) document.getElementById('cmdProduitSelect').value = produitId;
+    _setCmdLabels(uniteCmd, facteur, unite);
     new bootstrap.Modal(document.getElementById('commandeModal')).show();
 }
 
-function convertirDemande(demandeId, produitId, nom, unite, qte) {
-    document.getElementById('commandeDemandId').value   = demandeId;
-    document.getElementById('cmdProduitSelect').value   = produitId;
-    document.getElementById('cmdQuantite').value        = qte || '';
+// qteStandalone = quantité souhaitée en unité de commande (déjà dans l'unité d'ordre)
+function convertirDemande(demandeId, produitId, nom, unite, qteStandalone, uniteCmd, facteur) {
+    document.getElementById('commandeDemandId').value = demandeId;
+    document.getElementById('cmdProduitSelect').value = produitId;
+    // La demande standalone est en unité de commande si conditionnement défini
+    document.getElementById('cmdQuantite').value      = qteStandalone || '';
+    _setCmdLabels(uniteCmd, facteur, unite);
     new bootstrap.Modal(document.getElementById('commandeModal')).show();
 }
 
@@ -1239,6 +1371,28 @@ function editProduit(p) {
                      value="${(p.plateforme_commande || '').replace(/"/g,'&quot;')}"
                      placeholder="Amazon Business, Lyreco...">
             </div>
+            <div class="col-12"><hr class="my-1">
+              <label class="form-label fw-semibold">
+                <i class="fas fa-layer-group"></i> Conditionnement
+                <small class="text-muted fw-normal">(optionnel)</small>
+              </label>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Unité de commande</label>
+              <input type="text" name="unite_commande" class="form-control"
+                     value="${(p.unite_commande || '').replace(/"/g,'&quot;')}"
+                     placeholder="Ex : Carton, Pack, Lot...">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">1 unité de commande =</label>
+              <div class="input-group">
+                <input type="number" name="facteur_conditionnement" class="form-control"
+                       min="0.01" step="0.01"
+                       value="${p.facteur_conditionnement || ''}"
+                       placeholder="Ex : 10">
+                <span class="input-group-text">${p.unite || 'unités'}</span>
+              </div>
+            </div>
             <div class="col-12">
               <button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Enregistrer</button>
             </div>
@@ -1250,11 +1404,24 @@ function editProduit(p) {
 
 <?php if ($isRestreint): ?>
 // ── Demande de commande (standalone) ─────────────────────────────────────────
-function openDemande(id, nom, unite) {
+function openDemande(id, nom, unite, uniteCmd, facteur) {
+    const hasFacteur = uniteCmd && facteur > 0;
     document.getElementById('demandeProduitId').value = id;
     document.getElementById('demandeModalTitle').innerHTML =
         `<i class="fas fa-bell"></i> Demande de commande — <em>${nom}</em>`;
     document.getElementById('demandeQte').value = '';
+    document.getElementById('demandeQteLabel').innerHTML = hasFacteur
+        ? `Quantité souhaitée <span class="text-muted small fw-normal">(en ${uniteCmd}, optionnel)</span>`
+        : `Quantité souhaitée <span class="text-muted small fw-normal">(${unite}, optionnel)</span>`;
+    const hint = document.getElementById('demandeQteHint');
+    function updateHint() {
+        const v = parseFloat(document.getElementById('demandeQte').value);
+        hint.textContent = hasFacteur && v > 0
+            ? `= ${Math.round(v * facteur * 100) / 100} ${unite}`
+            : '';
+    }
+    document.getElementById('demandeQte').oninput = updateHint;
+    hint.textContent = '';
     new bootstrap.Modal(document.getElementById('demandeModal')).show();
     setTimeout(() => document.getElementById('demandeQte').focus(), 300);
 }
