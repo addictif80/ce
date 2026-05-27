@@ -57,6 +57,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'gen_eml') {
         ? "Nous avons le plaisir de vous informer que les documents suivants sont désormais disponibles :"
         : "Nous avons le plaisir de vous informer que le document suivant est désormais disponible :";
 
+    // Variable pré-calculée pour le heredoc
+    $cesDocuments = $nbDocs > 1 ? 'ces documents' : 'ce document';
+
     // Listes de documents
     $listeHtml = '<ul style="margin:8px 0 0 0;padding-left:20px;">'
         . implode('', array_map(
@@ -146,7 +149,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'gen_eml') {
               </table>
 
               <p style="margin:0 0 16px 0;font-size:14px;color:#333333;line-height:1.7;">
-                Vous trouverez {$nbDocs > 1 ? 'ces documents' : 'ce document'} en pi&egrave;ce jointe de ce message.
+                Vous trouverez {$cesDocuments} en pi&egrave;ce jointe de ce message.
               </p>
 
               <p style="margin:0 0 28px 0;font-size:14px;color:#333333;line-height:1.7;">
@@ -341,7 +344,7 @@ require_once __DIR__ . '/../../templates/header.php';
 <!-- En-tête stats + bouton -->
 <div class="row g-3 mb-4">
     <div class="col-md-3">
-        <div class="stat-card stat-primary">
+        <div class="stat-card stat-info">
             <div class="stat-number"><?= count($envois) ?></div>
             <div class="stat-label">Envois générés</div>
         </div>
