@@ -247,7 +247,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add')
         }
     }
 
-    header('Location: index.php?gen=' . $envoisId);
+    header('Location: index.php?open=' . $envoisId);
     exit;
 }
 
@@ -686,22 +686,9 @@ function editEnvoi(id) {
     new bootstrap.Modal(document.getElementById('editModal')).show();
 }
 
-// Auto-ouverture après ajout + téléchargement EML
+// Auto-ouverture du détail après enregistrement
 const urlParams = new URLSearchParams(window.location.search);
-const genId     = urlParams.get('gen');
 const openId    = urlParams.get('open');
-
-if (genId) {
-    // Déclencher le téléchargement du .eml automatiquement
-    const link = document.createElement('a');
-    link.href  = 'index.php?action=gen_eml&id=' + genId;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    // Ouvrir le détail
-    showDetail(parseInt(genId));
-    history.replaceState(null, '', 'index.php');
-}
 
 if (openId) {
     showDetail(parseInt(openId));
