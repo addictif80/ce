@@ -2,7 +2,7 @@
 // AJAX endpoints (before header to avoid HTML output)
 $allowedTables = ['instances','demandes_rappel','offres','demandes_clients','suivi_production',
     'seances_phoning','credit_immobilier','calculateur_budget','formations','blocnotes',
-    'courriers','modeles_courriers','procedures','codes_utiles','contacts_utiles'];
+    'courriers','modeles_courriers','procedures','codes_utiles','contacts_utiles','contacts_equipe'];
 
 // Fields that should never be editable
 $systemFields = ['id','user_id','user_nom','user_prenom','created_at','updated_at','password','variables','approved_by'];
@@ -230,7 +230,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $id = (int)($_POST['id'] ?? 0);
         $allowed_tables = ['instances', 'demandes_rappel', 'offres', 'demandes_clients', 'suivi_production',
             'seances_phoning', 'credit_immobilier', 'calculateur_budget', 'formations', 'blocnotes',
-            'courriers', 'modeles_courriers', 'procedures', 'codes_utiles', 'contacts_utiles'];
+            'courriers', 'modeles_courriers', 'procedures', 'codes_utiles', 'contacts_utiles', 'contacts_equipe'];
         if (in_array($table, $allowed_tables) && $id > 0) {
             $stmt = $db->prepare("DELETE FROM `$table` WHERE id = ?");
             $stmt->execute([$id]);
@@ -245,7 +245,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $id = (int)($_POST['id'] ?? 0);
         $allowed_tables = ['instances', 'demandes_rappel', 'offres', 'demandes_clients', 'suivi_production',
             'seances_phoning', 'credit_immobilier', 'calculateur_budget', 'formations', 'blocnotes',
-            'courriers', 'modeles_courriers', 'procedures', 'codes_utiles', 'contacts_utiles'];
+            'courriers', 'modeles_courriers', 'procedures', 'codes_utiles', 'contacts_utiles', 'contacts_equipe'];
         $systemFields = ['id','user_id','created_at','updated_at','password','variables','approved_by'];
         if (in_array($table, $allowed_tables) && $id > 0) {
             $cols = $db->query("SHOW COLUMNS FROM `$table`")->fetchAll(PDO::FETCH_ASSOC);
@@ -311,6 +311,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         } else {
             header('Location: index.php?tab=smtp&msg=smtp_test_fail');
         }
+        exit;
+    }
+
+    // --- Contacts équipe (admin) ---
+    if ($action === 'admin_add_equipe') {
+        $db->prepare("INSERT INTO contacts_equipe (user_id, nom, prenom, email, telephone, ligne_interne) VALUES (NULL, ?, ?, ?, ?, ?)")
+           ->execute([trim($_POST['nom']), trim($_POST['prenom']), trim($_POST['email'] ?? ''), trim($_POST['telephone'] ?? ''), trim($_POST['ligne_interne'] ?? '')]);
+        header('Location: index.php?tab=donnees&module=contacts_equipe&msg=equipe_added');
         exit;
     }
 
@@ -429,6 +437,7 @@ try {
         'rejected' => 'Élément refusé et supprimé.',
         'deleted' => 'Enregistrement supprimé.',
         'updated' => 'Enregistrement modifié avec succès.',
+        'equipe_added' => 'Contact équipe ajouté avec succès.',
         'smtp_saved' => 'Configuration SMTP enregistrée.',
         'smtp_test_ok'   => 'Email de test envoyé avec succès !',
         'smtp_test_fail' => 'Échec de l\'envoi du mail de test. Vérifiez la configuration SMTP.',
@@ -823,6 +832,7 @@ $modules = [
     'procedures' => ['label' => 'Procédures', 'icon' => 'book', 'cols' => ['nom','approved'], 'display' => ['Nom','Approuvé']],
     'codes_utiles' => ['label' => 'Codes utiles', 'icon' => 'code', 'cols' => ['code','fonction'], 'display' => ['Code','Fonction']],
     'contacts_utiles' => ['label' => 'Contacts utiles', 'icon' => 'address-book', 'cols' => ['service','telephone'], 'display' => ['Service','Téléphone']],
+    'contacts_equipe' => ['label' => 'Contacts équipe', 'icon' => 'users', 'cols' => ['nom','prenom','email','telephone'], 'display' => ['Nom','Prénom','Email','Téléphone']],
 ];
 
 $selectedModule = $_GET['module'] ?? '';
@@ -867,9 +877,14 @@ $selectedModule = $_GET['module'] ?? '';
 <div class="data-table-container">
     <div class="data-table-header">
         <h3><i class="fas fa-<?= $mod['icon'] ?>"></i> <?= $mod['label'] ?> (<?= count($allData) ?> enregistrements)</h3>
-        <div class="search-box">
-            <i class="fas fa-search"></i>
-            <input type="text" id="searchData" placeholder="Rechercher...">
+        <div class="d-flex gap-2 align-items-center">
+            <?php if ($selectedModule === 'contacts_equipe'): ?>
+            <button class="btn btn-sm btn-ce" data-bs-toggle="modal" data-bs-target="#addEquipeAdminModal"><i class="fas fa-plus"></i> Ajouter</button>
+            <?php endif; ?>
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchData" placeholder="Rechercher...">
+            </div>
         </div>
     </div>
     <table class="data-table" id="tableData">
@@ -958,7 +973,8 @@ const fieldLabels = {
     date_debut: 'Date début', date_fin: 'Date fin', date_ajout: 'Date ajout',
     date_courrier: 'Date courrier', objet: 'Objet', corps: 'Corps',
     nom_modele: 'Nom modèle', nom_prenom_dest: 'Destinataire',
-    telephone: 'Téléphone', mail: 'Mail', service: 'Service', a_contacter_pour: 'À contacter pour',
+    telephone: 'Téléphone', mail: 'Mail', email: 'Email', service: 'Service', a_contacter_pour: 'À contacter pour',
+    ligne_interne: 'Ligne interne',
     code: 'Code', fonction: 'Fonction', raison: 'Raison', montant: 'Montant',
     categorie: 'Catégorie', nb_appels: 'Nb appels', date_seance: 'Date séance',
     mise_en_avant: 'Mise en avant', lien_partage: 'Lien partage',
@@ -1154,6 +1170,31 @@ function esc(str) {
     return div.innerHTML;
 }
 </script>
+
+<!-- Modal ajout contact équipe (admin) -->
+<div class="modal fade modal-fullscreen-custom" id="addEquipeAdminModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-user-plus"></i> Nouveau contact équipe</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form method="POST">
+                    <input type="hidden" name="action" value="admin_add_equipe">
+                    <div class="row g-3">
+                        <div class="col-md-6"><label class="form-label">Nom *</label><input type="text" name="nom" class="form-control" required></div>
+                        <div class="col-md-6"><label class="form-label">Prénom *</label><input type="text" name="prenom" class="form-control" required></div>
+                        <div class="col-md-6"><label class="form-label">Email</label><input type="email" name="email" class="form-control"></div>
+                        <div class="col-md-3"><label class="form-label">Téléphone</label><input type="text" name="telephone" class="form-control"></div>
+                        <div class="col-md-3"><label class="form-label">Ligne interne</label><input type="text" name="ligne_interne" class="form-control"></div>
+                        <div class="col-12"><button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Enregistrer</button></div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
 
 <?php else: ?>
 <div class="alert alert-info"><i class="fas fa-hand-pointer"></i> Sélectionnez un module ci-dessus pour voir les données de tous les utilisateurs.</div>
