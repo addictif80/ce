@@ -792,12 +792,12 @@ function saveTemplate(prefix) {
 // Formater la date
 function fmtDate(dateStr) {
     if (!dateStr) return '';
-    const d = new Date(dateStr.replace(' ', 'T') + 'Z');
+    const d = new Date(dateStr.replace(' ', 'T'));
     return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
 }
 function fmtDateHeure(dateStr) {
     if (!dateStr) return '';
-    const d = new Date(dateStr.replace(' ', 'T') + 'Z');
+    const d = new Date(dateStr.replace(' ', 'T'));
     return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
          + ' à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 }
