@@ -32,7 +32,7 @@ function getDB() {
                     PDO::ATTR_EMULATE_PREPARES => false
                 ]
             );
-            $pdo->exec("SET time_zone = 'SYSTEM'");
+            $pdo->exec("SET time_zone = '+02:00'");
         } catch (PDOException $e) {
             die("Erreur de connexion : " . htmlspecialchars($e->getMessage()));
         }
