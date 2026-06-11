@@ -21,7 +21,7 @@ if (!$inst) { http_response_code(404); exit; }
 
 $notes      = getNotes('instances', $id);
 $conseiller = trim($inst['cons_prenom'] . ' ' . $inst['cons_nom']);
-$dateAjout  = date('d/m/Y', strtotime($inst['date_ajout'] . ' UTC'));
+$dateAjout  = date('d/m/Y', strtotime($inst['date_ajout']));
 $dateEch    = $inst['date_echeance'] ? date('d/m/Y', strtotime($inst['date_echeance'])) : null;
 $statut     = $inst['statut'] === 'fait' ? 'Traité' : 'En cours';
 $logoUrl    = 'https://ce-prod.cloudimg.io/_images_/app/uploads/sites/16/2023/06/02105536/cemp-logo-paris-2024.png?func=bound&w=400&h=80&gravity=auto&optipress=2';
@@ -277,7 +277,7 @@ $logoUrl    = 'https://ce-prod.cloudimg.io/_images_/app/uploads/sites/16/2023/06
                 <div class="section-title">Notes (<?= count($notes) ?>)</div>
                 <?php foreach ($notes as $note): ?>
                     <div class="note-item">
-                        <div class="note-meta"><?= e($note['prenom'] . ' ' . $note['nom']) ?> &mdash; <?= date('d/m/Y H:i', strtotime($note['created_at'] . ' UTC')) ?></div>
+                        <div class="note-meta"><?= e($note['prenom'] . ' ' . $note['nom']) ?> &mdash; <?= date('d/m/Y H:i', strtotime($note['created_at'])) ?></div>
                         <div class="note-text"><?= e($note['message']) ?></div>
                     </div>
                 <?php endforeach; ?>
