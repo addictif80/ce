@@ -32,7 +32,7 @@ function getDB() {
                     PDO::ATTR_EMULATE_PREPARES => false
                 ]
             );
-            $pdo->exec("SET time_zone = 'Europe/Paris'");
+            $pdo->exec("SET time_zone = 'SYSTEM'");
         } catch (PDOException $e) {
             die("Erreur de connexion : " . htmlspecialchars($e->getMessage()));
         }
