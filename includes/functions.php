@@ -178,10 +178,10 @@ function getEaiAutoFillData($db, $userId, $tuesdayDate) {
 function getDefaultMenuItems() {
     return [
         // Sections
-        ['item_key' => 'activite', 'parent_key' => null, 'label' => 'Mon activité', 'icon' => 'fa-briefcase', 'url' => null, 'uri_patterns' => 'instances,rappels,demandes_clients,offres,rappels_clients,signatures', 'ordre' => 1],
+        ['item_key' => 'activite', 'parent_key' => null, 'label' => 'Mon activité', 'icon' => 'fa-briefcase', 'url' => null, 'uri_patterns' => 'instances,rappels,demandes_clients,offres,rappels_clients,signatures,envoi_documents', 'ordre' => 1],
         ['item_key' => 'formation', 'parent_key' => null, 'label' => 'Formation', 'icon' => 'fa-graduation-cap', 'url' => null, 'uri_patterns' => 'formations', 'ordre' => 2],
         ['item_key' => 'commercial', 'parent_key' => null, 'label' => 'Commercial', 'icon' => 'fa-handshake', 'url' => null, 'uri_patterns' => 'production,phoning,eai,mobilites', 'ordre' => 3],
-        ['item_key' => 'outils', 'parent_key' => null, 'label' => 'Outils', 'icon' => 'fa-tools', 'url' => null, 'uri_patterns' => 'credit_immo,calculateur,courriers,courriers_internes,blocnotes,procedures,bureau_dom,retraits', 'ordre' => 4],
+        ['item_key' => 'outils', 'parent_key' => null, 'label' => 'Outils', 'icon' => 'fa-tools', 'url' => null, 'uri_patterns' => 'credit_immo,calculateur,courriers,courriers_internes,blocnotes,procedures,bureau_dom,retraits,/modules/stock/', 'ordre' => 4],
         ['item_key' => 'references', 'parent_key' => null, 'label' => 'Références', 'icon' => 'fa-bookmark', 'url' => null, 'uri_patterns' => '/codes/,/contacts/', 'ordre' => 5],
         // Items - Mon activité
         ['item_key' => 'instances', 'parent_key' => 'activite', 'label' => 'Mes instances', 'icon' => 'fa-tasks', 'url' => '/modules/instances/index.php', 'uri_patterns' => 'instances', 'ordre' => 1],
@@ -191,6 +191,9 @@ function getDefaultMenuItems() {
         ['item_key' => 'rappels_clients', 'parent_key' => 'activite', 'label' => 'Rappels clients', 'icon' => 'fa-phone-square-alt', 'url' => '/modules/rappels_clients/index.php', 'uri_patterns' => 'rappels_clients', 'ordre' => 5],
         ['item_key' => 'calendrier_instances', 'parent_key' => 'activite', 'label' => 'Calendrier instances', 'icon' => 'fa-calendar', 'url' => '/modules/instances/calendrier.php', 'uri_patterns' => 'instances/calendrier', 'ordre' => 6],
         ['item_key' => 'signatures', 'parent_key' => 'activite', 'label' => 'Suivi signatures', 'icon' => 'fa-file-signature', 'url' => '/modules/signatures/index.php', 'uri_patterns' => 'signatures', 'ordre' => 7],
+        ['item_key' => 'envoi_documents', 'parent_key' => 'activite', 'label' => 'Envoi de documents', 'icon' => 'fa-file-export', 'url' => '/modules/envoi_documents/index.php', 'uri_patterns' => 'envoi_documents', 'ordre' => 8],
+        // Items - Outils (suite)
+        ['item_key' => 'stock', 'parent_key' => 'outils', 'label' => 'Fournitures', 'icon' => 'fa-boxes', 'url' => '/modules/stock/index.php', 'uri_patterns' => '/modules/stock/', 'ordre' => 9],
         // Items - Formation
         ['item_key' => 'formations', 'parent_key' => 'formation', 'label' => 'Formations', 'icon' => 'fa-graduation-cap', 'url' => '/modules/formations/index.php', 'uri_patterns' => 'formations', 'ordre' => 1],
         ['item_key' => 'calendrier_formations', 'parent_key' => 'formation', 'label' => 'Calendrier formations', 'icon' => 'fa-calendar-alt', 'url' => '/modules/formations/calendrier.php', 'uri_patterns' => 'formations/calendrier', 'ordre' => 2],
@@ -488,6 +491,27 @@ function getRetardsUrgents($userId) {
     $retards['rappels'] = $stmt->fetchAll();
 
     return $retards;
+}
+
+/**
+ * Nombre de produits en alerte stock pour un utilisateur portail donné.
+ * Retourne 0 si l'utilisateur n'est pas abonné aux alertes ou si les tables n'existent pas.
+ */
+function getStockAlertes($userId) {
+    try {
+        $db = getDB();
+        $stmt = $db->prepare("SELECT 1 FROM stock_alert_users WHERE user_id = ?");
+        $stmt->execute([$userId]);
+        if (!$stmt->fetchColumn()) return 0;
+        return (int)$db->query(
+            "SELECT COUNT(*) FROM stock_produits
+             WHERE actif = 1 AND alerte_active = 1
+               AND seuil_alerte IS NOT NULL
+               AND quantite_stock <= seuil_alerte"
+        )->fetchColumn();
+    } catch (Exception $e) {
+        return 0;
+    }
 }
 
 /**
