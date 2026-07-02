@@ -53,8 +53,10 @@ if ($q !== '') {
     $stmt->execute();
 }
 $procedures = $stmt->fetchAll();
+$baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . dirname($_SERVER['REQUEST_URI']) . '/view.php';
 foreach ($procedures as &$proc) {
     $proc['created_at_fr'] = formatDate($proc['created_at']);
+    $proc['share_url'] = $baseUrl . '?token=' . $proc['lien_partage'];
 }
 unset($proc);
 ?>
@@ -159,6 +161,7 @@ unset($proc);
                         </td>
                         <td class="actions">
                             <button class="btn btn-sm btn-ce-outline" onclick="showDetail(<?= $proc['id'] ?>)" title="Voir"><i class="fas fa-eye"></i></button>
+                            <button class="btn btn-sm btn-ce-outline" onclick="shareLink(<?= $proc['id'] ?>, this)" title="Copier le lien public"><i class="fas fa-share-alt"></i></button>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -300,12 +303,34 @@ unset($proc);
                 <div class="col-12 mb-3">
                     <div class="p-3 bg-light rounded" id="procDetailContent"></div>
                 </div>
+                <div class="col-12 mb-3 no-print">
+                    <label class="form-label"><strong>Lien public de la procédure :</strong></label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" value="${escapeHtml(proc.share_url)}" readonly id="detail_link_${proc.id}">
+                        <button class="btn btn-ce-outline" type="button" onclick="copyLinkValue(document.getElementById('detail_link_${proc.id}').value, this)"><i class="fas fa-copy"></i> Copier</button>
+                        <a href="${escapeHtml(proc.share_url)}" target="_blank" class="btn btn-ce-outline"><i class="fas fa-external-link-alt"></i> Ouvrir</a>
+                    </div>
+                </div>
                 <div class="col-12 no-print">
                     <button type="button" class="btn btn-ce-outline btn-sm" onclick="openProposeEdit(${proc.id})"><i class="fas fa-edit"></i> Proposer une modification</button>
                 </div>
             </div>`;
         document.getElementById('procDetailContent').innerHTML = renderContent(proc.texte);
         new bootstrap.Modal(document.getElementById('detailModal')).show();
+    }
+
+    function copyLinkValue(value, btn) {
+        navigator.clipboard.writeText(value).then(() => {
+            const orig = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-check"></i>';
+            setTimeout(() => { btn.innerHTML = orig; }, 1500);
+        });
+    }
+
+    function shareLink(id, btn) {
+        const proc = proceduresData.find(p => p.id == id);
+        if (!proc) return;
+        copyLinkValue(proc.share_url, btn);
     }
 
     function openProposeEdit(id) {
