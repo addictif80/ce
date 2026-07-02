@@ -104,6 +104,28 @@ function generateShareLink() {
 }
 
 /**
+ * Prépare le schéma nécessaire aux contributions publiques sur les procédures
+ * (ajout/modification proposées par des visiteurs non connectés).
+ */
+function ensureProcedureProposalsSchema() {
+    $db = getDB();
+    try { $db->exec("ALTER TABLE procedures MODIFY COLUMN user_id INT NULL"); } catch (Exception $e) {}
+    try { $db->exec("ALTER TABLE procedures ADD COLUMN contributor_prenom VARCHAR(100) DEFAULT NULL"); } catch (Exception $e) {}
+    try { $db->exec("ALTER TABLE procedures ADD COLUMN contributor_nom VARCHAR(100) DEFAULT NULL"); } catch (Exception $e) {}
+    $db->exec("CREATE TABLE IF NOT EXISTS procedure_proposals (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        type ENUM('create','edit') NOT NULL,
+        procedure_id INT DEFAULT NULL,
+        nom VARCHAR(255) NOT NULL,
+        texte LONGTEXT DEFAULT NULL,
+        contributor_prenom VARCHAR(100) NOT NULL,
+        contributor_nom VARCHAR(100) NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (procedure_id) REFERENCES procedures(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
+/**
  * Récupérer les liens externes avec leurs catégories
  */
 function getLiensExternes() {
