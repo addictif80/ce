@@ -3,6 +3,37 @@ require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/functions.php';
 
 $db = getDB();
+ensureProcedureProposalsSchema();
+
+$flash = null;
+
+// Proposition d'ajout ou de modification (public, sans authentification)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && in_array($_POST['action'], ['propose_create', 'propose_edit'], true)) {
+    $nom = trim($_POST['nom'] ?? '');
+    $texte = trim($_POST['texte'] ?? '');
+    $contributorPrenom = trim($_POST['contributor_prenom'] ?? '');
+    $contributorNom = trim($_POST['contributor_nom'] ?? '');
+
+    if ($nom === '' || $texte === '' || $contributorPrenom === '' || $contributorNom === '') {
+        $flash = ['type' => 'danger', 'message' => 'Merci de renseigner tous les champs (nom, prénom, titre et contenu de la procédure).'];
+    } elseif ($_POST['action'] === 'propose_create') {
+        $stmt = $db->prepare("INSERT INTO procedure_proposals (type, procedure_id, nom, texte, contributor_prenom, contributor_nom) VALUES ('create', NULL, ?, ?, ?, ?)");
+        $stmt->execute([$nom, $texte, $contributorPrenom, $contributorNom]);
+        $flash = ['type' => 'success', 'message' => 'Merci ! Votre proposition de nouvelle procédure a été envoyée et sera examinée par un administrateur.'];
+    } else {
+        $procedureId = (int)($_POST['procedure_id'] ?? 0);
+        $stmtCheck = $db->prepare("SELECT id FROM procedures WHERE id = ? AND approved = 1");
+        $stmtCheck->execute([$procedureId]);
+        if ($stmtCheck->fetch()) {
+            $stmt = $db->prepare("INSERT INTO procedure_proposals (type, procedure_id, nom, texte, contributor_prenom, contributor_nom) VALUES ('edit', ?, ?, ?, ?, ?)");
+            $stmt->execute([$procedureId, $nom, $texte, $contributorPrenom, $contributorNom]);
+            $flash = ['type' => 'success', 'message' => 'Merci ! Votre proposition de modification a été envoyée et sera examinée par un administrateur.'];
+        } else {
+            $flash = ['type' => 'danger', 'message' => "La procédure à modifier est introuvable."];
+        }
+    }
+}
+
 $q = trim($_GET['q'] ?? '');
 
 if ($q !== '') {
@@ -64,9 +95,14 @@ unset($proc);
         </div>
     </div>
     <div class="container-page content-wrap">
-        <div class="mb-3 no-print">
+        <div class="mb-3 no-print d-flex justify-content-between flex-wrap gap-2">
             <a href="../../login.php" class="btn btn-ce-outline btn-sm"><i class="fas fa-sign-in-alt"></i> Se connecter</a>
+            <button class="btn btn-ce btn-sm" data-bs-toggle="modal" data-bs-target="#proposeAddModal"><i class="fas fa-plus"></i> Proposer une nouvelle procédure</button>
         </div>
+
+        <?php if ($flash): ?>
+            <div class="alert alert-<?= e($flash['type']) ?> no-print"><?= e($flash['message']) ?></div>
+        <?php endif; ?>
 
         <div class="row g-3 mb-4">
             <div class="col-md-4">
@@ -97,7 +133,7 @@ unset($proc);
                     <tr>
                         <th>Nom</th>
                         <th>Mise en avant</th>
-                        <th>Auteur</th>
+                        <th>Auteur / Contributeur</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -112,7 +148,15 @@ unset($proc);
                                 <span class="badge-afaire">Non</span>
                             <?php endif; ?>
                         </td>
-                        <td><?= e(trim(($proc['author_prenom'] ?? '') . ' ' . ($proc['author_nom'] ?? ''))) ?></td>
+                        <td>
+                            <?php if (!empty($proc['author_nom']) || !empty($proc['author_prenom'])): ?>
+                                <?= e(trim(($proc['author_prenom'] ?? '') . ' ' . ($proc['author_nom'] ?? ''))) ?>
+                            <?php elseif (!empty($proc['contributor_nom']) || !empty($proc['contributor_prenom'])): ?>
+                                <span class="badge bg-info text-dark"><i class="fas fa-user-edit"></i> <?= e(trim($proc['contributor_prenom'] . ' ' . $proc['contributor_nom'])) ?></span>
+                            <?php else: ?>
+                                <span class="text-muted">—</span>
+                            <?php endif; ?>
+                        </td>
                         <td class="actions">
                             <button class="btn btn-sm btn-ce-outline" onclick="showDetail(<?= $proc['id'] ?>)" title="Voir"><i class="fas fa-eye"></i></button>
                         </td>
@@ -133,6 +177,89 @@ unset($proc);
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body" id="detailContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Proposer un ajout -->
+    <div class="modal fade" id="proposeAddModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-plus"></i> Proposer une nouvelle procédure</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form method="POST">
+                        <input type="hidden" name="action" value="propose_create">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Votre prénom</label>
+                                <input type="text" name="contributor_prenom" class="form-control" required maxlength="100">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Votre nom</label>
+                                <input type="text" name="contributor_nom" class="form-control" required maxlength="100">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Nom de la procédure</label>
+                                <input type="text" name="nom" class="form-control" required maxlength="255">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Contenu de la procédure</label>
+                                <textarea name="texte" class="form-control" rows="8" required></textarea>
+                            </div>
+                            <div class="col-12">
+                                <div class="alert alert-info mb-0"><i class="fas fa-info-circle"></i> Votre proposition sera soumise à validation par un administrateur avant d'être publiée. En cas d'approbation, votre nom et prénom seront mentionnés comme contributeur.</div>
+                            </div>
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-ce"><i class="fas fa-paper-plane"></i> Envoyer la proposition</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Proposer une modification -->
+    <div class="modal fade" id="proposeEditModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-edit"></i> Proposer une modification</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form method="POST">
+                        <input type="hidden" name="action" value="propose_edit">
+                        <input type="hidden" name="procedure_id" id="proposeEditProcedureId">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Votre prénom</label>
+                                <input type="text" name="contributor_prenom" class="form-control" required maxlength="100">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Votre nom</label>
+                                <input type="text" name="contributor_nom" class="form-control" required maxlength="100">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Nom de la procédure</label>
+                                <input type="text" name="nom" id="proposeEditNom" class="form-control" required maxlength="255">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Contenu proposé</label>
+                                <textarea name="texte" id="proposeEditTexte" class="form-control" rows="8" required></textarea>
+                            </div>
+                            <div class="col-12">
+                                <div class="alert alert-info mb-0"><i class="fas fa-info-circle"></i> Votre proposition de modification sera soumise à validation par un administrateur. En cas d'approbation, votre nom et prénom seront mentionnés comme contributeur.</div>
+                            </div>
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-ce"><i class="fas fa-paper-plane"></i> Envoyer la proposition</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
@@ -160,6 +287,7 @@ unset($proc);
     function showDetail(id) {
         const proc = proceduresData.find(p => p.id == id);
         if (!proc) return;
+        const hasContributor = proc.contributor_prenom || proc.contributor_nom;
         const detailEl = document.getElementById('detailContent');
         detailEl.innerHTML = `
             <div class="row">
@@ -167,13 +295,27 @@ unset($proc);
                     <h4>${escapeHtml(proc.nom)}</h4>
                     <small class="text-muted">Publiée le ${escapeHtml(proc.created_at_fr)}</small>
                     ${proc.mise_en_avant == 1 ? ' <span class="badge-fait ms-2"><i class="fas fa-star"></i> Mise en avant</span>' : ''}
+                    ${hasContributor ? '<div class="text-muted mt-1"><i class="fas fa-user-edit"></i> Contributeur : ' + escapeHtml((proc.contributor_prenom || '') + ' ' + (proc.contributor_nom || '')) + '</div>' : ''}
                 </div>
-                <div class="col-12">
+                <div class="col-12 mb-3">
                     <div class="p-3 bg-light rounded" id="procDetailContent"></div>
+                </div>
+                <div class="col-12 no-print">
+                    <button type="button" class="btn btn-ce-outline btn-sm" onclick="openProposeEdit(${proc.id})"><i class="fas fa-edit"></i> Proposer une modification</button>
                 </div>
             </div>`;
         document.getElementById('procDetailContent').innerHTML = renderContent(proc.texte);
         new bootstrap.Modal(document.getElementById('detailModal')).show();
+    }
+
+    function openProposeEdit(id) {
+        const proc = proceduresData.find(p => p.id == id);
+        if (!proc) return;
+        document.getElementById('proposeEditProcedureId').value = proc.id;
+        document.getElementById('proposeEditNom').value = proc.nom;
+        document.getElementById('proposeEditTexte').value = proc.texte || '';
+        bootstrap.Modal.getInstance(document.getElementById('detailModal'))?.hide();
+        new bootstrap.Modal(document.getElementById('proposeEditModal')).show();
     }
     </script>
 </body>
