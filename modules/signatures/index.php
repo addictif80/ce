@@ -729,7 +729,7 @@ const emlInitial = urlParams.get('eml_initial');
 
 if (openId) {
     showDetail(parseInt(openId));
-    history.replaceState(null, '', 'index.php');
+    history.replaceState(null, '', 'index.php' + (window.location.search.indexOf('embedded=1') !== -1 ? '?embedded=1' : ''));
 }
 </script>
 
