@@ -482,6 +482,15 @@ const workflowLabels = <?= json_encode($workflowLabels) ?>;
 const workflowSteps  = ['etude','dossier_complet','synthese_envoyee','controle','edition_offres','envoi_signature','offre_signee','deblocage','termine'];
 </script>
 <script src="ci.js"></script>
+<script>
+// Auto-ouverture du dossier après enregistrement ou depuis la recherche globale
+const urlParams = new URLSearchParams(window.location.search);
+const openId = urlParams.get('open');
+if (openId) {
+    showDetail(parseInt(openId));
+    history.replaceState(null, '', 'index.php');
+}
+</script>
 
 <style>
 .bg-orange{background-color:#fd7e14!important}
