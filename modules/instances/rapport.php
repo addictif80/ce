@@ -94,7 +94,7 @@ if ($isPrint) {
                     <?php endif; ?>
                 </td>
                 <td><?= e($inst['categories']) ?></td>
-                <td><?= e(excerpt($inst['details'], 120)) ?></td>
+                <td><?= nl2br(e($inst['details'])) ?></td>
             </tr>
         <?php endforeach; ?>
         </tbody>
@@ -122,7 +122,7 @@ if ($isPrint) {
             <tr>
                 <td><?= formatDate($dem['date_ajout']) ?></td>
                 <td><strong><?= e($dem['numero_personne']) ?></strong></td>
-                <td><?= e(excerpt($dem['details_demande'], 120)) ?></td>
+                <td><?= nl2br(e($dem['details_demande'])) ?></td>
                 <td><?= $dem['date_envoi'] ? formatDate($dem['date_envoi']) : '—' ?></td>
                 <td><?= e($dem['service']) ?></td>
             </tr>
@@ -265,7 +265,7 @@ $expediteur = trim($user['prenom'] . ' ' . $user['nom']);
                         <?php endif; ?>
                     </td>
                     <td><?= e($inst['categories']) ?></td>
-                    <td><?= e(excerpt($inst['details'], 100)) ?></td>
+                    <td><?= nl2br(e($inst['details'])) ?></td>
                     <td class="no-print">
                         <span class="badge-afaire"><i class="fas fa-clock"></i> À faire</span>
                     </td>
@@ -300,7 +300,7 @@ $expediteur = trim($user['prenom'] . ' ' . $user['nom']);
                 <tr>
                     <td><?= formatDate($dem['date_ajout']) ?></td>
                     <td><strong><?= e($dem['numero_personne']) ?></strong></td>
-                    <td><?= e(excerpt($dem['details_demande'], 100)) ?></td>
+                    <td><?= nl2br(e($dem['details_demande'])) ?></td>
                     <td><?= formatDate($dem['date_envoi']) ?: '<span class="text-muted">—</span>' ?></td>
                     <td><?= e($dem['service']) ?></td>
                     <td class="no-print">
