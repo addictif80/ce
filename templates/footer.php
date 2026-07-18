@@ -10,10 +10,10 @@
         <script src="<?= $js ?>"></script>
     <?php endforeach; endif; ?>
     <script>
-    // Convertir un datetime MySQL (UTC) en heure locale
+    // Formater un datetime MySQL (Europe/Paris) pour affichage
     function formatLocalDateTime(mysqlDatetime) {
         if (!mysqlDatetime) return '';
-        const dt = new Date(mysqlDatetime.replace(' ', 'T') + 'Z');
+        const dt = new Date(mysqlDatetime.replace(' ', 'T'));
         return dt.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     }
     <?php if (empty($_GET['embedded'])): ?>

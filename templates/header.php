@@ -58,6 +58,7 @@ $badgeCounts = [
     'instances' => count($retardsUrgents['instances']),
     'rappels' => count($retardsUrgents['rappels']),
     'demandes_clients' => count($retardsUrgents['demandes_clients']),
+    'stock' => getStockAlertes(getCurrentUserId()),
 ];
 $totalRetards = array_sum($badgeCounts);
 

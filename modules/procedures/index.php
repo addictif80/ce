@@ -8,6 +8,7 @@ $isUserAdmin = isAdmin();
 // Auto-add approval columns
 try { $db->exec("ALTER TABLE procedures ADD COLUMN approved TINYINT(1) DEFAULT 0"); } catch (Exception $e) {}
 try { $db->exec("ALTER TABLE procedures ADD COLUMN approved_by INT DEFAULT NULL"); } catch (Exception $e) {}
+ensureProcedureProposalsSchema();
 
 // Ajout
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add') {
@@ -121,8 +122,10 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
                 <td>
                     <?php if ($isOwn): ?>
                         <span class="badge bg-primary">Moi</span>
-                    <?php else: ?>
+                    <?php elseif (!empty($proc['author_nom']) || !empty($proc['author_prenom'])): ?>
                         <?= e($proc['author_prenom'] . ' ' . $proc['author_nom']) ?>
+                    <?php elseif (!empty($proc['contributor_nom']) || !empty($proc['contributor_prenom'])): ?>
+                        <span class="badge bg-info text-dark"><i class="fas fa-user-edit"></i> <?= e(trim($proc['contributor_prenom'] . ' ' . $proc['contributor_nom'])) ?></span>
                     <?php endif; ?>
                 </td>
                 <td>
@@ -521,6 +524,7 @@ function showDetail(id) {
                 <small class="text-muted">Créée le ${formatLocalDateTime(proc.created_at)}</small>
                 ${proc.mise_en_avant == 1 ? ' <span class="badge-fait ms-2"><i class="fas fa-star"></i> Mise en avant</span>' : ''}
                 ${proc.approved == 1 ? ' <span class="badge bg-success ms-2"><i class="fas fa-check"></i> Approuvé</span>' : ' <span class="badge bg-warning text-dark ms-2"><i class="fas fa-clock"></i> En attente</span>'}
+                ${(proc.contributor_prenom || proc.contributor_nom) ? '<div class="text-muted mt-1"><i class="fas fa-user-edit"></i> Contributeur : ' + escapeHtml((proc.contributor_prenom || '') + ' ' + (proc.contributor_nom || '')) + '</div>' : ''}
             </div>
             <div class="col-12 mb-3">
                 <div class="p-3 bg-light rounded" id="procDetailContent"></div>
@@ -585,7 +589,7 @@ const urlParams = new URLSearchParams(window.location.search);
 const openId = urlParams.get('open');
 if (openId) {
     showDetail(parseInt(openId));
-    history.replaceState(null, '', 'index.php');
+    history.replaceState(null, '', 'index.php' + (window.location.search.indexOf('embedded=1') !== -1 ? '?embedded=1' : ''));
 }
 </script>
 

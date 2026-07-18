@@ -70,6 +70,7 @@ try { $db->exec("ALTER TABLE contacts_utiles ADD COLUMN approved TINYINT(1) DEFA
 try { $db->exec("ALTER TABLE contacts_utiles ADD COLUMN approved_by INT DEFAULT NULL"); } catch (Exception $e) {}
 try { $db->exec("ALTER TABLE offres ADD COLUMN approved TINYINT(1) DEFAULT 0"); } catch (Exception $e) {}
 try { $db->exec("ALTER TABLE offres ADD COLUMN approved_by INT DEFAULT NULL"); } catch (Exception $e) {}
+ensureProcedureProposalsSchema();
 
 
 // === ACTIONS ===
@@ -220,6 +221,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $stmt = $db->prepare("DELETE FROM `$table` WHERE id = ?");
             $stmt->execute([$id]);
         }
+        header('Location: index.php?tab=approbations&msg=rejected');
+        exit;
+    }
+
+    // --- Contributions publiques (procédures proposées par des visiteurs non connectés) ---
+    if ($action === 'approve_proposal') {
+        $id = (int)($_POST['id'] ?? 0);
+        $stmt = $db->prepare("SELECT * FROM procedure_proposals WHERE id = ?");
+        $stmt->execute([$id]);
+        $proposal = $stmt->fetch();
+        if ($proposal) {
+            if ($proposal['type'] === 'create') {
+                $stmt = $db->prepare("INSERT INTO procedures (user_id, nom, texte, mise_en_avant, lien_partage, approved, approved_by, contributor_prenom, contributor_nom, created_at) VALUES (NULL, ?, ?, 0, ?, 1, ?, ?, ?, NOW())");
+                $stmt->execute([$proposal['nom'], $proposal['texte'], generateShareLink(), $adminUserId, $proposal['contributor_prenom'], $proposal['contributor_nom']]);
+            } else {
+                $stmt = $db->prepare("UPDATE procedures SET nom = ?, texte = ?, contributor_prenom = ?, contributor_nom = ? WHERE id = ?");
+                $stmt->execute([$proposal['nom'], $proposal['texte'], $proposal['contributor_prenom'], $proposal['contributor_nom'], $proposal['procedure_id']]);
+            }
+            $stmt = $db->prepare("DELETE FROM procedure_proposals WHERE id = ?");
+            $stmt->execute([$id]);
+        }
+        header('Location: index.php?tab=approbations&msg=approved');
+        exit;
+    }
+
+    if ($action === 'reject_proposal') {
+        $id = (int)($_POST['id'] ?? 0);
+        $stmt = $db->prepare("DELETE FROM procedure_proposals WHERE id = ?");
+        $stmt->execute([$id]);
         header('Location: index.php?tab=approbations&msg=rejected');
         exit;
     }
@@ -392,7 +422,8 @@ $pendingProcedures = $db->query("SELECT p.*, u.nom AS author_nom, u.prenom AS au
 $pendingCodes = $db->query("SELECT c.*, u.nom AS author_nom, u.prenom AS author_prenom FROM codes_utiles c LEFT JOIN users u ON c.user_id = u.id WHERE c.approved = 0 ORDER BY c.id DESC")->fetchAll();
 $pendingContacts = $db->query("SELECT c.*, u.nom AS author_nom, u.prenom AS author_prenom FROM contacts_utiles c LEFT JOIN users u ON c.user_id = u.id WHERE c.approved = 0 ORDER BY c.id DESC")->fetchAll();
 $pendingOffres = $db->query("SELECT o.*, u.nom AS author_nom, u.prenom AS author_prenom FROM offres o LEFT JOIN users u ON o.user_id = u.id WHERE o.approved = 0 ORDER BY o.id DESC")->fetchAll();
-$totalPending = count($pendingModeles) + count($pendingProcedures) + count($pendingCodes) + count($pendingContacts) + count($pendingOffres);
+$pendingProposals = $db->query("SELECT pr.*, p.nom AS target_nom FROM procedure_proposals pr LEFT JOIN procedures p ON pr.procedure_id = p.id ORDER BY pr.id DESC")->fetchAll();
+$totalPending = count($pendingModeles) + count($pendingProcedures) + count($pendingCodes) + count($pendingContacts) + count($pendingOffres) + count($pendingProposals);
 
 $activeTab = $_GET['tab'] ?? 'users';
 
@@ -636,11 +667,84 @@ function editUser(id) {
             <div class="stat-label">Codes / Contacts</div>
         </div>
     </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-number"><?= count($pendingProposals) ?></div>
+            <div class="stat-label">Contributions publiques</div>
+        </div>
+    </div>
 </div>
 
 <?php if ($totalPending === 0): ?>
 <div class="alert alert-success"><i class="fas fa-check-circle"></i> Aucun élément en attente d'approbation.</div>
 <?php else: ?>
+
+<?php if (!empty($pendingProposals)): ?>
+<div class="data-table-container mb-4">
+    <div class="data-table-header"><h3><i class="fas fa-hands-helping"></i> Contributions publiques en attente (page publique des procédures)</h3></div>
+    <table class="data-table">
+        <thead><tr><th>Type</th><th>Nom proposé</th><th>Contributeur</th><th>Actions</th></tr></thead>
+        <tbody>
+        <?php foreach ($pendingProposals as $pr): ?>
+            <tr>
+                <td>
+                    <?php if ($pr['type'] === 'create'): ?>
+                        <span class="badge bg-primary"><i class="fas fa-plus"></i> Nouvelle procédure</span>
+                    <?php else: ?>
+                        <span class="badge bg-warning text-dark"><i class="fas fa-edit"></i> Modification de « <?= e($pr['target_nom'] ?? 'procédure supprimée') ?> »</span>
+                    <?php endif; ?>
+                </td>
+                <td><strong><?= e($pr['nom']) ?></strong></td>
+                <td><?= e(trim($pr['contributor_prenom'] . ' ' . $pr['contributor_nom'])) ?></td>
+                <td class="actions">
+                    <button type="button" class="btn btn-sm btn-ce-outline" onclick="showProposalDetail(<?= $pr['id'] ?>)" title="Voir le contenu proposé"><i class="fas fa-eye"></i></button>
+                    <form method="POST" class="d-inline">
+                        <input type="hidden" name="action" value="approve_proposal">
+                        <input type="hidden" name="id" value="<?= $pr['id'] ?>">
+                        <button class="btn btn-sm btn-success"><i class="fas fa-check"></i> Approuver</button>
+                    </form>
+                    <form method="POST" class="d-inline" onsubmit="return confirm('Refuser et supprimer cette proposition ?')">
+                        <input type="hidden" name="action" value="reject_proposal">
+                        <input type="hidden" name="id" value="<?= $pr['id'] ?>">
+                        <button class="btn btn-sm btn-outline-danger"><i class="fas fa-times"></i> Refuser</button>
+                    </form>
+                </td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal detail contribution publique -->
+<div class="modal fade" id="proposalDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-hands-helping"></i> Contenu proposé</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="proposalDetailContent"></div>
+        </div>
+    </div>
+</div>
+<script>
+const pendingProposalsData = <?= json_encode($pendingProposals) ?>;
+function escapeProposalHtml(str) {
+    const d = document.createElement('div');
+    d.textContent = str || '';
+    return d.innerHTML;
+}
+function showProposalDetail(id) {
+    const pr = pendingProposalsData.find(p => p.id == id);
+    if (!pr) return;
+    document.getElementById('proposalDetailContent').innerHTML = `
+        <p><strong>Contributeur :</strong> ${escapeProposalHtml((pr.contributor_prenom || '') + ' ' + (pr.contributor_nom || ''))}</p>
+        <p><strong>Nom proposé :</strong> ${escapeProposalHtml(pr.nom)}</p>
+        <div class="p-3 bg-light rounded" style="white-space:pre-wrap;">${escapeProposalHtml(pr.texte)}</div>`;
+    new bootstrap.Modal(document.getElementById('proposalDetailModal')).show();
+}
+</script>
+<?php endif; ?>
 
 <?php if (!empty($pendingModeles)): ?>
 <div class="data-table-container mb-4">
