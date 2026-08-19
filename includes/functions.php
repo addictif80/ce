@@ -159,9 +159,15 @@ function matchInteretsForOffre(array $interets, $nomOffre, $detailsOffre) {
     $texte = mb_strtolower(trim($nomOffre . ' ' . strip_tags((string)$detailsOffre)));
     $matches = [];
     foreach ($interets as $interet) {
-        $mot = mb_strtolower(trim($interet['interet']));
-        if ($mot !== '' && mb_stripos($texte, $mot) !== false) {
-            $matches[] = $interet;
+        // Un intérêt peut contenir plusieurs mots-clés séparés par des virgules :
+        // une seule correspondance parmi eux suffit à retenir le client.
+        $motsCles = array_filter(array_map('trim', explode(',', (string)$interet['interet'])));
+        foreach ($motsCles as $mot) {
+            $mot = mb_strtolower($mot);
+            if ($mot !== '' && mb_stripos($texte, $mot) !== false) {
+                $matches[] = $interet;
+                break;
+            }
         }
     }
     return $matches;
