@@ -9,16 +9,19 @@ $isUserAdmin = isAdmin();
 try { $db->exec("ALTER TABLE procedures ADD COLUMN approved TINYINT(1) DEFAULT 0"); } catch (Exception $e) {}
 try { $db->exec("ALTER TABLE procedures ADD COLUMN approved_by INT DEFAULT NULL"); } catch (Exception $e) {}
 ensureProcedureProposalsSchema();
+ensureProcedureCategoriesSchema();
 
 // Ajout
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add') {
     $miseEnAvant = isset($_POST['mise_en_avant']) ? 1 : 0;
     $lienPartage = generateShareLink();
-    $stmt = $db->prepare("INSERT INTO procedures (user_id, nom, texte, mise_en_avant, lien_partage, approved, approved_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())");
+    $categorieId = !empty($_POST['categorie_id']) ? (int)$_POST['categorie_id'] : null;
+    $stmt = $db->prepare("INSERT INTO procedures (user_id, nom, texte, mise_en_avant, lien_partage, approved, approved_by, categorie_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())");
     $stmt->execute([
         $userId, $_POST['nom'], $_POST['texte'], $miseEnAvant, $lienPartage,
         $isUserAdmin ? 1 : 0,
-        $isUserAdmin ? $userId : null
+        $isUserAdmin ? $userId : null,
+        $categorieId
     ]);
     if ($isUserAdmin) {
         $nom = trim($_POST['nom']);
@@ -36,12 +39,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'edit') {
     $miseEnAvant = isset($_POST['mise_en_avant']) ? 1 : 0;
     $id = (int)$_POST['id'];
+    $categorieId = !empty($_POST['categorie_id']) ? (int)$_POST['categorie_id'] : null;
     if ($isUserAdmin) {
-        $stmt = $db->prepare("UPDATE procedures SET nom = ?, texte = ?, mise_en_avant = ? WHERE id = ?");
-        $stmt->execute([$_POST['nom'], $_POST['texte'], $miseEnAvant, $id]);
+        $stmt = $db->prepare("UPDATE procedures SET nom = ?, texte = ?, mise_en_avant = ?, categorie_id = ? WHERE id = ?");
+        $stmt->execute([$_POST['nom'], $_POST['texte'], $miseEnAvant, $categorieId, $id]);
     } else {
-        $stmt = $db->prepare("UPDATE procedures SET nom = ?, texte = ?, mise_en_avant = ? WHERE id = ? AND user_id = ?");
-        $stmt->execute([$_POST['nom'], $_POST['texte'], $miseEnAvant, $id, $userId]);
+        $stmt = $db->prepare("UPDATE procedures SET nom = ?, texte = ?, mise_en_avant = ?, categorie_id = ? WHERE id = ? AND user_id = ?");
+        $stmt->execute([$_POST['nom'], $_POST['texte'], $miseEnAvant, $categorieId, $id, $userId]);
     }
     header('Location: index.php?open=' . $id);
     exit;
@@ -62,13 +66,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 }
 
 // Liste : ses propres procédures + toutes les procédures approuvées
-$stmt = $db->prepare("SELECT p.*, u.nom AS author_nom, u.prenom AS author_prenom
+$stmt = $db->prepare("SELECT p.*, u.nom AS author_nom, u.prenom AS author_prenom, c.nom AS categorie_nom
     FROM procedures p
     LEFT JOIN users u ON p.user_id = u.id
+    LEFT JOIN categories_procedures c ON p.categorie_id = c.id
     WHERE p.user_id = ? OR p.approved = 1
     ORDER BY p.mise_en_avant DESC, p.created_at DESC");
 $stmt->execute([$userId]);
 $procedures = $stmt->fetchAll();
+$categoriesProcedures = getCategoriesProcedures();
 
 $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . dirname($_SERVER['REQUEST_URI']) . '/view.php';
 ?>
@@ -90,15 +96,24 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
 <div class="data-table-container">
     <div class="data-table-header">
         <h3>Toutes les procédures</h3>
-        <div class="search-box">
-            <i class="fas fa-search"></i>
-            <input type="text" id="searchProcedures" placeholder="Rechercher...">
+        <div class="d-flex gap-2 flex-wrap align-items-center">
+            <select id="filterCategorie" class="form-select form-select-sm" style="width:auto;">
+                <option value="">Toutes les catégories</option>
+                <?php foreach ($categoriesProcedures as $cat): ?>
+                    <option value="<?= $cat['id'] ?>"><?= e($cat['nom']) ?></option>
+                <?php endforeach; ?>
+            </select>
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchProcedures" placeholder="Rechercher...">
+            </div>
         </div>
     </div>
     <table class="data-table" id="tableProcedures">
         <thead>
             <tr>
                 <th>Nom</th>
+                <th>Catégorie</th>
                 <th>Mise en avant</th>
                 <th>Auteur</th>
                 <th>Statut</th>
@@ -110,8 +125,9 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
         <?php foreach ($procedures as $proc):
             $isOwn = ($proc['user_id'] == $userId);
         ?>
-            <tr>
+            <tr data-categorie="<?= (int)($proc['categorie_id'] ?? 0) ?>">
                 <td><strong><?= e($proc['nom']) ?></strong></td>
+                <td><?= !empty($proc['categorie_nom']) ? '<span class="badge bg-secondary">' . e($proc['categorie_nom']) . '</span>' : '<span class="text-muted">—</span>' ?></td>
                 <td>
                     <?php if ($proc['mise_en_avant']): ?>
                         <span class="badge-fait"><i class="fas fa-star"></i> Oui</span>
@@ -175,7 +191,16 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
                             <label class="form-label">Nom de la procédure</label>
                             <input type="text" name="nom" class="form-control" required>
                         </div>
-                        <div class="col-md-6 d-flex align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label">Catégorie</label>
+                            <select name="categorie_id" class="form-select">
+                                <option value="">-- Aucune --</option>
+                                <?php foreach ($categoriesProcedures as $cat): ?>
+                                    <option value="<?= $cat['id'] ?>"><?= e($cat['nom']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" name="mise_en_avant" id="addMiseEnAvant" value="1">
                                 <label class="form-check-label" for="addMiseEnAvant">Mise en avant</label>
@@ -334,10 +359,21 @@ $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
 </style>
 
 <script>
-filterTable('searchProcedures', 'tableProcedures');
-
 const proceduresData = <?= json_encode($procedures) ?>;
+const categoriesProcData = <?= json_encode($categoriesProcedures) ?>;
 const baseShareUrl = <?= json_encode($baseUrl) ?>;
+
+function applyProceduresFilters() {
+    const q = (document.getElementById('searchProcedures').value || '').toLowerCase();
+    const cat = document.getElementById('filterCategorie').value;
+    document.querySelectorAll('#tableProcedures tbody tr').forEach(row => {
+        const matchesText = row.textContent.toLowerCase().includes(q);
+        const matchesCat = !cat || row.dataset.categorie === cat;
+        row.style.display = (matchesText && matchesCat) ? '' : 'none';
+    });
+}
+document.getElementById('searchProcedures').addEventListener('keyup', applyProceduresFilters);
+document.getElementById('filterCategorie').addEventListener('change', applyProceduresFilters);
 
 let mediaInsertPrefix = 'add';
 let mediaInsertType = 'image';
@@ -522,6 +558,7 @@ function showDetail(id) {
             <div class="col-12 mb-3">
                 <h4>${escapeHtml(proc.nom)}</h4>
                 <small class="text-muted">Créée le ${formatLocalDateTime(proc.created_at)}</small>
+                ${proc.categorie_nom ? ' <span class="badge bg-secondary ms-2">' + escapeHtml(proc.categorie_nom) + '</span>' : ''}
                 ${proc.mise_en_avant == 1 ? ' <span class="badge-fait ms-2"><i class="fas fa-star"></i> Mise en avant</span>' : ''}
                 ${proc.approved == 1 ? ' <span class="badge bg-success ms-2"><i class="fas fa-check"></i> Approuvé</span>' : ' <span class="badge bg-warning text-dark ms-2"><i class="fas fa-clock"></i> En attente</span>'}
                 ${(proc.contributor_prenom || proc.contributor_nom) ? '<div class="text-muted mt-1"><i class="fas fa-user-edit"></i> Contributeur : ' + escapeHtml((proc.contributor_prenom || '') + ' ' + (proc.contributor_nom || '')) + '</div>' : ''}
@@ -550,6 +587,10 @@ function showDetail(id) {
 function editProcedure(id) {
     const proc = proceduresData.find(p => p.id == id);
     if (!proc) return;
+    let catOptions = '<option value="">-- Aucune --</option>';
+    categoriesProcData.forEach(c => {
+        catOptions += `<option value="${c.id}" ${proc.categorie_id == c.id ? 'selected' : ''}>${escapeHtml(c.nom)}</option>`;
+    });
     document.getElementById('editContent').innerHTML = `
         <form method="POST" onsubmit="return prepareWysiwyg('editEditor', 'editTexte')">
             <input type="hidden" name="action" value="edit">
@@ -559,7 +600,11 @@ function editProcedure(id) {
                     <label class="form-label">Nom de la procédure</label>
                     <input type="text" name="nom" class="form-control" value="${escapeHtml(proc.nom)}" required>
                 </div>
-                <div class="col-md-6 d-flex align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label">Catégorie</label>
+                    <select name="categorie_id" class="form-select">${catOptions}</select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" name="mise_en_avant" id="editMiseEnAvant" value="1" ${proc.mise_en_avant == 1 ? 'checked' : ''}>
                         <label class="form-check-label" for="editMiseEnAvant">Mise en avant</label>

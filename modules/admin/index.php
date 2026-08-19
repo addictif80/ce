@@ -172,6 +172,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         exit;
     }
 
+    // --- Catégories de procédures ---
+    if ($action === 'add_categorie_procedure') {
+        $stmt = $db->prepare("INSERT INTO categories_procedures (nom, ordre) VALUES (?, ?)");
+        $stmt->execute([trim($_POST['nom']), (int)($_POST['ordre'] ?? 0)]);
+        header('Location: index.php?tab=cat_procedures&msg=cat_added');
+        exit;
+    }
+
+    if ($action === 'edit_categorie_procedure') {
+        $stmt = $db->prepare("UPDATE categories_procedures SET nom = ?, ordre = ? WHERE id = ?");
+        $stmt->execute([trim($_POST['nom']), (int)($_POST['ordre'] ?? 0), (int)$_POST['id']]);
+        header('Location: index.php?tab=cat_procedures&msg=cat_updated');
+        exit;
+    }
+
+    if ($action === 'delete_categorie_procedure') {
+        $id = (int)$_POST['id'];
+        // Détacher les procédures de cette catégorie
+        $db->prepare("UPDATE procedures SET categorie_id = NULL WHERE categorie_id = ?")->execute([$id]);
+        $db->prepare("DELETE FROM categories_procedures WHERE id = ?")->execute([$id]);
+        header('Location: index.php?tab=cat_procedures&msg=cat_deleted');
+        exit;
+    }
+
     // --- Menu ---
     if ($action === 'save_menu_order') {
         $items = json_decode($_POST['menu_order'] ?? '[]', true);
@@ -413,6 +437,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 $users = $db->query("SELECT * FROM users ORDER BY nom, prenom")->fetchAll();
 $categoriesLiens = getCategoriesLiens();
 $liens = $db->query("SELECT l.*, c.nom AS categorie_nom FROM liens_externes l LEFT JOIN categories_liens c ON l.categorie_id = c.id ORDER BY l.ordre ASC, l.nom ASC")->fetchAll();
+$categoriesProcedures = getCategoriesProcedures();
+$procCountByCat = $db->query("SELECT categorie_id, COUNT(*) AS nb FROM procedures GROUP BY categorie_id")->fetchAll(PDO::FETCH_KEY_PAIR);
 $menuItems = $db->query("SELECT * FROM menu_config ORDER BY ordre ASC")->fetchAll();
 $smtpConfig = getSmtpConfig();
 
@@ -491,6 +517,9 @@ try {
     </li>
     <li class="nav-item">
         <a class="nav-link <?= $activeTab === 'liens' ? 'active' : '' ?>" href="?tab=liens"><i class="fas fa-external-link-alt"></i> Liens externes</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link <?= $activeTab === 'cat_procedures' ? 'active' : '' ?>" href="?tab=cat_procedures"><i class="fas fa-tags"></i> Catégories procédures</a>
     </li>
     <li class="nav-item">
         <a class="nav-link <?= $activeTab === 'menu' ? 'active' : '' ?>" href="?tab=menu"><i class="fas fa-bars"></i> Menu</a>
@@ -1499,6 +1528,121 @@ function editCategorie(id) {
             </div>
         </form>`;
     new bootstrap.Modal(document.getElementById('editCatModal')).show();
+}
+</script>
+
+<?php elseif ($activeTab === 'cat_procedures'): ?>
+<!-- =============== CATÉGORIES DE PROCÉDURES =============== -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-number"><?= count($categoriesProcedures) ?></div>
+            <div class="stat-label">Catégories</div>
+        </div>
+    </div>
+    <div class="col-md-4 d-flex align-items-center">
+        <button class="btn btn-ce" data-bs-toggle="modal" data-bs-target="#addCatProcModal"><i class="fas fa-folder-plus"></i> Nouvelle catégorie</button>
+    </div>
+</div>
+
+<div class="data-table-container">
+    <div class="data-table-header">
+        <h3>Catégories de procédures</h3>
+    </div>
+    <?php if (empty($categoriesProcedures)): ?>
+        <div class="p-4">
+            <div class="alert alert-info mb-0">Aucune catégorie créée pour le moment.</div>
+        </div>
+    <?php else: ?>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Ordre</th>
+                <th>Nom</th>
+                <th>Nb procédures</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        <?php foreach ($categoriesProcedures as $cat): ?>
+            <tr>
+                <td><?= $cat['ordre'] ?></td>
+                <td><?= e($cat['nom']) ?></td>
+                <td><?= (int)($procCountByCat[$cat['id']] ?? 0) ?></td>
+                <td class="actions">
+                    <button class="btn btn-sm btn-ce-outline" onclick="editCategorieProc(<?= $cat['id'] ?>)" title="Modifier"><i class="fas fa-edit"></i></button>
+                    <form method="POST" class="d-inline" onsubmit="return confirm('Supprimer cette catégorie ? Les procédures seront détachées mais pas supprimées.')">
+                        <input type="hidden" name="action" value="delete_categorie_procedure">
+                        <input type="hidden" name="id" value="<?= $cat['id'] ?>">
+                        <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                    </form>
+                </td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+    <?php endif; ?>
+</div>
+
+<!-- Modal Ajout Catégorie Procédure -->
+<div class="modal fade modal-fullscreen-custom" id="addCatProcModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-folder-plus"></i> Nouvelle catégorie</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form method="POST">
+                    <input type="hidden" name="action" value="add_categorie_procedure">
+                    <div class="row g-3">
+                        <div class="col-md-6"><label class="form-label">Nom *</label><input type="text" name="nom" class="form-control" required></div>
+                        <div class="col-md-3"><label class="form-label">Ordre</label><input type="number" name="ordre" class="form-control" value="0"></div>
+                        <div class="col-12"><button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Ajouter</button></div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Edition Catégorie Procédure -->
+<div class="modal fade modal-fullscreen-custom" id="editCatProcModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-edit"></i> Modifier la catégorie</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="editCatProcContent"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+const categoriesProcData = <?= json_encode($categoriesProcedures) ?>;
+
+function escapeHtml(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+function editCategorieProc(id) {
+    const c = categoriesProcData.find(x => x.id == id);
+    if (!c) return;
+    document.getElementById('editCatProcContent').innerHTML = `
+        <form method="POST">
+            <input type="hidden" name="action" value="edit_categorie_procedure">
+            <input type="hidden" name="id" value="${id}">
+            <div class="row g-3">
+                <div class="col-md-6"><label class="form-label">Nom *</label><input type="text" name="nom" class="form-control" value="${escapeHtml(c.nom)}" required></div>
+                <div class="col-md-3"><label class="form-label">Ordre</label><input type="number" name="ordre" class="form-control" value="${c.ordre}"></div>
+                <div class="col-12"><button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Enregistrer</button></div>
+            </div>
+        </form>`;
+    new bootstrap.Modal(document.getElementById('editCatProcModal')).show();
 }
 </script>
 
