@@ -126,6 +126,24 @@ function ensureProcedureProposalsSchema() {
 }
 
 /**
+ * Prépare le schéma nécessaire aux catégories de procédures
+ */
+function ensureProcedureCategoriesSchema() {
+    $db = getDB();
+    $db->exec("CREATE TABLE IF NOT EXISTS categories_procedures (id INT AUTO_INCREMENT PRIMARY KEY, nom VARCHAR(100) NOT NULL, ordre INT DEFAULT 0) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    try { $db->exec("ALTER TABLE procedures ADD COLUMN categorie_id INT DEFAULT NULL"); } catch (Exception $e) {}
+}
+
+/**
+ * Récupérer les catégories de procédures
+ */
+function getCategoriesProcedures() {
+    $db = getDB();
+    ensureProcedureCategoriesSchema();
+    return $db->query("SELECT * FROM categories_procedures ORDER BY ordre ASC, nom ASC")->fetchAll();
+}
+
+/**
  * Récupérer les liens externes avec leurs catégories
  */
 function getLiensExternes() {

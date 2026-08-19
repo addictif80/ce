@@ -4,6 +4,8 @@ require_once __DIR__ . '/../../includes/functions.php';
 
 $db = getDB();
 ensureProcedureProposalsSchema();
+ensureProcedureCategoriesSchema();
+$categoriesProcedures = getCategoriesProcedures();
 
 $flash = null;
 
@@ -35,23 +37,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && in_array
 }
 
 $q = trim($_GET['q'] ?? '');
+$categorieId = !empty($_GET['categorie']) ? (int)$_GET['categorie'] : 0;
 
+$conditions = ['p.approved = 1'];
+$params = [];
 if ($q !== '') {
+    $conditions[] = '(p.nom LIKE ? OR p.texte LIKE ?)';
     $like = '%' . $q . '%';
-    $stmt = $db->prepare("SELECT p.*, u.nom AS author_nom, u.prenom AS author_prenom
-        FROM procedures p
-        LEFT JOIN users u ON p.user_id = u.id
-        WHERE p.approved = 1 AND (p.nom LIKE ? OR p.texte LIKE ?)
-        ORDER BY p.mise_en_avant DESC, p.created_at DESC");
-    $stmt->execute([$like, $like]);
-} else {
-    $stmt = $db->prepare("SELECT p.*, u.nom AS author_nom, u.prenom AS author_prenom
-        FROM procedures p
-        LEFT JOIN users u ON p.user_id = u.id
-        WHERE p.approved = 1
-        ORDER BY p.mise_en_avant DESC, p.created_at DESC");
-    $stmt->execute();
+    $params[] = $like;
+    $params[] = $like;
 }
+if ($categorieId > 0) {
+    $conditions[] = 'p.categorie_id = ?';
+    $params[] = $categorieId;
+}
+$stmt = $db->prepare("SELECT p.*, u.nom AS author_nom, u.prenom AS author_prenom, c.nom AS categorie_nom
+    FROM procedures p
+    LEFT JOIN users u ON p.user_id = u.id
+    LEFT JOIN categories_procedures c ON p.categorie_id = c.id
+    WHERE " . implode(' AND ', $conditions) . "
+    ORDER BY p.mise_en_avant DESC, p.created_at DESC");
+$stmt->execute($params);
 $procedures = $stmt->fetchAll();
 $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . dirname($_SERVER['REQUEST_URI']) . '/view.php';
 foreach ($procedures as &$proc) {
@@ -118,15 +124,23 @@ unset($proc);
         <div class="data-table-container">
             <div class="data-table-header">
                 <h3>Toutes les procédures</h3>
-                <form method="GET" class="search-box no-print">
-                    <i class="fas fa-search"></i>
-                    <input type="text" name="q" placeholder="Rechercher (titre ou contenu)..." value="<?= e($q) ?>">
+                <form method="GET" class="no-print d-flex gap-2 flex-wrap align-items-center">
+                    <select name="categorie" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
+                        <option value="">Toutes les catégories</option>
+                        <?php foreach ($categoriesProcedures as $cat): ?>
+                            <option value="<?= $cat['id'] ?>" <?= $categorieId === (int)$cat['id'] ? 'selected' : '' ?>><?= e($cat['nom']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" name="q" placeholder="Rechercher (titre ou contenu)..." value="<?= e($q) ?>">
+                    </div>
                 </form>
             </div>
             <?php if (empty($procedures)): ?>
                 <div class="p-4">
                     <div class="alert alert-info mb-0">
-                        <?= $q !== '' ? 'Aucune procédure ne correspond à votre recherche.' : 'Aucune procédure publiée pour le moment.' ?>
+                        <?= ($q !== '' || $categorieId > 0) ? 'Aucune procédure ne correspond à votre recherche.' : 'Aucune procédure publiée pour le moment.' ?>
                     </div>
                 </div>
             <?php else: ?>
@@ -134,6 +148,7 @@ unset($proc);
                 <thead>
                     <tr>
                         <th>Nom</th>
+                        <th>Catégorie</th>
                         <th>Mise en avant</th>
                         <th>Auteur / Contributeur</th>
                         <th>Actions</th>
@@ -143,6 +158,7 @@ unset($proc);
                 <?php foreach ($procedures as $proc): ?>
                     <tr>
                         <td><strong><?= e($proc['nom']) ?></strong></td>
+                        <td><?= !empty($proc['categorie_nom']) ? '<span class="badge bg-secondary">' . e($proc['categorie_nom']) . '</span>' : '<span class="text-muted">—</span>' ?></td>
                         <td>
                             <?php if ($proc['mise_en_avant']): ?>
                                 <span class="badge-fait"><i class="fas fa-star"></i> Oui</span>
@@ -297,6 +313,7 @@ unset($proc);
                 <div class="col-12 mb-3">
                     <h4>${escapeHtml(proc.nom)}</h4>
                     <small class="text-muted">Publiée le ${escapeHtml(proc.created_at_fr)}</small>
+                    ${proc.categorie_nom ? ' <span class="badge bg-secondary ms-2">' + escapeHtml(proc.categorie_nom) + '</span>' : ''}
                     ${proc.mise_en_avant == 1 ? ' <span class="badge-fait ms-2"><i class="fas fa-star"></i> Mise en avant</span>' : ''}
                     ${hasContributor ? '<div class="text-muted mt-1"><i class="fas fa-user-edit"></i> Contributeur : ' + escapeHtml((proc.contributor_prenom || '') + ' ' + (proc.contributor_nom || '')) + '</div>' : ''}
                 </div>
