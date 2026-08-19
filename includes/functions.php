@@ -126,6 +126,48 @@ function ensureProcedureProposalsSchema() {
 }
 
 /**
+ * Catégories communes utilisées pour classer le suivi de production,
+ * les offres en cours et les intérêts clients.
+ */
+function getCategoriesProduction() {
+    return ['Banca', 'Epargne', 'Placement', 'Credit', 'Assurance'];
+}
+
+/**
+ * Prépare le schéma nécessaire au suivi des intérêts clients
+ * (un client intéressé par une offre à venir).
+ */
+function ensureInteretsClientsSchema() {
+    $db = getDB();
+    $db->exec("CREATE TABLE IF NOT EXISTS interets_clients (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        client_nom VARCHAR(255) NOT NULL,
+        categorie VARCHAR(100) DEFAULT '',
+        interet VARCHAR(500) NOT NULL,
+        details TEXT DEFAULT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
+/**
+ * Parmi une liste d'intérêts clients, retourne ceux dont le mot-clé
+ * est repris dans le titre ou le contenu d'une offre.
+ */
+function matchInteretsForOffre(array $interets, $nomOffre, $detailsOffre) {
+    $texte = mb_strtolower(trim($nomOffre . ' ' . strip_tags((string)$detailsOffre)));
+    $matches = [];
+    foreach ($interets as $interet) {
+        $mot = mb_strtolower(trim($interet['interet']));
+        if ($mot !== '' && mb_stripos($texte, $mot) !== false) {
+            $matches[] = $interet;
+        }
+    }
+    return $matches;
+}
+
+/**
  * Prépare le schéma nécessaire aux catégories de procédures
  */
 function ensureProcedureCategoriesSchema() {
@@ -218,7 +260,7 @@ function getEaiAutoFillData($db, $userId, $tuesdayDate) {
 function getDefaultMenuItems() {
     return [
         // Sections
-        ['item_key' => 'activite', 'parent_key' => null, 'label' => 'Mon activité', 'icon' => 'fa-briefcase', 'url' => null, 'uri_patterns' => 'instances,rappels,demandes_clients,offres,rappels_clients,signatures,envoi_documents,kanban', 'ordre' => 1],
+        ['item_key' => 'activite', 'parent_key' => null, 'label' => 'Mon activité', 'icon' => 'fa-briefcase', 'url' => null, 'uri_patterns' => 'instances,rappels,demandes_clients,offres,interets_clients,rappels_clients,signatures,envoi_documents,kanban', 'ordre' => 1],
         ['item_key' => 'formation', 'parent_key' => null, 'label' => 'Formation', 'icon' => 'fa-graduation-cap', 'url' => null, 'uri_patterns' => 'formations', 'ordre' => 2],
         ['item_key' => 'commercial', 'parent_key' => null, 'label' => 'Commercial', 'icon' => 'fa-handshake', 'url' => null, 'uri_patterns' => 'production,phoning,eai,mobilites', 'ordre' => 3],
         ['item_key' => 'outils', 'parent_key' => null, 'label' => 'Outils', 'icon' => 'fa-tools', 'url' => null, 'uri_patterns' => 'credit_immo,calculateur,courriers,courriers_internes,blocnotes,procedures,bureau_dom,retraits,/modules/stock/', 'ordre' => 4],
@@ -229,6 +271,7 @@ function getDefaultMenuItems() {
         ['item_key' => 'rappels', 'parent_key' => 'activite', 'label' => 'Demandes de rappel', 'icon' => 'fa-phone-alt', 'url' => '/modules/rappels/index.php', 'uri_patterns' => 'rappels', 'ordre' => 2],
         ['item_key' => 'demandes_clients', 'parent_key' => 'activite', 'label' => 'Suivi demandes clients', 'icon' => 'fa-headset', 'url' => '/modules/demandes_clients/index.php', 'uri_patterns' => 'demandes_clients', 'ordre' => 3],
         ['item_key' => 'offres', 'parent_key' => 'activite', 'label' => 'Offres en cours', 'icon' => 'fa-tags', 'url' => '/modules/offres/index.php', 'uri_patterns' => 'offres', 'ordre' => 4],
+        ['item_key' => 'interets_clients', 'parent_key' => 'activite', 'label' => 'Intérêts clients', 'icon' => 'fa-star', 'url' => '/modules/interets_clients/index.php', 'uri_patterns' => 'interets_clients', 'ordre' => 9],
         ['item_key' => 'rappels_clients', 'parent_key' => 'activite', 'label' => 'Rappels clients', 'icon' => 'fa-phone-square-alt', 'url' => '/modules/rappels_clients/index.php', 'uri_patterns' => 'rappels_clients', 'ordre' => 5],
         ['item_key' => 'calendrier_instances', 'parent_key' => 'activite', 'label' => 'Calendrier instances', 'icon' => 'fa-calendar', 'url' => '/modules/instances/calendrier.php', 'uri_patterns' => 'instances/calendrier', 'ordre' => 6],
         ['item_key' => 'signatures', 'parent_key' => 'activite', 'label' => 'Suivi signatures', 'icon' => 'fa-file-signature', 'url' => '/modules/signatures/index.php', 'uri_patterns' => 'signatures', 'ordre' => 7],
