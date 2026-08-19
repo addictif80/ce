@@ -5,6 +5,7 @@ $db = getDB();
 $userId = getCurrentUserId();
 
 ensureInteretsClientsSchema();
+ensureMotsClesInteretsSchema();
 $categoriesProduction = getCategoriesProduction();
 
 // Ajout
@@ -12,6 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $categorie = in_array($_POST['categorie'] ?? '', $categoriesProduction, true) ? $_POST['categorie'] : '';
     $stmt = $db->prepare("INSERT INTO interets_clients (user_id, client_nom, categorie, interet, details) VALUES (?, ?, ?, ?, ?)");
     $stmt->execute([$userId, trim($_POST['client_nom']), $categorie, trim($_POST['interet']), $_POST['details']]);
+    registerMotsClesInterets($_POST['interet']);
     header('Location: index.php');
     exit;
 }
@@ -21,6 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $categorie = in_array($_POST['categorie'] ?? '', $categoriesProduction, true) ? $_POST['categorie'] : '';
     $stmt = $db->prepare("UPDATE interets_clients SET client_nom = ?, categorie = ?, interet = ?, details = ? WHERE id = ? AND user_id = ?");
     $stmt->execute([trim($_POST['client_nom']), $categorie, trim($_POST['interet']), $_POST['details'], (int)$_POST['id'], $userId]);
+    registerMotsClesInterets($_POST['interet']);
     header('Location: index.php?open=' . (int)$_POST['id']);
     exit;
 }
@@ -49,6 +52,9 @@ $nbTotal = $stmt->fetchColumn();
 $stmt = $db->prepare("SELECT * FROM interets_clients WHERE user_id = ? ORDER BY created_at DESC");
 $stmt->execute([$userId]);
 $interets = $stmt->fetchAll();
+
+// Liste dynamique des mots-clés déjà utilisés (tous utilisateurs confondus)
+$motsCles = getMotsClesInterets();
 
 // Offres actuellement visibles par l'utilisateur, pour indiquer les correspondances existantes
 $stmt = $db->prepare("SELECT id, nom, details, date_debut, date_fin FROM offres WHERE user_id = ? OR approved = 1");
@@ -160,8 +166,13 @@ unset($interet);
                         </div>
                         <div class="col-12">
                             <label class="form-label">Mot-clé / Intérêt <span class="text-danger">*</span></label>
-                            <input type="text" name="interet" class="form-control" placeholder="Ex : prêt immobilier, assurance vie..." required>
+                            <input type="text" name="interet" id="addInteret" class="form-control" placeholder="Ex : prêt immobilier, assurance vie..." required>
                             <div class="form-text">Séparez plusieurs mots-clés par une virgule (ex : « prêt immobilier, assurance vie »). Il suffit qu'un seul soit repris dans le titre ou le contenu d'une offre pour signaler ce client automatiquement.</div>
+                            <div class="mt-2">
+                                <label class="form-label small text-muted mb-1">Mots-clés déjà utilisés (cliquez pour ajouter)</label>
+                                <input type="text" id="addMotCleSearch" class="form-control form-control-sm mb-2" placeholder="Rechercher un mot-clé existant..." oninput="renderMotCleList('addMotCleList', this.value, 'addInteret')">
+                                <div id="addMotCleList" class="d-flex flex-wrap gap-1"></div>
+                            </div>
                         </div>
                         <div class="col-12">
                             <label class="form-label">Détails</label>
@@ -231,6 +242,42 @@ function buildCategoriesOptions(selected) {
     return opts;
 }
 
+// --- Liste dynamique de mots-clés : recherche + ajout au champ par clic ---
+const motsClesData = <?= json_encode($motsCles) ?>;
+
+function renderMotCleList(listId, query, inputId) {
+    const list = document.getElementById(listId);
+    if (!list) return;
+    list.dataset.target = inputId;
+    const q = query.trim().toLowerCase();
+    const filtered = motsClesData.filter(m => q === '' || m.toLowerCase().includes(q));
+    if (filtered.length === 0) {
+        list.innerHTML = '<span class="text-muted small">' +
+            (q ? 'Aucun mot-clé pour « ' + escapeHtml(query) + ' ».' : 'Aucun mot-clé enregistré pour le moment.') +
+            '</span>';
+        return;
+    }
+    list.innerHTML = filtered.slice(0, 25).map(m =>
+        `<button type="button" class="badge bg-secondary border-0 mot-cle-btn" style="cursor:pointer;" data-mot="${escapeHtml(m)}">${escapeHtml(m)}</button>`
+    ).join('');
+}
+
+document.addEventListener('click', function(e) {
+    const btn = e.target.closest('.mot-cle-btn');
+    if (!btn) return;
+    const list = btn.closest('[data-target]');
+    if (!list) return;
+    const input = document.getElementById(list.dataset.target);
+    if (!input) return;
+    const mot = btn.dataset.mot;
+    const existing = input.value.split(',').map(s => s.trim()).filter(Boolean);
+    if (!existing.some(v => v.toLowerCase() === mot.toLowerCase())) existing.push(mot);
+    input.value = existing.join(', ');
+    input.focus();
+});
+
+renderMotCleList('addMotCleList', '', 'addInteret');
+
 function showDetail(id) {
     const interet = interetsData.find(i => i.id == id);
     if (!interet) return;
@@ -290,7 +337,12 @@ function editInteret(id) {
                 </div>
                 <div class="col-12">
                     <label class="form-label">Mot-clé / Intérêt <span class="text-danger">*</span></label>
-                    <input type="text" name="interet" class="form-control" value="${escapeHtml(interet.interet)}" required>
+                    <input type="text" name="interet" id="editInteret" class="form-control" value="${escapeHtml(interet.interet)}" required>
+                    <div class="mt-2">
+                        <label class="form-label small text-muted mb-1">Mots-clés déjà utilisés (cliquez pour ajouter)</label>
+                        <input type="text" id="editMotCleSearch" class="form-control form-control-sm mb-2" placeholder="Rechercher un mot-clé existant..." oninput="renderMotCleList('editMotCleList', this.value, 'editInteret')">
+                        <div id="editMotCleList" class="d-flex flex-wrap gap-1"></div>
+                    </div>
                 </div>
                 <div class="col-12">
                     <label class="form-label">Détails</label>
@@ -301,6 +353,7 @@ function editInteret(id) {
                 </div>
             </div>
         </form>`;
+    renderMotCleList('editMotCleList', '', 'editInteret');
     new bootstrap.Modal(document.getElementById('editModal')).show();
 }
 
