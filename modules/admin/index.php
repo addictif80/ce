@@ -2,7 +2,7 @@
 // AJAX endpoints (before header to avoid HTML output)
 $allowedTables = ['instances','demandes_rappel','offres','demandes_clients','suivi_production',
     'seances_phoning','credit_immobilier','calculateur_budget','formations','blocnotes',
-    'courriers','modeles_courriers','procedures','codes_utiles','contacts_utiles'];
+    'courriers','modeles_courriers','procedures','codes_utiles','contacts_utiles','interets_clients'];
 
 // Fields that should never be editable
 $systemFields = ['id','user_id','user_nom','user_prenom','created_at','updated_at','password','variables','approved_by'];
@@ -284,7 +284,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $id = (int)($_POST['id'] ?? 0);
         $allowed_tables = ['instances', 'demandes_rappel', 'offres', 'demandes_clients', 'suivi_production',
             'seances_phoning', 'credit_immobilier', 'calculateur_budget', 'formations', 'blocnotes',
-            'courriers', 'modeles_courriers', 'procedures', 'codes_utiles', 'contacts_utiles'];
+            'courriers', 'modeles_courriers', 'procedures', 'codes_utiles', 'contacts_utiles', 'interets_clients'];
         if (in_array($table, $allowed_tables) && $id > 0) {
             $stmt = $db->prepare("DELETE FROM `$table` WHERE id = ?");
             $stmt->execute([$id]);
@@ -299,7 +299,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $id = (int)($_POST['id'] ?? 0);
         $allowed_tables = ['instances', 'demandes_rappel', 'offres', 'demandes_clients', 'suivi_production',
             'seances_phoning', 'credit_immobilier', 'calculateur_budget', 'formations', 'blocnotes',
-            'courriers', 'modeles_courriers', 'procedures', 'codes_utiles', 'contacts_utiles'];
+            'courriers', 'modeles_courriers', 'procedures', 'codes_utiles', 'contacts_utiles', 'interets_clients'];
         $systemFields = ['id','user_id','created_at','updated_at','password','variables','approved_by'];
         if (in_array($table, $allowed_tables) && $id > 0) {
             $cols = $db->query("SHOW COLUMNS FROM `$table`")->fetchAll(PDO::FETCH_ASSOC);
@@ -956,6 +956,7 @@ $modules = [
     'procedures' => ['label' => 'Procédures', 'icon' => 'book', 'cols' => ['nom','approved'], 'display' => ['Nom','Approuvé']],
     'codes_utiles' => ['label' => 'Codes utiles', 'icon' => 'code', 'cols' => ['code','fonction'], 'display' => ['Code','Fonction']],
     'contacts_utiles' => ['label' => 'Contacts utiles', 'icon' => 'address-book', 'cols' => ['service','telephone'], 'display' => ['Service','Téléphone']],
+    'interets_clients' => ['label' => 'Intérêts clients', 'icon' => 'star', 'cols' => ['client_nom','categorie','interet'], 'display' => ['Client','Catégorie','Intérêt']],
 ];
 
 $selectedModule = $_GET['module'] ?? '';
