@@ -152,6 +152,45 @@ function ensureInteretsClientsSchema() {
 }
 
 /**
+ * Prépare le schéma de la liste dynamique de mots-clés utilisés pour les
+ * intérêts clients (évite que plusieurs mots-clés désignent le même
+ * produit, ex : emprunt / obligation / obligataire).
+ */
+function ensureMotsClesInteretsSchema() {
+    $db = getDB();
+    $db->exec("CREATE TABLE IF NOT EXISTS mots_cles_interets (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        mot VARCHAR(150) NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_mot (mot)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
+/**
+ * Récupérer la liste dynamique des mots-clés déjà utilisés.
+ */
+function getMotsClesInterets() {
+    $db = getDB();
+    ensureMotsClesInteretsSchema();
+    return $db->query("SELECT mot FROM mots_cles_interets ORDER BY mot ASC")->fetchAll(PDO::FETCH_COLUMN);
+}
+
+/**
+ * Enregistre dans la liste dynamique les mots-clés (séparés par des
+ * virgules) saisis pour un intérêt client, s'ils n'y figurent pas déjà.
+ */
+function registerMotsClesInterets($interetTexte) {
+    $db = getDB();
+    ensureMotsClesInteretsSchema();
+    $mots = array_filter(array_map('trim', explode(',', (string)$interetTexte)));
+    if (empty($mots)) return;
+    $stmt = $db->prepare("INSERT IGNORE INTO mots_cles_interets (mot) VALUES (?)");
+    foreach ($mots as $mot) {
+        if ($mot !== '') $stmt->execute([$mot]);
+    }
+}
+
+/**
  * Parmi une liste d'intérêts clients, retourne ceux dont le mot-clé
  * est repris dans le titre ou le contenu d'une offre.
  */
