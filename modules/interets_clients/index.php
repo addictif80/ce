@@ -161,7 +161,7 @@ unset($interet);
                         <div class="col-12">
                             <label class="form-label">Mot-clé / Intérêt <span class="text-danger">*</span></label>
                             <input type="text" name="interet" class="form-control" placeholder="Ex : prêt immobilier, assurance vie..." required>
-                            <div class="form-text">Ce mot-clé sera recherché dans le titre et le contenu des offres pour signaler ce client automatiquement.</div>
+                            <div class="form-text">Séparez plusieurs mots-clés par une virgule (ex : « prêt immobilier, assurance vie »). Il suffit qu'un seul soit repris dans le titre ou le contenu d'une offre pour signaler ce client automatiquement.</div>
                         </div>
                         <div class="col-12">
                             <label class="form-label">Détails</label>
