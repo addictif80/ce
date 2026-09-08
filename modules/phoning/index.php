@@ -491,7 +491,11 @@ const urlParams = new URLSearchParams(window.location.search);
 const openId = urlParams.get('open');
 if (openId) {
     openDossier(parseInt(openId));
-    history.replaceState(null, '', 'index.php' + (window.location.search.indexOf('embedded=1') !== -1 ? '?embedded=1' : ''));
+    // Nettoyer l'URL seulement en mode embarqué (le window-manager a déjà traité le paramètre ?open=)
+    // En mode non-embarqué, on garde l'URL intacte pour que onIframeLoad puisse la réinjecter avec embedded=1
+    if (urlParams.get('embedded')) {
+        history.replaceState(null, '', 'index.php?embedded=1');
+    }
 }
 </script>
 
