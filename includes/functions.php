@@ -104,6 +104,133 @@ function generateShareLink() {
 }
 
 /**
+ * Prépare le schéma nécessaire aux contributions publiques sur les procédures
+ * (ajout/modification proposées par des visiteurs non connectés).
+ */
+function ensureProcedureProposalsSchema() {
+    $db = getDB();
+    try { $db->exec("ALTER TABLE procedures MODIFY COLUMN user_id INT NULL"); } catch (Exception $e) {}
+    try { $db->exec("ALTER TABLE procedures ADD COLUMN contributor_prenom VARCHAR(100) DEFAULT NULL"); } catch (Exception $e) {}
+    try { $db->exec("ALTER TABLE procedures ADD COLUMN contributor_nom VARCHAR(100) DEFAULT NULL"); } catch (Exception $e) {}
+    $db->exec("CREATE TABLE IF NOT EXISTS procedure_proposals (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        type ENUM('create','edit') NOT NULL,
+        procedure_id INT DEFAULT NULL,
+        nom VARCHAR(255) NOT NULL,
+        texte LONGTEXT DEFAULT NULL,
+        contributor_prenom VARCHAR(100) NOT NULL,
+        contributor_nom VARCHAR(100) NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (procedure_id) REFERENCES procedures(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
+/**
+ * Catégories communes utilisées pour classer le suivi de production,
+ * les offres en cours et les intérêts clients.
+ */
+function getCategoriesProduction() {
+    return ['Banca', 'Epargne', 'Placement', 'Credit', 'Assurance'];
+}
+
+/**
+ * Prépare le schéma nécessaire au suivi des intérêts clients
+ * (un client intéressé par une offre à venir).
+ */
+function ensureInteretsClientsSchema() {
+    $db = getDB();
+    $db->exec("CREATE TABLE IF NOT EXISTS interets_clients (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        client_nom VARCHAR(255) NOT NULL,
+        categorie VARCHAR(100) DEFAULT '',
+        interet VARCHAR(500) NOT NULL,
+        details TEXT DEFAULT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
+/**
+ * Prépare le schéma de la liste dynamique de mots-clés utilisés pour les
+ * intérêts clients (évite que plusieurs mots-clés désignent le même
+ * produit, ex : emprunt / obligation / obligataire).
+ */
+function ensureMotsClesInteretsSchema() {
+    $db = getDB();
+    $db->exec("CREATE TABLE IF NOT EXISTS mots_cles_interets (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        mot VARCHAR(150) NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_mot (mot)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
+/**
+ * Récupérer la liste dynamique des mots-clés déjà utilisés.
+ */
+function getMotsClesInterets() {
+    $db = getDB();
+    ensureMotsClesInteretsSchema();
+    return $db->query("SELECT mot FROM mots_cles_interets ORDER BY mot ASC")->fetchAll(PDO::FETCH_COLUMN);
+}
+
+/**
+ * Enregistre dans la liste dynamique les mots-clés (séparés par des
+ * virgules) saisis pour un intérêt client, s'ils n'y figurent pas déjà.
+ */
+function registerMotsClesInterets($interetTexte) {
+    $db = getDB();
+    ensureMotsClesInteretsSchema();
+    $mots = array_filter(array_map('trim', explode(',', (string)$interetTexte)));
+    if (empty($mots)) return;
+    $stmt = $db->prepare("INSERT IGNORE INTO mots_cles_interets (mot) VALUES (?)");
+    foreach ($mots as $mot) {
+        if ($mot !== '') $stmt->execute([$mot]);
+    }
+}
+
+/**
+ * Parmi une liste d'intérêts clients, retourne ceux dont le mot-clé
+ * est repris dans le titre ou le contenu d'une offre.
+ */
+function matchInteretsForOffre(array $interets, $nomOffre, $detailsOffre) {
+    $texte = mb_strtolower(trim($nomOffre . ' ' . strip_tags((string)$detailsOffre)));
+    $matches = [];
+    foreach ($interets as $interet) {
+        // Un intérêt peut contenir plusieurs mots-clés séparés par des virgules :
+        // une seule correspondance parmi eux suffit à retenir le client.
+        $motsCles = array_filter(array_map('trim', explode(',', (string)$interet['interet'])));
+        foreach ($motsCles as $mot) {
+            $mot = mb_strtolower($mot);
+            if ($mot !== '' && mb_stripos($texte, $mot) !== false) {
+                $matches[] = $interet;
+                break;
+            }
+        }
+    }
+    return $matches;
+}
+
+/**
+ * Prépare le schéma nécessaire aux catégories de procédures
+ */
+function ensureProcedureCategoriesSchema() {
+    $db = getDB();
+    $db->exec("CREATE TABLE IF NOT EXISTS categories_procedures (id INT AUTO_INCREMENT PRIMARY KEY, nom VARCHAR(100) NOT NULL, ordre INT DEFAULT 0) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    try { $db->exec("ALTER TABLE procedures ADD COLUMN categorie_id INT DEFAULT NULL"); } catch (Exception $e) {}
+}
+
+/**
+ * Récupérer les catégories de procédures
+ */
+function getCategoriesProcedures() {
+    $db = getDB();
+    ensureProcedureCategoriesSchema();
+    return $db->query("SELECT * FROM categories_procedures ORDER BY ordre ASC, nom ASC")->fetchAll();
+}
+
+/**
  * Récupérer les liens externes avec leurs catégories
  */
 function getLiensExternes() {
@@ -178,19 +305,24 @@ function getEaiAutoFillData($db, $userId, $tuesdayDate) {
 function getDefaultMenuItems() {
     return [
         // Sections
-        ['item_key' => 'activite', 'parent_key' => null, 'label' => 'Mon activité', 'icon' => 'fa-briefcase', 'url' => null, 'uri_patterns' => 'instances,rappels,demandes_clients,offres,rappels_clients,signatures', 'ordre' => 1],
+        ['item_key' => 'activite', 'parent_key' => null, 'label' => 'Mon activité', 'icon' => 'fa-briefcase', 'url' => null, 'uri_patterns' => 'instances,rappels,demandes_clients,offres,interets_clients,rappels_clients,signatures,envoi_documents,kanban', 'ordre' => 1],
         ['item_key' => 'formation', 'parent_key' => null, 'label' => 'Formation', 'icon' => 'fa-graduation-cap', 'url' => null, 'uri_patterns' => 'formations', 'ordre' => 2],
         ['item_key' => 'commercial', 'parent_key' => null, 'label' => 'Commercial', 'icon' => 'fa-handshake', 'url' => null, 'uri_patterns' => 'production,phoning,eai,mobilites', 'ordre' => 3],
-        ['item_key' => 'outils', 'parent_key' => null, 'label' => 'Outils', 'icon' => 'fa-tools', 'url' => null, 'uri_patterns' => 'credit_immo,calculateur,courriers,courriers_internes,blocnotes,procedures,bureau_dom,retraits', 'ordre' => 4],
+        ['item_key' => 'outils', 'parent_key' => null, 'label' => 'Outils', 'icon' => 'fa-tools', 'url' => null, 'uri_patterns' => 'credit_immo,calculateur,courriers,courriers_internes,blocnotes,procedures,bureau_dom,retraits,/modules/stock/', 'ordre' => 4],
         ['item_key' => 'references', 'parent_key' => null, 'label' => 'Références', 'icon' => 'fa-bookmark', 'url' => null, 'uri_patterns' => '/codes/,/contacts/', 'ordre' => 5],
         // Items - Mon activité
+        ['item_key' => 'kanban', 'parent_key' => 'activite', 'label' => 'Vue Kanban', 'icon' => 'fa-columns', 'url' => '/modules/kanban/index.php', 'uri_patterns' => 'kanban', 'ordre' => 0],
         ['item_key' => 'instances', 'parent_key' => 'activite', 'label' => 'Mes instances', 'icon' => 'fa-tasks', 'url' => '/modules/instances/index.php', 'uri_patterns' => 'instances', 'ordre' => 1],
         ['item_key' => 'rappels', 'parent_key' => 'activite', 'label' => 'Demandes de rappel', 'icon' => 'fa-phone-alt', 'url' => '/modules/rappels/index.php', 'uri_patterns' => 'rappels', 'ordre' => 2],
         ['item_key' => 'demandes_clients', 'parent_key' => 'activite', 'label' => 'Suivi demandes clients', 'icon' => 'fa-headset', 'url' => '/modules/demandes_clients/index.php', 'uri_patterns' => 'demandes_clients', 'ordre' => 3],
         ['item_key' => 'offres', 'parent_key' => 'activite', 'label' => 'Offres en cours', 'icon' => 'fa-tags', 'url' => '/modules/offres/index.php', 'uri_patterns' => 'offres', 'ordre' => 4],
+        ['item_key' => 'interets_clients', 'parent_key' => 'activite', 'label' => 'Intérêts clients', 'icon' => 'fa-star', 'url' => '/modules/interets_clients/index.php', 'uri_patterns' => 'interets_clients', 'ordre' => 9],
         ['item_key' => 'rappels_clients', 'parent_key' => 'activite', 'label' => 'Rappels clients', 'icon' => 'fa-phone-square-alt', 'url' => '/modules/rappels_clients/index.php', 'uri_patterns' => 'rappels_clients', 'ordre' => 5],
         ['item_key' => 'calendrier_instances', 'parent_key' => 'activite', 'label' => 'Calendrier instances', 'icon' => 'fa-calendar', 'url' => '/modules/instances/calendrier.php', 'uri_patterns' => 'instances/calendrier', 'ordre' => 6],
         ['item_key' => 'signatures', 'parent_key' => 'activite', 'label' => 'Suivi signatures', 'icon' => 'fa-file-signature', 'url' => '/modules/signatures/index.php', 'uri_patterns' => 'signatures', 'ordre' => 7],
+        ['item_key' => 'envoi_documents', 'parent_key' => 'activite', 'label' => 'Envoi de documents', 'icon' => 'fa-file-export', 'url' => '/modules/envoi_documents/index.php', 'uri_patterns' => 'envoi_documents', 'ordre' => 8],
+        // Items - Outils (suite)
+        ['item_key' => 'stock', 'parent_key' => 'outils', 'label' => 'Fournitures', 'icon' => 'fa-boxes', 'url' => '/modules/stock/index.php', 'uri_patterns' => '/modules/stock/', 'ordre' => 9],
         // Items - Formation
         ['item_key' => 'formations', 'parent_key' => 'formation', 'label' => 'Formations', 'icon' => 'fa-graduation-cap', 'url' => '/modules/formations/index.php', 'uri_patterns' => 'formations', 'ordre' => 1],
         ['item_key' => 'calendrier_formations', 'parent_key' => 'formation', 'label' => 'Calendrier formations', 'icon' => 'fa-calendar-alt', 'url' => '/modules/formations/calendrier.php', 'uri_patterns' => 'formations/calendrier', 'ordre' => 2],
@@ -488,6 +620,27 @@ function getRetardsUrgents($userId) {
     $retards['rappels'] = $stmt->fetchAll();
 
     return $retards;
+}
+
+/**
+ * Nombre de produits en alerte stock pour un utilisateur portail donné.
+ * Retourne 0 si l'utilisateur n'est pas abonné aux alertes ou si les tables n'existent pas.
+ */
+function getStockAlertes($userId) {
+    try {
+        $db = getDB();
+        $stmt = $db->prepare("SELECT 1 FROM stock_alert_users WHERE user_id = ?");
+        $stmt->execute([$userId]);
+        if (!$stmt->fetchColumn()) return 0;
+        return (int)$db->query(
+            "SELECT COUNT(*) FROM stock_produits
+             WHERE actif = 1 AND alerte_active = 1
+               AND seuil_alerte IS NOT NULL
+               AND quantite_stock <= seuil_alerte"
+        )->fetchColumn();
+    } catch (Exception $e) {
+        return 0;
+    }
 }
 
 /**

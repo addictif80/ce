@@ -81,7 +81,7 @@ if (empty($instances)) {
             <td style="padding:8px 10px;border-bottom:1px solid #eee;font-weight:bold;">' . htmlspecialchars($inst['numero_personne'], ENT_QUOTES) . '</td>
             <td style="padding:8px 10px;border-bottom:1px solid #eee;"><span style="' . $echeancStyle . '">' . $echeance . '</span></td>
             <td style="padding:8px 10px;border-bottom:1px solid #eee;">' . htmlspecialchars($inst['categories'], ENT_QUOTES) . '</td>
-            <td style="padding:8px 10px;border-bottom:1px solid #eee;">' . nl2br(htmlspecialchars(excerpt($inst['details'], 120), ENT_QUOTES)) . '</td>
+            <td style="padding:8px 10px;border-bottom:1px solid #eee;">' . nl2br(htmlspecialchars($inst['details'] ?? '', ENT_QUOTES)) . '</td>
         </tr>';
     }
 }
@@ -95,7 +95,7 @@ if (empty($demandes)) {
         $demandesRows .= '<tr>
             <td style="padding:8px 10px;border-bottom:1px solid #eee;">' . htmlspecialchars(formatDate($dem['date_ajout']), ENT_QUOTES) . '</td>
             <td style="padding:8px 10px;border-bottom:1px solid #eee;font-weight:bold;">' . htmlspecialchars($dem['numero_personne'], ENT_QUOTES) . '</td>
-            <td style="padding:8px 10px;border-bottom:1px solid #eee;">' . nl2br(htmlspecialchars(excerpt($dem['details_demande'], 120), ENT_QUOTES)) . '</td>
+            <td style="padding:8px 10px;border-bottom:1px solid #eee;">' . nl2br(htmlspecialchars($dem['details_demande'] ?? '', ENT_QUOTES)) . '</td>
             <td style="padding:8px 10px;border-bottom:1px solid #eee;">' . htmlspecialchars($dem['date_envoi'] ? formatDate($dem['date_envoi']) : '—', ENT_QUOTES) . '</td>
             <td style="padding:8px 10px;border-bottom:1px solid #eee;">' . htmlspecialchars($dem['service'], ENT_QUOTES) . '</td>
         </tr>';
@@ -237,7 +237,7 @@ if (empty($instances)) {
         $textBody .= "• " . $inst['numero_personne'];
         if ($inst['date_echeance']) $textBody .= " — Échéance : " . formatDate($inst['date_echeance']);
         if ($inst['categories'])    $textBody .= " — " . $inst['categories'];
-        if ($inst['details'])       $textBody .= "\r\n  " . excerpt($inst['details'], 120);
+        if ($inst['details'])       $textBody .= "\r\n  " . str_replace("\n", "\r\n  ", $inst['details']);
         $textBody .= "\r\n";
     }
 }
@@ -251,7 +251,7 @@ if (empty($demandes)) {
         $textBody .= "• " . $dem['numero_personne'];
         if ($dem['service'])         $textBody .= " — Service : " . $dem['service'];
         if ($dem['date_envoi'])      $textBody .= " — Envoi : " . formatDate($dem['date_envoi']);
-        if ($dem['details_demande']) $textBody .= "\r\n  " . excerpt($dem['details_demande'], 120);
+        if ($dem['details_demande']) $textBody .= "\r\n  " . str_replace("\n", "\r\n  ", $dem['details_demande']);
         $textBody .= "\r\n";
     }
 }

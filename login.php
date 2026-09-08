@@ -51,6 +51,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
                 <button type="submit" class="btn btn-ce w-100">Se connecter</button>
             </form>
+            <div class="text-center mt-3">
+                <a href="modules/procedures/public.php"><i class="fas fa-book"></i> Consulter les procédures publiées</a>
+            </div>
         </div>
     </div>
 </body>

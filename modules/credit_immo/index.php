@@ -4,316 +4,421 @@ require_once __DIR__ . '/../../templates/header.php';
 $db = getDB();
 $userId = getCurrentUserId();
 
-// Auto-add columns if missing
-try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN notes TEXT DEFAULT NULL"); } catch (Exception $e) {}
-try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN workflow_status VARCHAR(50) DEFAULT 'etude'"); } catch (Exception $e) {}
-// CEGC
-try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_demande_cegc DATE DEFAULT NULL"); } catch (Exception $e) {}
-try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_retour_cegc DATE DEFAULT NULL"); } catch (Exception $e) {}
-try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_cegc_accord TINYINT(1) DEFAULT 0"); } catch (Exception $e) {}
-try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_cegc_refus TINYINT(1) DEFAULT 0"); } catch (Exception $e) {}
-// CNP
-try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_creation_cnp DATE DEFAULT NULL"); } catch (Exception $e) {}
-try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_retour_cnp DATE DEFAULT NULL"); } catch (Exception $e) {}
-// Liasse
-try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_edition_liasse DATE DEFAULT NULL"); } catch (Exception $e) {}
-try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_signature_liasse DATE DEFAULT NULL"); } catch (Exception $e) {}
-// Conformité
-try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_envoi_conformite DATE DEFAULT NULL"); } catch (Exception $e) {}
-try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_retour_conformite DATE DEFAULT NULL"); } catch (Exception $e) {}
-try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_conformite_conforme TINYINT(1) DEFAULT 0"); } catch (Exception $e) {}
-try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_conformite_non_conforme TINYINT(1) DEFAULT 0"); } catch (Exception $e) {}
-try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_conformite_motif TEXT DEFAULT NULL"); } catch (Exception $e) {}
-// Offres
-try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_edition_offres_dt DATE DEFAULT NULL"); } catch (Exception $e) {}
-try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_accuse_reception DATE DEFAULT NULL"); } catch (Exception $e) {}
-try { $db->exec("ALTER TABLE credit_immobilier ADD COLUMN suivi_date_j11 DATE DEFAULT NULL"); } catch (Exception $e) {}
-
-// AJAX: fetch budget data for pre-fill
-if (isset($_GET['ajax']) && $_GET['ajax'] === 'budget') {
-    $stmt = $db->prepare("SELECT * FROM calculateur_budget WHERE user_id = ?");
-    $stmt->execute([$userId]);
-    $budget = $stmt->fetch();
-    header('Content-Type: application/json');
-    echo json_encode($budget ?: ['error' => 'no_budget']);
-    exit;
-}
-
-// AJAX toggle checkbox
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['field']) && isset($_POST['id']) && isset($_POST['value'])) {
-    $allowed = ['doc_ji','doc_jd','doc_ir','doc_contrat_travail','doc_bulletins_salaire','doc_justif_propriete',
-        'doc_releves_externes','doc_epargnes_externes','eco_ademe_emprunteur','eco_ademe_entreprises','eco_dpe',
-        'eco_audit','eco_devis_travaux','suivi_synthese_envoyee','suivi_controle_conformite','suivi_edition_offres',
-        'suivi_envoi_signature','suivi_offre_signee'];
-    if (in_array($_POST['field'], $allowed)) {
-        $stmt = $db->prepare("UPDATE credit_immobilier SET `{$_POST['field']}` = ?, updated_at = NOW() WHERE id = ? AND user_id = ?");
-        $stmt->execute([(int)$_POST['value'], (int)$_POST['id'], $userId]);
-        echo json_encode(['success' => true]);
-    } else {
-        echo json_encode(['success' => false]);
-    }
-    exit;
-}
-
-// Helper : chaîne vide → null (évite l'erreur ENUM en mode strict MySQL)
-function nullIfEmpty($v) { return ($v !== null && $v !== '') ? $v : null; }
-
-// Ajout
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add') {
-    try {
-        $stmt = $db->prepare("INSERT INTO credit_immobilier (user_id, numero_personne, type_client, type_occupation, type_residence, type_bien, proprietaire_logement, adresse_bien,
-            type_credit, avec_travaux, montant_acquisition, frais_notaire, frais_agence, frais_courtage, frais_dossier, cegc, ade, travaux, dont_ecoptz_ptz, taux_emprunt, duree_emprunt, apport,
-            ptz_demande, ptz_type, ptz_nombre_bouquets,
-            revenus_mensuels, charges_fixes, loyer, credits_en_cours, epargne, notes, workflow_status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([
-            $userId,
-            $_POST['numero_personne'] ?? '',
-            $_POST['type_client'] ?? 'Particulier',
-            nullIfEmpty($_POST['type_occupation'] ?? null),
-            nullIfEmpty($_POST['type_residence'] ?? null),
-            nullIfEmpty($_POST['type_bien'] ?? null),
-            isset($_POST['proprietaire_logement']) ? 1 : 0,
-            $_POST['adresse_bien'] ?? '',
-            is_array($_POST['type_credit'] ?? '') ? implode(',', $_POST['type_credit']) : ($_POST['type_credit'] ?? ''),
-            isset($_POST['avec_travaux']) ? 1 : 0,
-            (float)($_POST['montant_acquisition'] ?? 0),
-            (float)($_POST['frais_notaire'] ?? 0),
-            (float)($_POST['frais_agence'] ?? 0),
-            (float)($_POST['frais_courtage'] ?? 0),
-            (float)($_POST['frais_dossier'] ?? 0),
-            (float)($_POST['cegc'] ?? 0),
-            (float)($_POST['ade'] ?? 0),
-            (float)($_POST['travaux'] ?? 0),
-            (float)($_POST['dont_ecoptz_ptz'] ?? 0),
-            (float)($_POST['taux_emprunt'] ?? 0),
-            (int)($_POST['duree_emprunt'] ?? 0),
-            (float)($_POST['apport'] ?? 0),
-            nullIfEmpty($_POST['ptz_demande'] ?? null),
-            nullIfEmpty($_POST['ptz_type'] ?? null),
-            $_POST['ptz_nombre_bouquets'] ?? '',
-            (float)($_POST['revenus_mensuels'] ?? 0),
-            (float)($_POST['charges_fixes'] ?? 0),
-            (float)($_POST['loyer'] ?? 0),
-            (float)($_POST['credits_en_cours'] ?? 0),
-            (float)($_POST['epargne'] ?? 0),
-            $_POST['notes'] ?? '',
-            $_POST['workflow_status'] ?? 'etude'
-        ]);
-    } catch (Exception $e) {
-        // Erreur SQL silencieuse — retour à la liste sans planter la page
-        error_log('[credit_immo] Erreur INSERT : ' . $e->getMessage());
-    }
-    header('Location: index.php');
-    exit;
-}
-
-// Edition
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'edit') {
-    $id = (int)$_POST['id'];
-    // Requête principale (champs toujours présents dans le schéma d'origine)
-    try {
-        $stmt = $db->prepare("UPDATE credit_immobilier SET
-            numero_personne = ?, type_client = ?, type_occupation = ?, type_residence = ?, type_bien = ?, proprietaire_logement = ?, adresse_bien = ?,
-            type_credit = ?, avec_travaux = ?, montant_acquisition = ?, frais_notaire = ?, frais_agence = ?, frais_courtage = ?, frais_dossier = ?, cegc = ?, ade = ?, travaux = ?, dont_ecoptz_ptz = ?, taux_emprunt = ?, duree_emprunt = ?, apport = ?,
-            ptz_demande = ?, ptz_type = ?, ptz_nombre_bouquets = ?,
-            revenus_mensuels = ?, charges_fixes = ?, loyer = ?, credits_en_cours = ?, epargne = ?,
-            doc_ji = ?, doc_jd = ?, doc_ir = ?, doc_contrat_travail = ?, doc_bulletins_salaire = ?, doc_justif_propriete = ?, doc_releves_externes = ?, doc_epargnes_externes = ?,
-            eco_ademe_emprunteur = ?, eco_ademe_entreprises = ?, eco_dpe = ?, eco_audit = ?, eco_devis_travaux = ?,
-            suivi_synthese_envoyee = ?, suivi_controle_conformite = ?, suivi_edition_offres = ?, suivi_envoi_signature = ?, suivi_offre_signee = ?,
-            notes = ?, workflow_status = ?,
-            suivi_offre_signee_date = ?,
-            updated_at = NOW() WHERE id = ? AND user_id = ?");
-        $stmt->execute([
-            $_POST['numero_personne'] ?? '',
-            $_POST['type_client'] ?? 'Particulier',
-            nullIfEmpty($_POST['type_occupation'] ?? null),
-            nullIfEmpty($_POST['type_residence'] ?? null),
-            nullIfEmpty($_POST['type_bien'] ?? null),
-            isset($_POST['proprietaire_logement']) ? 1 : 0,
-            $_POST['adresse_bien'] ?? '',
-            is_array($_POST['type_credit'] ?? '') ? implode(',', $_POST['type_credit']) : ($_POST['type_credit'] ?? ''),
-            isset($_POST['avec_travaux']) ? 1 : 0,
-            (float)($_POST['montant_acquisition'] ?? 0),
-            (float)($_POST['frais_notaire'] ?? 0),
-            (float)($_POST['frais_agence'] ?? 0),
-            (float)($_POST['frais_courtage'] ?? 0),
-            (float)($_POST['frais_dossier'] ?? 0),
-            (float)($_POST['cegc'] ?? 0),
-            (float)($_POST['ade'] ?? 0),
-            (float)($_POST['travaux'] ?? 0),
-            (float)($_POST['dont_ecoptz_ptz'] ?? 0),
-            (float)($_POST['taux_emprunt'] ?? 0),
-            (int)($_POST['duree_emprunt'] ?? 0),
-            (float)($_POST['apport'] ?? 0),
-            nullIfEmpty($_POST['ptz_demande'] ?? null),
-            nullIfEmpty($_POST['ptz_type'] ?? null),
-            $_POST['ptz_nombre_bouquets'] ?? '',
-            (float)($_POST['revenus_mensuels'] ?? 0),
-            (float)($_POST['charges_fixes'] ?? 0),
-            (float)($_POST['loyer'] ?? 0),
-            (float)($_POST['credits_en_cours'] ?? 0),
-            (float)($_POST['epargne'] ?? 0),
-            isset($_POST['doc_ji']) ? 1 : 0,
-            isset($_POST['doc_jd']) ? 1 : 0,
-            isset($_POST['doc_ir']) ? 1 : 0,
-            isset($_POST['doc_contrat_travail']) ? 1 : 0,
-            isset($_POST['doc_bulletins_salaire']) ? 1 : 0,
-            isset($_POST['doc_justif_propriete']) ? 1 : 0,
-            isset($_POST['doc_releves_externes']) ? 1 : 0,
-            isset($_POST['doc_epargnes_externes']) ? 1 : 0,
-            isset($_POST['eco_ademe_emprunteur']) ? 1 : 0,
-            isset($_POST['eco_ademe_entreprises']) ? 1 : 0,
-            isset($_POST['eco_dpe']) ? 1 : 0,
-            isset($_POST['eco_audit']) ? 1 : 0,
-            isset($_POST['eco_devis_travaux']) ? 1 : 0,
-            isset($_POST['suivi_synthese_envoyee']) ? 1 : 0,
-            isset($_POST['suivi_controle_conformite']) ? 1 : 0,
-            isset($_POST['suivi_edition_offres']) ? 1 : 0,
-            isset($_POST['suivi_envoi_signature']) ? 1 : 0,
-            isset($_POST['suivi_offre_signee']) ? 1 : 0,
-            $_POST['notes'] ?? '',
-            $_POST['workflow_status'] ?? 'etude',
-            !empty($_POST['suivi_offre_signee_date']) ? $_POST['suivi_offre_signee_date'] : null,
-            $id, $userId
-        ]);
-    } catch (Exception $e) {
-        error_log('[credit_immo] Erreur UPDATE principal : ' . $e->getMessage());
-    }
-    // Requête séparée pour les nouveaux champs suivi (isolée pour ne pas bloquer le save principal)
-    try {
-        $stmt2 = $db->prepare("UPDATE credit_immobilier SET
-            suivi_date_demande_cegc = ?, suivi_date_retour_cegc = ?, suivi_cegc_accord = ?, suivi_cegc_refus = ?,
-            suivi_date_creation_cnp = ?, suivi_date_retour_cnp = ?,
-            suivi_date_edition_liasse = ?, suivi_date_signature_liasse = ?,
-            suivi_date_envoi_conformite = ?, suivi_date_retour_conformite = ?,
-            suivi_conformite_conforme = ?, suivi_conformite_non_conforme = ?, suivi_conformite_motif = ?,
-            suivi_date_edition_offres_dt = ?, suivi_date_accuse_reception = ?, suivi_date_j11 = ?
-            WHERE id = ? AND user_id = ?");
-        $stmt2->execute([
-            !empty($_POST['suivi_date_demande_cegc']) ? $_POST['suivi_date_demande_cegc'] : null,
-            !empty($_POST['suivi_date_retour_cegc']) ? $_POST['suivi_date_retour_cegc'] : null,
-            isset($_POST['suivi_cegc_accord']) ? 1 : 0,
-            isset($_POST['suivi_cegc_refus']) ? 1 : 0,
-            !empty($_POST['suivi_date_creation_cnp']) ? $_POST['suivi_date_creation_cnp'] : null,
-            !empty($_POST['suivi_date_retour_cnp']) ? $_POST['suivi_date_retour_cnp'] : null,
-            !empty($_POST['suivi_date_edition_liasse']) ? $_POST['suivi_date_edition_liasse'] : null,
-            !empty($_POST['suivi_date_signature_liasse']) ? $_POST['suivi_date_signature_liasse'] : null,
-            !empty($_POST['suivi_date_envoi_conformite']) ? $_POST['suivi_date_envoi_conformite'] : null,
-            !empty($_POST['suivi_date_retour_conformite']) ? $_POST['suivi_date_retour_conformite'] : null,
-            isset($_POST['suivi_conformite_conforme']) ? 1 : 0,
-            isset($_POST['suivi_conformite_non_conforme']) ? 1 : 0,
-            $_POST['suivi_conformite_motif'] ?? null,
-            !empty($_POST['suivi_date_edition_offres_dt']) ? $_POST['suivi_date_edition_offres_dt'] : null,
-            !empty($_POST['suivi_date_accuse_reception']) ? $_POST['suivi_date_accuse_reception'] : null,
-            !empty($_POST['suivi_date_j11']) ? $_POST['suivi_date_j11'] : null,
-            $id, $userId
-        ]);
-    } catch (Exception $e) {
-        error_log('[credit_immo] Erreur UPDATE suivi : ' . $e->getMessage());
-    }
-    header('Location: index.php?open=' . $id);
-    exit;
-}
-
-// Suppression
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete') {
-    $stmt = $db->prepare("DELETE FROM credit_immobilier WHERE id = ? AND user_id = ?");
-    $stmt->execute([(int)$_POST['id'], $userId]);
-    header('Location: index.php');
-    exit;
-}
-
-// Liste
-$stmt = $db->prepare("SELECT * FROM credit_immobilier WHERE user_id = ? ORDER BY created_at DESC");
-$stmt->execute([$userId]);
-$dossiers = $stmt->fetchAll();
-?>
-
-<?php
-$workflowLabels = [
-    'etude' => ['Étude en cours', 'secondary'],
-    'dossier_complet' => ['Dossier complet', 'info'],
-    'synthese_envoyee' => ['Synthèse envoyée', 'primary'],
-    'controle' => ['Contrôle conformité', 'primary'],
-    'edition_offres' => ['Édition offres', 'warning'],
-    'envoi_signature' => ['Envoi signature', 'warning'],
-    'offre_signee' => ['Offre signée', 'success'],
-    'deblocage' => ['Déblocage fonds', 'success'],
-    'termine' => ['Terminé', 'dark'],
-    'refuse' => ['Refusé', 'danger'],
+// ── MIGRATIONS ───────────────────────────────────────────────────────────────
+$migrations = [
+    "ALTER TABLE credit_immobilier ADD COLUMN notes TEXT DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN workflow_status VARCHAR(50) DEFAULT 'etude'",
+    "ALTER TABLE credit_immobilier ADD COLUMN suivi_date_demande_cegc DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN suivi_date_retour_cegc DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN suivi_cegc_accord TINYINT(1) DEFAULT 0",
+    "ALTER TABLE credit_immobilier ADD COLUMN suivi_cegc_refus TINYINT(1) DEFAULT 0",
+    "ALTER TABLE credit_immobilier ADD COLUMN suivi_date_creation_cnp DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN suivi_date_retour_cnp DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN suivi_date_edition_liasse DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN suivi_date_signature_liasse DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN suivi_date_envoi_conformite DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN suivi_date_retour_conformite DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN suivi_conformite_conforme TINYINT(1) DEFAULT 0",
+    "ALTER TABLE credit_immobilier ADD COLUMN suivi_conformite_non_conforme TINYINT(1) DEFAULT 0",
+    "ALTER TABLE credit_immobilier ADD COLUMN suivi_conformite_motif TEXT DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN suivi_date_edition_offres_dt DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN suivi_date_accuse_reception DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN suivi_date_j11 DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN suivi_offre_signee_date DATE DEFAULT NULL",
+    // nouvelles — Client
+    "ALTER TABLE credit_immobilier ADD COLUMN banque_de_france VARCHAR(2) DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN drc VARCHAR(2) DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN topcc VARCHAR(2) DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN primo_accedant TINYINT(1) DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN statut_occupation VARCHAR(50) DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN nb_personnes_foyer INT DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN nb_enfants INT DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN revenus_json TEXT DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN charges_json TEXT DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN epargne_json TEXT DEFAULT NULL",
+    // nouvelles — Projet
+    "ALTER TABLE credit_immobilier ADD COLUMN usage_bien VARCHAR(5) DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN usage_rl_type VARCHAR(20) DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN mode_occupation VARCHAR(20) DEFAULT NULL",
+    // nouvelles — Financement
+    "ALTER TABLE credit_immobilier ADD COLUMN dont_mobilier_financable DECIMAL(15,2) DEFAULT 0",
+    "ALTER TABLE credit_immobilier ADD COLUMN frais_midi_epargne TINYINT(1) DEFAULT 0",
+    "ALTER TABLE credit_immobilier ADD COLUMN montant_midi_epargne DECIMAL(15,2) DEFAULT 0",
+    "ALTER TABLE credit_immobilier ADD COLUMN frais_negociation DECIMAL(15,2) DEFAULT 0",
+    "ALTER TABLE credit_immobilier ADD COLUMN frais_divers DECIMAL(15,2) DEFAULT 0",
+    "ALTER TABLE credit_immobilier ADD COLUMN tva_financee DECIMAL(15,2) DEFAULT 0",
+    "ALTER TABLE credit_immobilier ADD COLUMN garantie_type VARCHAR(20) DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN garantie_montant DECIMAL(15,2) DEFAULT 0",
+    "ALTER TABLE credit_immobilier ADD COLUMN ade_json TEXT DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN ptz_actif TINYINT(1) DEFAULT 0",
+    "ALTER TABLE credit_immobilier ADD COLUMN ptz_montant DECIMAL(15,2) DEFAULT 0",
+    "ALTER TABLE credit_immobilier ADD COLUMN ptz_duree INT DEFAULT 0",
+    "ALTER TABLE credit_immobilier ADD COLUMN ecoptz_actif TINYINT(1) DEFAULT 0",
+    "ALTER TABLE credit_immobilier ADD COLUMN ecoptz_montant DECIMAL(15,2) DEFAULT 0",
+    "ALTER TABLE credit_immobilier ADD COLUMN ecoptz_duree INT DEFAULT 0",
+    "ALTER TABLE credit_immobilier ADD COLUMN ecoptz_bouquets TINYINT(1) DEFAULT 0",
+    "ALTER TABLE credit_immobilier ADD COLUMN ecoptz_nb_bouquets INT DEFAULT 0",
+    "ALTER TABLE credit_immobilier ADD COLUMN ecoptz_performance_globale TINYINT(1) DEFAULT 0",
+    // nouvelles — Gestion admin
+    "ALTER TABLE credit_immobilier ADD COLUMN ade_envoyee_le DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN ade_retour_le DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN ade_reponse VARCHAR(10) DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN date_prelevement DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN notaire_nom VARCHAR(255) DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN notaire_adresse TEXT DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN date_signature_notaire_prev DATE DEFAULT NULL",
+    // nouvelles — Pièces (dates)
+    "ALTER TABLE credit_immobilier ADD COLUMN doc_ji_date DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN doc_jd_date DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN doc_ir_date DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN doc_contrat_travail_date DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN doc_bulletins_salaire_date DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN doc_justif_propriete_date DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN doc_releves_externes_date DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN doc_epargnes_externes_date DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN doc_devis TINYINT(1) DEFAULT 0",
+    "ALTER TABLE credit_immobilier ADD COLUMN doc_devis_date DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN eco_formulaire_emprunteur TINYINT(1) DEFAULT 0",
+    "ALTER TABLE credit_immobilier ADD COLUMN eco_formulaire_emprunteur_date DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN eco_formulaire_entreprises TINYINT(1) DEFAULT 0",
+    "ALTER TABLE credit_immobilier ADD COLUMN eco_formulaire_entreprises_date DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN eco_ademe_emprunteur_date DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN eco_ademe_entreprises_date DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN eco_dpe_date DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN eco_audit_date DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN eco_devis_travaux_date DATE DEFAULT NULL",
+    // nouvelles — Suivi & Signature
+    "ALTER TABLE credit_immobilier ADD COLUMN suivi_conformite_reponse VARCHAR(20) DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN suivi_date_signature_definitive DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN suivi_date_versement_notaire DATE DEFAULT NULL",
 ];
-$countEnCours = count(array_filter($dossiers, fn($d) => !in_array($d['workflow_status'] ?? 'etude', ['termine', 'refuse', 'offre_signee', 'deblocage'])));
-$countSignees = count(array_filter($dossiers, fn($d) => in_array($d['workflow_status'] ?? '', ['offre_signee', 'deblocage', 'termine'])));
-$countRefusees = count(array_filter($dossiers, fn($d) => ($d['workflow_status'] ?? '') === 'refuse'));
+foreach ($migrations as $sql) { try { $db->exec($sql); } catch (Exception $e) {} }
+
+try {
+    $db->exec("CREATE TABLE IF NOT EXISTS credit_immo_notes (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        credit_immo_id INT NOT NULL,
+        user_id INT NOT NULL,
+        note TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_ci (credit_immo_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+} catch (Exception $e) {}
+
+// ── HELPERS ──────────────────────────────────────────────────────────────────
+function nullIfEmpty($v) { return ($v !== null && $v !== '') ? $v : null; }
+function d2n($v) { return ($v !== null && $v !== '') ? (float)$v : 0; }
+function owns($db, $id, $userId) {
+    $s = $db->prepare("SELECT id FROM credit_immobilier WHERE id=? AND user_id=?");
+    $s->execute([$id, $userId]);
+    return (bool)$s->fetch();
+}
+
+// ── AJAX ─────────────────────────────────────────────────────────────────────
+if (isset($_GET['ajax'])) {
+    header('Content-Type: application/json');
+    if ($_GET['ajax'] === 'budget') {
+        $s = $db->prepare("SELECT * FROM calculateur_budget WHERE user_id=?");
+        $s->execute([$userId]);
+        echo json_encode($s->fetch() ?: ['error'=>'no_budget']);
+        exit;
+    }
+    if ($_GET['ajax'] === 'notes' && isset($_GET['dossier_id'])) {
+        $did = (int)$_GET['dossier_id'];
+        if (!owns($db, $did, $userId)) { echo json_encode([]); exit; }
+        $s = $db->prepare("SELECT n.id, n.note, n.created_at, n.updated_at,
+            CONCAT(u.prenom,' ',u.nom) AS conseiller
+            FROM credit_immo_notes n JOIN users u ON u.id=n.user_id
+            WHERE n.credit_immo_id=? ORDER BY n.created_at DESC");
+        $s->execute([$did]);
+        echo json_encode($s->fetchAll(PDO::FETCH_ASSOC));
+        exit;
+    }
+    echo json_encode(['error'=>'unknown']);
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_action'])) {
+    header('Content-Type: application/json');
+    $act = $_POST['ajax_action'];
+    if ($act === 'save_note') {
+        $did   = (int)($_POST['dossier_id']??0);
+        $nid   = (int)($_POST['note_id']??0);
+        $txt   = trim($_POST['note']??'');
+        if (!$did || !$txt || !owns($db,$did,$userId)) { echo json_encode(['success'=>false]); exit; }
+        if ($nid > 0) {
+            $s = $db->prepare("UPDATE credit_immo_notes SET note=?,updated_at=NOW() WHERE id=? AND user_id=?");
+            $s->execute([$txt,$nid,$userId]);
+            echo json_encode(['success'=>true,'id'=>$nid]);
+        } else {
+            $s = $db->prepare("INSERT INTO credit_immo_notes (credit_immo_id,user_id,note) VALUES (?,?,?)");
+            $s->execute([$did,$userId,$txt]);
+            echo json_encode(['success'=>true,'id'=>$db->lastInsertId()]);
+        }
+        exit;
+    }
+    if ($act === 'delete_note') {
+        $nid = (int)($_POST['note_id']??0);
+        $s = $db->prepare("DELETE FROM credit_immo_notes WHERE id=? AND user_id=?");
+        $s->execute([$nid,$userId]);
+        echo json_encode(['success'=>true]);
+        exit;
+    }
+    echo json_encode(['success'=>false]); exit;
+}
+
+// ── POST ADD ─────────────────────────────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='add') {
+    $p = $_POST;
+    try {
+        $s = $db->prepare("INSERT INTO credit_immobilier (
+            user_id,numero_personne,type_client,
+            banque_de_france,drc,topcc,primo_accedant,statut_occupation,
+            nb_personnes_foyer,nb_enfants,revenus_json,charges_json,epargne_json,
+            usage_bien,usage_rl_type,mode_occupation,
+            taux_emprunt,duree_emprunt,montant_acquisition,dont_mobilier_financable,
+            frais_notaire,frais_dossier,frais_midi_epargne,montant_midi_epargne,
+            frais_negociation,frais_divers,frais_agence,tva_financee,apport,
+            garantie_type,garantie_montant,ade_json,
+            ptz_actif,ptz_montant,ptz_duree,
+            ecoptz_actif,ecoptz_montant,ecoptz_duree,ecoptz_bouquets,ecoptz_nb_bouquets,ecoptz_performance_globale,
+            ade_envoyee_le,ade_retour_le,ade_reponse,
+            date_prelevement,notaire_nom,notaire_adresse,date_signature_notaire_prev,
+            doc_ji,doc_ji_date,doc_jd,doc_jd_date,doc_ir,doc_ir_date,
+            doc_contrat_travail,doc_contrat_travail_date,doc_bulletins_salaire,doc_bulletins_salaire_date,
+            doc_justif_propriete,doc_justif_propriete_date,
+            doc_releves_externes,doc_releves_externes_date,
+            doc_epargnes_externes,doc_epargnes_externes_date,
+            doc_devis,doc_devis_date,
+            eco_formulaire_emprunteur,eco_formulaire_emprunteur_date,
+            eco_formulaire_entreprises,eco_formulaire_entreprises_date,
+            eco_ademe_emprunteur,eco_ademe_emprunteur_date,
+            eco_ademe_entreprises,eco_ademe_entreprises_date,
+            eco_dpe,eco_dpe_date,eco_audit,eco_audit_date,
+            eco_devis_travaux,eco_devis_travaux_date,
+            suivi_date_edition_liasse,
+            suivi_date_envoi_conformite,suivi_date_retour_conformite,
+            suivi_conformite_reponse,suivi_conformite_motif,
+            suivi_date_edition_offres_dt,suivi_date_accuse_reception,suivi_date_j11,
+            suivi_date_signature_definitive,suivi_date_versement_notaire,
+            workflow_status,date_ajout
+        ) VALUES (
+            ?,?,?, ?,?,?,?,?, ?,?,?,?,?, ?,?,?,
+            ?,?,?,?, ?,?,?,?, ?,?,?,?,?, ?,?,?,
+            ?,?,?, ?,?,?,?,?,?,
+            ?,?,?, ?,?,?,?,
+            ?,?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,
+            ?,?,?,?, ?,?,?,?, ?,?,?,?,
+            ?, ?,?,?,?, ?,?,?, ?,?,
+            ?,CURDATE()
+        )");
+        $nb = fn($f) => ($p[$f]??''!=='')?((int)$p[$f]):null;
+        $s->execute([
+            $userId,$p['numero_personne']??'',$p['type_client']??'Particulier',
+            nullIfEmpty($p['banque_de_france']??null),nullIfEmpty($p['drc']??null),nullIfEmpty($p['topcc']??null),
+            ($p['primo_accedant']??''!=='')?((int)$p['primo_accedant']):null,
+            nullIfEmpty($p['statut_occupation']??null),
+            $nb('nb_personnes_foyer'),$nb('nb_enfants'),
+            $p['revenus_json']??'[]',$p['charges_json']??'[]',$p['epargne_json']??'[]',
+            nullIfEmpty($p['usage_bien']??null),nullIfEmpty($p['usage_rl_type']??null),nullIfEmpty($p['mode_occupation']??null),
+            d2n($p['taux_emprunt']??0),(int)($p['duree_emprunt']??0),
+            d2n($p['montant_acquisition']??0),d2n($p['dont_mobilier_financable']??0),
+            d2n($p['frais_notaire']??0),d2n($p['frais_dossier']??0),
+            isset($p['frais_midi_epargne'])?1:0,d2n($p['montant_midi_epargne']??0),
+            d2n($p['frais_negociation']??0),d2n($p['frais_divers']??0),
+            d2n($p['frais_agence']??0),d2n($p['tva_financee']??0),d2n($p['apport']??0),
+            nullIfEmpty($p['garantie_type']??null),d2n($p['garantie_montant']??0),$p['ade_json']??'[]',
+            isset($p['ptz_actif'])?1:0,d2n($p['ptz_montant']??0),(int)($p['ptz_duree']??0),
+            isset($p['ecoptz_actif'])?1:0,d2n($p['ecoptz_montant']??0),(int)($p['ecoptz_duree']??0),
+            isset($p['ecoptz_bouquets'])?1:0,(int)($p['ecoptz_nb_bouquets']??0),isset($p['ecoptz_performance_globale'])?1:0,
+            nullIfEmpty($p['ade_envoyee_le']??null),nullIfEmpty($p['ade_retour_le']??null),nullIfEmpty($p['ade_reponse']??null),
+            nullIfEmpty($p['date_prelevement']??null),$p['notaire_nom']??'',$p['notaire_adresse']??'',
+            nullIfEmpty($p['date_signature_notaire_prev']??null),
+            isset($p['doc_ji'])?1:0,nullIfEmpty($p['doc_ji_date']??null),
+            isset($p['doc_jd'])?1:0,nullIfEmpty($p['doc_jd_date']??null),
+            isset($p['doc_ir'])?1:0,nullIfEmpty($p['doc_ir_date']??null),
+            isset($p['doc_contrat_travail'])?1:0,nullIfEmpty($p['doc_contrat_travail_date']??null),
+            isset($p['doc_bulletins_salaire'])?1:0,nullIfEmpty($p['doc_bulletins_salaire_date']??null),
+            isset($p['doc_justif_propriete'])?1:0,nullIfEmpty($p['doc_justif_propriete_date']??null),
+            isset($p['doc_releves_externes'])?1:0,nullIfEmpty($p['doc_releves_externes_date']??null),
+            isset($p['doc_epargnes_externes'])?1:0,nullIfEmpty($p['doc_epargnes_externes_date']??null),
+            isset($p['doc_devis'])?1:0,nullIfEmpty($p['doc_devis_date']??null),
+            isset($p['eco_formulaire_emprunteur'])?1:0,nullIfEmpty($p['eco_formulaire_emprunteur_date']??null),
+            isset($p['eco_formulaire_entreprises'])?1:0,nullIfEmpty($p['eco_formulaire_entreprises_date']??null),
+            isset($p['eco_ademe_emprunteur'])?1:0,nullIfEmpty($p['eco_ademe_emprunteur_date']??null),
+            isset($p['eco_ademe_entreprises'])?1:0,nullIfEmpty($p['eco_ademe_entreprises_date']??null),
+            isset($p['eco_dpe'])?1:0,nullIfEmpty($p['eco_dpe_date']??null),
+            isset($p['eco_audit'])?1:0,nullIfEmpty($p['eco_audit_date']??null),
+            isset($p['eco_devis_travaux'])?1:0,nullIfEmpty($p['eco_devis_travaux_date']??null),
+            nullIfEmpty($p['suivi_date_edition_liasse']??null),
+            nullIfEmpty($p['suivi_date_envoi_conformite']??null),nullIfEmpty($p['suivi_date_retour_conformite']??null),
+            nullIfEmpty($p['suivi_conformite_reponse']??null),$p['suivi_conformite_motif']??'',
+            nullIfEmpty($p['suivi_date_edition_offres_dt']??null),nullIfEmpty($p['suivi_date_accuse_reception']??null),
+            nullIfEmpty($p['suivi_date_j11']??null),
+            nullIfEmpty($p['suivi_date_signature_definitive']??null),nullIfEmpty($p['suivi_date_versement_notaire']??null),
+            $p['workflow_status']??'etude',
+        ]);
+        $newId = $db->lastInsertId();
+    } catch (Exception $e) { error_log('[ci] INSERT:'.$e->getMessage()); $newId=0; }
+    header('Location: index.php'.($newId?'?open='.$newId:''));
+    exit;
+}
+
+// ── POST EDIT ────────────────────────────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='edit') {
+    $id = (int)$_POST['id'];
+    $p  = $_POST;
+    try {
+        $s = $db->prepare("UPDATE credit_immobilier SET
+            numero_personne=?,type_client=?,
+            banque_de_france=?,drc=?,topcc=?,primo_accedant=?,statut_occupation=?,
+            nb_personnes_foyer=?,nb_enfants=?,revenus_json=?,charges_json=?,epargne_json=?,
+            usage_bien=?,usage_rl_type=?,mode_occupation=?,
+            taux_emprunt=?,duree_emprunt=?,montant_acquisition=?,dont_mobilier_financable=?,
+            frais_notaire=?,frais_dossier=?,frais_midi_epargne=?,montant_midi_epargne=?,
+            frais_negociation=?,frais_divers=?,frais_agence=?,tva_financee=?,apport=?,
+            garantie_type=?,garantie_montant=?,ade_json=?,
+            ptz_actif=?,ptz_montant=?,ptz_duree=?,
+            ecoptz_actif=?,ecoptz_montant=?,ecoptz_duree=?,ecoptz_bouquets=?,ecoptz_nb_bouquets=?,ecoptz_performance_globale=?,
+            ade_envoyee_le=?,ade_retour_le=?,ade_reponse=?,
+            date_prelevement=?,notaire_nom=?,notaire_adresse=?,date_signature_notaire_prev=?,
+            doc_ji=?,doc_ji_date=?,doc_jd=?,doc_jd_date=?,doc_ir=?,doc_ir_date=?,
+            doc_contrat_travail=?,doc_contrat_travail_date=?,doc_bulletins_salaire=?,doc_bulletins_salaire_date=?,
+            doc_justif_propriete=?,doc_justif_propriete_date=?,
+            doc_releves_externes=?,doc_releves_externes_date=?,
+            doc_epargnes_externes=?,doc_epargnes_externes_date=?,
+            doc_devis=?,doc_devis_date=?,
+            eco_formulaire_emprunteur=?,eco_formulaire_emprunteur_date=?,
+            eco_formulaire_entreprises=?,eco_formulaire_entreprises_date=?,
+            eco_ademe_emprunteur=?,eco_ademe_emprunteur_date=?,
+            eco_ademe_entreprises=?,eco_ademe_entreprises_date=?,
+            eco_dpe=?,eco_dpe_date=?,eco_audit=?,eco_audit_date=?,
+            eco_devis_travaux=?,eco_devis_travaux_date=?,
+            suivi_date_edition_liasse=?,
+            suivi_date_envoi_conformite=?,suivi_date_retour_conformite=?,
+            suivi_conformite_reponse=?,suivi_conformite_motif=?,
+            suivi_date_edition_offres_dt=?,suivi_date_accuse_reception=?,suivi_date_j11=?,
+            suivi_date_signature_definitive=?,suivi_date_versement_notaire=?,
+            workflow_status=?,updated_at=NOW()
+            WHERE id=? AND user_id=?");
+        $nb = fn($f) => ($p[$f]??''!=='')?((int)$p[$f]):null;
+        $s->execute([
+            $p['numero_personne']??'',$p['type_client']??'Particulier',
+            nullIfEmpty($p['banque_de_france']??null),nullIfEmpty($p['drc']??null),nullIfEmpty($p['topcc']??null),
+            ($p['primo_accedant']??''!=='')?((int)$p['primo_accedant']):null,
+            nullIfEmpty($p['statut_occupation']??null),
+            $nb('nb_personnes_foyer'),$nb('nb_enfants'),
+            $p['revenus_json']??'[]',$p['charges_json']??'[]',$p['epargne_json']??'[]',
+            nullIfEmpty($p['usage_bien']??null),nullIfEmpty($p['usage_rl_type']??null),nullIfEmpty($p['mode_occupation']??null),
+            d2n($p['taux_emprunt']??0),(int)($p['duree_emprunt']??0),
+            d2n($p['montant_acquisition']??0),d2n($p['dont_mobilier_financable']??0),
+            d2n($p['frais_notaire']??0),d2n($p['frais_dossier']??0),
+            isset($p['frais_midi_epargne'])?1:0,d2n($p['montant_midi_epargne']??0),
+            d2n($p['frais_negociation']??0),d2n($p['frais_divers']??0),
+            d2n($p['frais_agence']??0),d2n($p['tva_financee']??0),d2n($p['apport']??0),
+            nullIfEmpty($p['garantie_type']??null),d2n($p['garantie_montant']??0),$p['ade_json']??'[]',
+            isset($p['ptz_actif'])?1:0,d2n($p['ptz_montant']??0),(int)($p['ptz_duree']??0),
+            isset($p['ecoptz_actif'])?1:0,d2n($p['ecoptz_montant']??0),(int)($p['ecoptz_duree']??0),
+            isset($p['ecoptz_bouquets'])?1:0,(int)($p['ecoptz_nb_bouquets']??0),isset($p['ecoptz_performance_globale'])?1:0,
+            nullIfEmpty($p['ade_envoyee_le']??null),nullIfEmpty($p['ade_retour_le']??null),nullIfEmpty($p['ade_reponse']??null),
+            nullIfEmpty($p['date_prelevement']??null),$p['notaire_nom']??'',$p['notaire_adresse']??'',
+            nullIfEmpty($p['date_signature_notaire_prev']??null),
+            isset($p['doc_ji'])?1:0,nullIfEmpty($p['doc_ji_date']??null),
+            isset($p['doc_jd'])?1:0,nullIfEmpty($p['doc_jd_date']??null),
+            isset($p['doc_ir'])?1:0,nullIfEmpty($p['doc_ir_date']??null),
+            isset($p['doc_contrat_travail'])?1:0,nullIfEmpty($p['doc_contrat_travail_date']??null),
+            isset($p['doc_bulletins_salaire'])?1:0,nullIfEmpty($p['doc_bulletins_salaire_date']??null),
+            isset($p['doc_justif_propriete'])?1:0,nullIfEmpty($p['doc_justif_propriete_date']??null),
+            isset($p['doc_releves_externes'])?1:0,nullIfEmpty($p['doc_releves_externes_date']??null),
+            isset($p['doc_epargnes_externes'])?1:0,nullIfEmpty($p['doc_epargnes_externes_date']??null),
+            isset($p['doc_devis'])?1:0,nullIfEmpty($p['doc_devis_date']??null),
+            isset($p['eco_formulaire_emprunteur'])?1:0,nullIfEmpty($p['eco_formulaire_emprunteur_date']??null),
+            isset($p['eco_formulaire_entreprises'])?1:0,nullIfEmpty($p['eco_formulaire_entreprises_date']??null),
+            isset($p['eco_ademe_emprunteur'])?1:0,nullIfEmpty($p['eco_ademe_emprunteur_date']??null),
+            isset($p['eco_ademe_entreprises'])?1:0,nullIfEmpty($p['eco_ademe_entreprises_date']??null),
+            isset($p['eco_dpe'])?1:0,nullIfEmpty($p['eco_dpe_date']??null),
+            isset($p['eco_audit'])?1:0,nullIfEmpty($p['eco_audit_date']??null),
+            isset($p['eco_devis_travaux'])?1:0,nullIfEmpty($p['eco_devis_travaux_date']??null),
+            nullIfEmpty($p['suivi_date_edition_liasse']??null),
+            nullIfEmpty($p['suivi_date_envoi_conformite']??null),nullIfEmpty($p['suivi_date_retour_conformite']??null),
+            nullIfEmpty($p['suivi_conformite_reponse']??null),$p['suivi_conformite_motif']??'',
+            nullIfEmpty($p['suivi_date_edition_offres_dt']??null),nullIfEmpty($p['suivi_date_accuse_reception']??null),
+            nullIfEmpty($p['suivi_date_j11']??null),
+            nullIfEmpty($p['suivi_date_signature_definitive']??null),nullIfEmpty($p['suivi_date_versement_notaire']??null),
+            $p['workflow_status']??'etude',
+            $id,$userId,
+        ]);
+    } catch (Exception $e) { error_log('[ci] UPDATE:'.$e->getMessage()); }
+    header('Location: index.php?open='.$id);
+    exit;
+}
+
+// ── POST DELETE ──────────────────────────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='delete') {
+    $s = $db->prepare("DELETE FROM credit_immobilier WHERE id=? AND user_id=?");
+    $s->execute([(int)$_POST['id'],$userId]);
+    header('Location: index.php'); exit;
+}
+
+// ── LISTE ────────────────────────────────────────────────────────────────────
+$stmt = $db->prepare("SELECT * FROM credit_immobilier WHERE user_id=? ORDER BY created_at DESC");
+$stmt->execute([$userId]);
+$dossiers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+$workflowLabels = [
+    'etude'            => ['Étude en cours',     'secondary'],
+    'dossier_complet'  => ['Dossier complet',     'info'],
+    'synthese_envoyee' => ['Synthèse envoyée',    'primary'],
+    'controle'         => ['Contrôle conformité', 'primary'],
+    'edition_offres'   => ['Édition offres',      'warning'],
+    'envoi_signature'  => ['Envoi signature',     'warning'],
+    'offre_signee'     => ['Offre signée',        'success'],
+    'deblocage'        => ['Déblocage fonds',     'success'],
+    'termine'          => ['Terminé',             'dark'],
+    'refuse'           => ['Refusé',              'danger'],
+];
+
+$cEnCours  = count(array_filter($dossiers, fn($d) => !in_array($d['workflow_status']??'etude', ['termine','refuse','offre_signee','deblocage'])));
+$cSignees  = count(array_filter($dossiers, fn($d) => in_array($d['workflow_status']??'', ['offre_signee','deblocage','termine'])));
+$cRefusees = count(array_filter($dossiers, fn($d) => ($d['workflow_status']??'')==='refuse'));
 ?>
-<!-- Stats -->
+
+<!-- ── STATS ─────────────────────────────────────────────────────────────── -->
 <div class="row g-3 mb-4">
-    <div class="col-md-2">
-        <div class="stat-card">
-            <div class="stat-number"><?= count($dossiers) ?></div>
-            <div class="stat-label">Total dossiers</div>
-        </div>
-    </div>
-    <div class="col-md-2">
-        <div class="stat-card" style="border-left-color:#0d6efd;">
-            <div class="stat-number"><?= $countEnCours ?></div>
-            <div class="stat-label">En cours</div>
-        </div>
-    </div>
-    <div class="col-md-2">
-        <div class="stat-card stat-success">
-            <div class="stat-number"><?= $countSignees ?></div>
-            <div class="stat-label">Signées/Terminées</div>
-        </div>
-    </div>
-    <div class="col-md-2">
-        <div class="stat-card" style="border-left-color:#dc3545;">
-            <div class="stat-number"><?= $countRefusees ?></div>
-            <div class="stat-label">Refusées</div>
-        </div>
-    </div>
+    <div class="col-md-2"><div class="stat-card"><div class="stat-number"><?= count($dossiers) ?></div><div class="stat-label">Total dossiers</div></div></div>
+    <div class="col-md-2"><div class="stat-card" style="border-left-color:#0d6efd;"><div class="stat-number"><?= $cEnCours ?></div><div class="stat-label">En cours</div></div></div>
+    <div class="col-md-2"><div class="stat-card stat-success"><div class="stat-number"><?= $cSignees ?></div><div class="stat-label">Signées/Terminées</div></div></div>
+    <div class="col-md-2"><div class="stat-card" style="border-left-color:#dc3545;"><div class="stat-number"><?= $cRefusees ?></div><div class="stat-label">Refusées</div></div></div>
     <div class="col-md-4 d-flex align-items-center gap-2">
-        <button class="btn btn-ce" data-bs-toggle="modal" data-bs-target="#addModal"><i class="fas fa-plus"></i> Nouveau dossier</button>
+        <button class="btn btn-ce" onclick="openAddModal()"><i class="fas fa-plus"></i> Nouveau dossier</button>
         <button class="btn btn-ce-outline" onclick="showCompareSelect()"><i class="fas fa-balance-scale"></i> Comparer</button>
     </div>
 </div>
 
-<!-- Tableau -->
+<!-- ── TABLEAU ───────────────────────────────────────────────────────────── -->
 <div class="data-table-container">
     <div class="data-table-header">
         <h3>Dossiers crédit immobilier</h3>
-        <div class="search-box">
-            <i class="fas fa-search"></i>
-            <input type="text" id="searchDossiers" placeholder="Rechercher...">
-        </div>
+        <div class="search-box"><i class="fas fa-search"></i><input type="text" id="searchDossiers" placeholder="Rechercher..."></div>
     </div>
     <table class="data-table" id="tableDossiers">
-        <thead>
-            <tr>
-                <th>Date</th>
-                <th>N° personne</th>
-                <th>Type crédit</th>
-                <th>Montant</th>
-                <th>Taux</th>
-                <th>Durée</th>
-                <th>Statut</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
+        <thead><tr>
+            <th>Date</th><th>N° personne</th><th>Usage</th><th>Taux</th><th>Durée</th>
+            <th>Mensualité glob.</th><th>Endettement</th><th>Statut</th><th>Actions</th>
+        </tr></thead>
         <tbody>
         <?php foreach ($dossiers as $d):
-            $wf = $d['workflow_status'] ?? 'etude';
-            $wfInfo = $workflowLabels[$wf] ?? ['Inconnu', 'secondary'];
-        ?>
+            $wf=$d['workflow_status']??'etude'; $wfI=$workflowLabels[$wf]??['Inconnu','secondary']; ?>
             <tr>
                 <td><?= formatDate($d['date_ajout']) ?></td>
                 <td><?= e($d['numero_personne']) ?></td>
-                <td><?= e($d['type_credit']) ?></td>
-                <td><?= number_format((float)$d['montant_acquisition'], 0, ',', ' ') ?> &euro;</td>
+                <td><?= e($d['usage_bien']?:($d['type_residence']?:'—')) ?></td>
                 <td><?= $d['taux_emprunt'] ?> %</td>
                 <td><?= $d['duree_emprunt'] ?> mois</td>
-                <td><span class="badge bg-<?= $wfInfo[1] ?>"><?= $wfInfo[0] ?></span></td>
+                <td id="mens_<?= $d['id'] ?>">—</td>
+                <td id="tend_<?= $d['id'] ?>">—</td>
+                <td><span class="badge bg-<?= $wfI[1] ?>"><?= $wfI[0] ?></span></td>
                 <td class="actions">
                     <button class="btn btn-sm btn-ce-outline" onclick="showDetail(<?= $d['id'] ?>)" title="Voir"><i class="fas fa-eye"></i></button>
                     <button class="btn btn-sm btn-ce-outline" onclick="editDossier(<?= $d['id'] ?>)" title="Modifier"><i class="fas fa-edit"></i></button>
@@ -323,7 +428,7 @@ $countRefusees = count(array_filter($dossiers, fn($d) => ($d['workflow_status'] 
                     <form method="POST" class="d-inline" onsubmit="return confirm('Supprimer ce dossier ?')">
                         <input type="hidden" name="action" value="delete">
                         <input type="hidden" name="id" value="<?= $d['id'] ?>">
-                        <button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                        <button class="btn btn-sm btn-outline-danger" title="Supprimer"><i class="fas fa-trash"></i></button>
                     </form>
                 </td>
             </tr>
@@ -332,1359 +437,105 @@ $countRefusees = count(array_filter($dossiers, fn($d) => ($d['workflow_status'] 
     </table>
 </div>
 
-<!-- Modal Ajout -->
-<div class="modal fade modal-fullscreen-custom" id="addModal" tabindex="-1">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="fas fa-plus"></i> Nouveau dossier crédit immobilier</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form method="POST">
-                    <input type="hidden" name="action" value="add">
-                    <ul class="nav nav-tabs mb-3" role="tablist">
-                        <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tabClient">Client</a></li>
-                        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabCredit">Crédit</a></li>
-                        <li class="nav-item add-ptz-tab" style="display:none;"><a class="nav-link" data-bs-toggle="tab" href="#tabPTZ">PTZ/EcoPTZ</a></li>
-                        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabSituation">Situation financière</a></li>
-                        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabSuivi">Suivi</a></li>
-                    </ul>
-                    <div class="tab-content">
-                        <!-- Client -->
-                        <div class="tab-pane fade show active" id="tabClient">
-                            <div class="row g-3">
-                                <div class="col-md-4">
-                                    <label class="form-label">N° personne</label>
-                                    <input type="text" name="numero_personne" class="form-control">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">Type client</label>
-                                    <select name="type_client" class="form-select">
-                                        <option value="Particulier">Particulier</option>
-                                        <option value="Pro">Professionnel</option>
-                                        <option value="Asso">Association</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">Type d'occupation</label>
-                                    <select name="type_occupation" class="form-select">
-                                        <option value="">--</option>
-                                        <option value="Proprietaire">Propriétaire</option>
-                                        <option value="Locatif">Locatif</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">Type de résidence</label>
-                                    <select name="type_residence" class="form-select">
-                                        <option value="">--</option>
-                                        <option value="RP">Résidence principale</option>
-                                        <option value="RS">Résidence secondaire</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">Type de bien</label>
-                                    <select name="type_bien" class="form-select">
-                                        <option value="">--</option>
-                                        <option value="Appartement">Appartement</option>
-                                        <option value="Maison">Maison</option>
-                                        <option value="Copro">Copropriété</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-check mt-4">
-                                        <input class="form-check-input" type="checkbox" name="proprietaire_logement" id="addProprio">
-                                        <label class="form-check-label" for="addProprio">Propriétaire du logement actuel</label>
-                                    </div>
-                                </div>
-                                <div class="col-12">
-                                    <label class="form-label">Adresse du bien</label>
-                                    <textarea name="adresse_bien" class="form-control" rows="2"></textarea>
-                                </div>
-                            </div>
-                        </div>
-                        <!-- Crédit -->
-                        <div class="tab-pane fade" id="tabCredit">
-                            <div class="row g-3">
-                                <div class="col-12">
-                                    <label class="form-label">Type de crédit</label>
-                                    <div class="d-flex flex-wrap gap-3">
-                                        <div class="form-check"><input class="form-check-input add-type-credit" type="checkbox" name="type_credit[]" value="PH" id="addTC_PH"><label class="form-check-label" for="addTC_PH">PH</label></div>
-                                        <div class="form-check"><input class="form-check-input add-type-credit" type="checkbox" name="type_credit[]" value="PTZ" id="addTC_PTZ"><label class="form-check-label" for="addTC_PTZ">PTZ</label></div>
-                                        <div class="form-check"><input class="form-check-input add-type-credit" type="checkbox" name="type_credit[]" value="EcoPTZ" id="addTC_EcoPTZ"><label class="form-check-label" for="addTC_EcoPTZ">EcoPTZ</label></div>
-                                        <div class="form-check"><input class="form-check-input add-type-credit" type="checkbox" name="type_credit[]" value="Prescripteur" id="addTC_Prescripteur"><label class="form-check-label" for="addTC_Prescripteur">Prescripteur</label></div>
-                                        <div class="form-check"><input class="form-check-input add-type-credit" type="checkbox" name="type_credit[]" value="SCI" id="addTC_SCI"><label class="form-check-label" for="addTC_SCI">SCI</label></div>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-check mt-2">
-                                        <input class="form-check-input" type="checkbox" name="avec_travaux" id="addTravaux">
-                                        <label class="form-check-label" for="addTravaux">Avec travaux</label>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">Montant acquisition</label>
-                                    <input type="number" step="0.01" name="montant_acquisition" class="form-control" value="0">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">Frais de notaire</label>
-                                    <input type="number" step="0.01" name="frais_notaire" class="form-control" value="0">
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label">Frais d'agence</label>
-                                    <input type="number" step="0.01" name="frais_agence" class="form-control" value="0">
-                                </div>
-                                <div class="col-md-3 add-courtage-wrap">
-                                    <label class="form-label">Frais de courtage</label>
-                                    <input type="number" step="0.01" name="frais_courtage" class="form-control" value="0">
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label">Frais de dossier</label>
-                                    <input type="number" step="0.01" name="frais_dossier" class="form-control" value="0">
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label">CEGC</label>
-                                    <input type="number" step="0.01" name="cegc" class="form-control" value="0">
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label">ADE</label>
-                                    <input type="number" step="0.01" name="ade" class="form-control" value="0">
-                                </div>
-                                <div class="col-md-3 add-travaux-wrap" style="display:none;">
-                                    <label class="form-label">Travaux</label>
-                                    <input type="number" step="0.01" name="travaux" class="form-control" value="0">
-                                </div>
-                                <div class="col-md-3 add-ecoptz-wrap" style="display:none;">
-                                    <label class="form-label">Dont EcoPTZ/PTZ</label>
-                                    <input type="number" step="0.01" name="dont_ecoptz_ptz" class="form-control" value="0">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">Taux d'emprunt (%)</label>
-                                    <input type="number" step="0.001" name="taux_emprunt" class="form-control" value="0">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">Durée (mois)</label>
-                                    <input type="number" name="duree_emprunt" class="form-control" value="0">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">Apport</label>
-                                    <input type="number" step="0.01" name="apport" class="form-control" value="0">
-                                </div>
-                                <div class="col-12">
-                                    <div class="alert alert-info mb-0" id="addMontantTotal" style="display:none;"></div>
-                                </div>
-                            </div>
-                        </div>
-                        <!-- PTZ -->
-                        <div class="tab-pane fade" id="tabPTZ">
-                            <div class="row g-3">
-                                <div class="col-md-4">
-                                    <label class="form-label">Type de demande</label>
-                                    <select name="ptz_demande" class="form-select">
-                                        <option value="">--</option>
-                                        <option value="Initiale">Initiale</option>
-                                        <option value="Complementaire">Complémentaire</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">Type</label>
-                                    <select name="ptz_type" class="form-select">
-                                        <option value="">--</option>
-                                        <option value="Perf globale">Performance globale</option>
-                                        <option value="Bouquets">Bouquets</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">Nombre de bouquets</label>
-                                    <select name="ptz_nombre_bouquets" class="form-select">
-                                        <option value="">--</option>
-                                        <option value="1 Action hors parois vitrees - 15000">1 Action hors parois vitrées - 15 000 &euro;</option>
-                                        <option value="1 Action parois vitrees - 7000">1 Action parois vitrées - 7 000 &euro;</option>
-                                        <option value="2 Actions - 25000">2 Actions - 25 000 &euro;</option>
-                                        <option value="3 Actions et + - 30000">3 Actions et + - 30 000 &euro;</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                        <!-- Situation financière -->
-                        <div class="tab-pane fade" id="tabSituation">
-                            <div class="mb-3">
-                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="prefillFromBudget('add')"><i class="fas fa-link"></i> Pré-remplir depuis le calculateur budget</button>
-                            </div>
-                            <div class="row g-3">
-                                <div class="col-md-4">
-                                    <label class="form-label">Revenus mensuels</label>
-                                    <input type="number" step="0.01" name="revenus_mensuels" class="form-control" id="addRevenus" value="0">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">Charges fixes</label>
-                                    <input type="number" step="0.01" name="charges_fixes" class="form-control" id="addCharges" value="0">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">Loyer actuel</label>
-                                    <input type="number" step="0.01" name="loyer" class="form-control" id="addLoyer" value="0">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">Crédits en cours</label>
-                                    <input type="number" step="0.01" name="credits_en_cours" class="form-control" id="addCredits" value="0">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">Épargne</label>
-                                    <input type="number" step="0.01" name="epargne" class="form-control" id="addEpargne" value="0">
-                                </div>
-                            </div>
-                        </div>
-                        <!-- Suivi -->
-                        <div class="tab-pane fade" id="tabSuivi">
-                            <h6>Documents</h6>
-                            <div class="row g-2 mb-3">
-                                <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="doc_ji" value="1" id="addDocJI"><label class="form-check-label" for="addDocJI">JI</label></div></div>
-                                <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="doc_jd" value="1" id="addDocJD"><label class="form-check-label" for="addDocJD">JD</label></div></div>
-                                <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="doc_ir" value="1" id="addDocIR"><label class="form-check-label" for="addDocIR">IR</label></div></div>
-                                <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="doc_contrat_travail" value="1" id="addDocCT"><label class="form-check-label" for="addDocCT">Contrat de travail</label></div></div>
-                                <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="doc_bulletins_salaire" value="1" id="addDocBS"><label class="form-check-label" for="addDocBS">3 derniers bulletins de salaire</label></div></div>
-                                <div class="col-md-3 add-justif-proprio-wrap"><div class="form-check"><input class="form-check-input" type="checkbox" name="doc_justif_propriete" value="1" id="addDocJP"><label class="form-check-label" for="addDocJP">Justificatif de propriété</label></div></div>
-                                <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="doc_releves_externes" value="1" id="addDocRE"><label class="form-check-label" for="addDocRE">3 derniers relevés comptes externes</label></div></div>
-                                <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="doc_epargnes_externes" value="1" id="addDocEE"><label class="form-check-label" for="addDocEE">Relevés épargnes externes</label></div></div>
-                            </div>
-                            <div class="add-eco-suivi-wrap" style="display:none;">
-                                <h6>EcoPTZ</h6>
-                                <div class="row g-2 mb-3">
-                                    <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="eco_ademe_emprunteur" value="1" id="addEcoAE"><label class="form-check-label" for="addEcoAE">ADEME Emprunteur</label></div></div>
-                                    <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="eco_ademe_entreprises" value="1" id="addEcoAEnt"><label class="form-check-label" for="addEcoAEnt">ADEME Entreprises</label></div></div>
-                                    <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="eco_dpe" value="1" id="addEcoDPE"><label class="form-check-label" for="addEcoDPE">DPE</label></div></div>
-                                    <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="eco_audit" value="1" id="addEcoAudit"><label class="form-check-label" for="addEcoAudit">Audit</label></div></div>
-                                    <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="eco_devis_travaux" value="1" id="addEcoDT"><label class="form-check-label" for="addEcoDT">Devis travaux</label></div></div>
-                                </div>
-                            </div>
-                            <h6>Suivi workflow</h6>
-                            <div class="row g-2 mb-2">
-                                <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_synthese_envoyee" value="1" id="addSuiviSE"><label class="form-check-label" for="addSuiviSE">Synthèse envoyée</label></div></div>
-                                <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_controle_conformite" value="1" id="addSuiviCC"><label class="form-check-label" for="addSuiviCC">Contrôle conformité</label></div></div>
-                                <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_edition_offres" value="1" id="addSuiviEO"><label class="form-check-label" for="addSuiviEO">Édition offres</label></div></div>
-                                <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_envoi_signature" value="1" id="addSuiviES"><label class="form-check-label" for="addSuiviES">Envoi signature</label></div></div>
-                                <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_offre_signee" value="1" id="addSuiviOS"><label class="form-check-label" for="addSuiviOS">Offre signée</label></div></div>
-                            </div>
-                            <hr class="my-2">
-                            <h6>CEGC</h6>
-                            <div class="row g-2 mb-2">
-                                <div class="col-md-3"><label class="form-label">Date demande accord</label><input type="date" name="suivi_date_demande_cegc" class="form-control"></div>
-                                <div class="col-md-3"><label class="form-label">Date retour</label><input type="date" name="suivi_date_retour_cegc" class="form-control"></div>
-                                <div class="col-md-3 d-flex align-items-end gap-3 pb-1">
-                                    <div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_cegc_accord" value="1" id="addCegcAccord"><label class="form-check-label" for="addCegcAccord">Accord</label></div>
-                                    <div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_cegc_refus" value="1" id="addCegcRefus"><label class="form-check-label" for="addCegcRefus">Refus</label></div>
-                                </div>
-                            </div>
-                            <h6>CNP</h6>
-                            <div class="row g-2 mb-2">
-                                <div class="col-md-3"><label class="form-label">Date création dossier</label><input type="date" name="suivi_date_creation_cnp" class="form-control"></div>
-                                <div class="col-md-3"><label class="form-label">Date retour</label><input type="date" name="suivi_date_retour_cnp" class="form-control"></div>
-                            </div>
-                            <h6>Liasse (FSI / demande de crédit)</h6>
-                            <div class="row g-2 mb-2">
-                                <div class="col-md-3"><label class="form-label">Date édition liasse</label><input type="date" name="suivi_date_edition_liasse" class="form-control"></div>
-                                <div class="col-md-3"><label class="form-label">Date signature liasse</label><input type="date" name="suivi_date_signature_liasse" class="form-control"></div>
-                            </div>
-                            <h6>Contrôle conformité</h6>
-                            <div class="row g-2 mb-2">
-                                <div class="col-md-3"><label class="form-label">Date envoi</label><input type="date" name="suivi_date_envoi_conformite" class="form-control"></div>
-                                <div class="col-md-3"><label class="form-label">Date retour</label><input type="date" name="suivi_date_retour_conformite" class="form-control"></div>
-                                <div class="col-md-3 d-flex align-items-end gap-3 pb-1">
-                                    <div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_conformite_conforme" value="1" id="addConformeOui"><label class="form-check-label" for="addConformeOui">Conforme</label></div>
-                                    <div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_conformite_non_conforme" value="1" id="addConformeNon"><label class="form-check-label" for="addConformeNon">Non conforme</label></div>
-                                </div>
-                                <div class="col-md-3"><label class="form-label">Motif non conformité</label><input type="text" name="suivi_conformite_motif" class="form-control" placeholder="Motif..."></div>
-                            </div>
-                            <h6>Offres</h6>
-                            <div class="row g-2 mb-2">
-                                <div class="col-md-3"><label class="form-label">Date édition offres</label><input type="date" name="suivi_date_edition_offres_dt" class="form-control"></div>
-                                <div class="col-md-3"><label class="form-label">Date accusé réception</label><input type="date" name="suivi_date_accuse_reception" id="addAccuseReception" class="form-control" oninput="calcJ11Add(this)"></div>
-                                <div class="col-md-3"><label class="form-label">Date J+11</label><input type="date" name="suivi_date_j11" id="addDateJ11" class="form-control"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row g-3 mt-2">
-                        <div class="col-md-4">
-                            <label class="form-label">Statut du dossier</label>
-                            <select name="workflow_status" class="form-select">
-                                <?php foreach ($workflowLabels as $k => $v): ?>
-                                    <option value="<?= $k ?>"><?= $v[0] ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="col-md-8">
-                            <label class="form-label">Notes du conseiller</label>
-                            <textarea name="notes" class="form-control" rows="2" placeholder="Observations, points d'attention..."></textarea>
-                        </div>
-                    </div>
-                    <div class="mt-3">
-                        <button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Créer le dossier</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
+<!-- ── MODALS ────────────────────────────────────────────────────────────── -->
+<div class="modal fade" id="addModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="fas fa-plus"></i> Nouveau dossier crédit immobilier</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body" id="addContent"></div>
+    </div></div>
 </div>
-
-<!-- Modal Detail -->
-<div class="modal fade modal-fullscreen-custom" id="detailModal" tabindex="-1">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="fas fa-info-circle"></i> Détails du dossier</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body" id="detailContent"></div>
-        </div>
-    </div>
+<div class="modal fade" id="detailModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="fas fa-info-circle"></i> Détails du dossier</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body" id="detailContent"></div>
+    </div></div>
 </div>
-
-<!-- Modal Edit -->
-<div class="modal fade modal-fullscreen-custom" id="editModal" tabindex="-1">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="fas fa-edit"></i> Modifier le dossier</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body" id="editContent"></div>
-        </div>
-    </div>
+<div class="modal fade" id="editModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="fas fa-edit"></i> Modifier le dossier</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body" id="editContent"></div>
+    </div></div>
 </div>
-
-<!-- Modal Amortissement -->
-<div class="modal fade modal-fullscreen-custom" id="amortModal" tabindex="-1">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="fas fa-table"></i> Tableau d'amortissement</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body" id="amortContent"></div>
-        </div>
-    </div>
+<div class="modal fade" id="amortModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="fas fa-table"></i> Tableau d'amortissement</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body" id="amortContent"></div>
+    </div></div>
 </div>
-
-<!-- Modal Comparaison -->
-<div class="modal fade modal-fullscreen-custom" id="compareModal" tabindex="-1">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="fas fa-balance-scale"></i> Comparaison de scénarios</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body" id="compareContent"></div>
-        </div>
-    </div>
+<div class="modal fade" id="simulModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="fas fa-calculator"></i> Simulation "Et si..."</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body" id="simulContent"></div>
+    </div></div>
 </div>
-
-<!-- Modal Simulation -->
-<div class="modal fade modal-fullscreen-custom" id="simulModal" tabindex="-1">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="fas fa-calculator"></i> Simulation "Et si..."</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body" id="simulContent"></div>
-        </div>
-    </div>
+<div class="modal fade" id="compareModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"><i class="fas fa-balance-scale"></i> Comparaison de scénarios</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body" id="compareContent"></div>
+    </div></div>
 </div>
-
-<!-- Zone impression (cachée) -->
 <div id="printArea" class="print-dossier" style="display:none;"></div>
 
 <script>
-filterTable('searchDossiers', 'tableDossiers');
-
-const dossiersData = <?= json_encode($dossiers) ?>;
-
-function escapeHtml(str) {
-    if (!str) return '';
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-}
-
-function fmt(val) {
-    return parseFloat(val || 0).toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-}
-
-function chk(val) { return val == 1 ? '<i class="fas fa-check-circle text-success"></i>' : '<i class="fas fa-times-circle text-muted"></i>'; }
-
-// Conditional logic for Add modal
-function initAddConditionalLogic() {
-    const typeCredits = document.querySelectorAll('.add-type-credit');
-    const travauxCheck = document.getElementById('addTravaux');
-    const ptzTab = document.querySelector('.add-ptz-tab');
-    const travauxWrap = document.querySelector('.add-travaux-wrap');
-    const ecoptzWrap = document.querySelector('.add-ecoptz-wrap');
-    const courtageWrap = document.querySelector('.add-courtage-wrap');
-    const ecoSuiviWrap = document.querySelector('.add-eco-suivi-wrap');
-    const proprioCheck = document.getElementById('addProprio');
-    const justifProprioWrap = document.querySelector('.add-justif-proprio-wrap');
-
-    function updateVisibility() {
-        const checked = Array.from(typeCredits).filter(c => c.checked).map(c => c.value);
-        const hasPTZ = checked.includes('PTZ') || checked.includes('EcoPTZ');
-        const hasPrescripteur = checked.includes('Prescripteur');
-
-        // Auto-check travaux if PTZ/EcoPTZ
-        if (hasPTZ) travauxCheck.checked = true;
-
-        // Show/hide PTZ tab
-        ptzTab.style.display = hasPTZ ? '' : 'none';
-
-        // Show/hide courtage if Prescripteur
-        courtageWrap.style.display = hasPrescripteur ? '' : 'none';
-
-        // Show/hide EcoPTZ suivi section
-        if (ecoSuiviWrap) ecoSuiviWrap.style.display = hasPTZ ? '' : 'none';
-
-        updateTravauxVisibility();
-    }
-
-    function updateTravauxVisibility() {
-        const checked = Array.from(typeCredits).filter(c => c.checked).map(c => c.value);
-        const hasPTZ = checked.includes('PTZ') || checked.includes('EcoPTZ');
-        const avecTravaux = travauxCheck.checked;
-
-        travauxWrap.style.display = avecTravaux ? '' : 'none';
-        ecoptzWrap.style.display = (avecTravaux && hasPTZ) ? '' : 'none';
-    }
-
-    function updateProprioVisibility() {
-        if (justifProprioWrap) justifProprioWrap.style.display = proprioCheck.checked ? '' : 'none';
-    }
-
-    typeCredits.forEach(cb => cb.addEventListener('change', updateVisibility));
-    travauxCheck.addEventListener('change', updateTravauxVisibility);
-    if (proprioCheck) proprioCheck.addEventListener('change', updateProprioVisibility);
-
-    updateVisibility();
-    updateProprioVisibility();
-}
-
-// Workflow labels
-const workflowLabels = {
-    'etude': ['Étude en cours', 'secondary'],
-    'dossier_complet': ['Dossier complet', 'info'],
-    'synthese_envoyee': ['Synthèse envoyée', 'primary'],
-    'controle': ['Contrôle conformité', 'primary'],
-    'edition_offres': ['Édition offres', 'warning'],
-    'envoi_signature': ['Envoi signature', 'warning'],
-    'offre_signee': ['Offre signée', 'success'],
-    'deblocage': ['Déblocage fonds', 'success'],
-    'termine': ['Terminé', 'dark'],
-    'refuse': ['Refusé', 'danger']
-};
-const workflowSteps = ['etude','dossier_complet','synthese_envoyee','controle','edition_offres','envoi_signature','offre_signee','deblocage','termine'];
-
-function getEndettementBadge(taux) {
-    if (taux === 'N/A') return '<span class="badge bg-secondary">N/A</span>';
-    const t = parseFloat(taux);
-    if (t <= 25) return `<span class="badge bg-success" style="font-size:1em;">${taux}%</span>`;
-    if (t <= 33) return `<span class="badge bg-warning text-dark" style="font-size:1em;">${taux}%</span>`;
-    if (t <= 35) return `<span class="badge bg-orange text-white" style="font-size:1em;">${taux}% <i class="fas fa-exclamation-triangle"></i></span>`;
-    return `<span class="badge bg-danger" style="font-size:1em;">${taux}% <i class="fas fa-exclamation-circle"></i> ALERTE</span>`;
-}
-
-function getEndettementAlert(taux) {
-    if (taux === 'N/A') return '';
-    const t = parseFloat(taux);
-    if (t <= 33) return '';
-    if (t <= 35) return '<div class="alert alert-warning mt-2"><i class="fas fa-exclamation-triangle"></i> <strong>Attention :</strong> Taux d\'endettement proche du seuil HCSF de 35%.</div>';
-    return '<div class="alert alert-danger mt-2"><i class="fas fa-exclamation-circle"></i> <strong>ALERTE :</strong> Taux d\'endettement supérieur au seuil HCSF de 35%. Le dossier risque d\'être refusé.</div>';
-}
-
-function calcMensualite(capital, tauxAnnuel, duree) {
-    const tm = tauxAnnuel / 100 / 12;
-    if (tm > 0 && duree > 0) return capital * tm / (1 - Math.pow(1 + tm, -duree));
-    if (duree > 0) return capital / duree;
-    return 0;
-}
-
-function getTotalFinancement(d) {
-    return parseFloat(d.montant_acquisition||0) + parseFloat(d.frais_notaire||0) + parseFloat(d.frais_agence||0)
-        + parseFloat(d.frais_courtage||0) + parseFloat(d.frais_dossier||0) + parseFloat(d.cegc||0)
-        + parseFloat(d.travaux||0);
-}
-
-function getCapital(d) {
-    return getTotalFinancement(d) - parseFloat(d.apport||0);
-}
-
-function calcPTZMontant(d) {
-    const bouquet = d.ptz_nombre_bouquets || '';
-    const match = bouquet.match(/(\d+)$/);
-    return match ? parseInt(match[1]) : 0;
-}
-
-function buildWorkflowProgress(status) {
-    const idx = workflowSteps.indexOf(status);
-    if (status === 'refuse') return '<div class="alert alert-danger text-center mb-0"><i class="fas fa-times-circle"></i> Dossier refusé</div>';
-    let html = '<div class="d-flex justify-content-between align-items-center" style="font-size:0.75rem;">';
-    workflowSteps.forEach((step, i) => {
-        const label = workflowLabels[step] ? workflowLabels[step][0] : step;
-        const active = i <= idx;
-        const current = i === idx;
-        const color = active ? (current ? 'var(--ce-primary)' : '#28a745') : '#dee2e6';
-        html += `<div class="text-center flex-fill">
-            <div style="width:24px;height:24px;border-radius:50%;background:${color};color:#fff;margin:0 auto 2px;line-height:24px;font-size:0.7rem;">${active ? '<i class="fas fa-check"></i>' : (i+1)}</div>
-            <div style="color:${current ? 'var(--ce-primary)' : '#888'};font-weight:${current ? 'bold' : 'normal'}">${label}</div>
-        </div>`;
-        if (i < workflowSteps.length - 1) html += `<div style="flex:1;height:2px;background:${i < idx ? '#28a745' : '#dee2e6'};margin-top:-12px;"></div>`;
-    });
-    return html + '</div>';
-}
-
-function calcJ11(inputEl, targetId) {
-    const val = inputEl.value;
-    const target = document.getElementById(targetId);
-    if (!target) return;
-    if (!val) { target.value = ''; return; }
-    const d = new Date(val);
-    d.setDate(d.getDate() + 11);
-    target.value = d.toISOString().split('T')[0];
-}
-function calcJ11Add(el) { calcJ11(el, 'addDateJ11'); }
-function calcJ11Edit(el) { calcJ11(el, 'editDateJ11'); }
-
-function showDetail(id) {
-    const d = dossiersData.find(x => x.id == id);
-    if (!d) return;
-
-    const totalFinancement = getTotalFinancement(d);
-    const montantEmprunte = getCapital(d);
-    const taux = parseFloat(d.taux_emprunt||0);
-    const duree = parseInt(d.duree_emprunt||0);
-    const mensualite = calcMensualite(montantEmprunte, taux, duree);
-    const coutTotal = mensualite * duree;
-    const totalInterets = coutTotal - montantEmprunte;
-    const tauxEndettement = parseFloat(d.revenus_mensuels||0) > 0
-        ? ((mensualite + parseFloat(d.credits_en_cours||0)) / parseFloat(d.revenus_mensuels) * 100).toFixed(1)
-        : 'N/A';
-    const resteAVivre = parseFloat(d.revenus_mensuels||0) - mensualite - parseFloat(d.charges_fixes||0) - parseFloat(d.credits_en_cours||0);
-    const ptzMontant = calcPTZMontant(d);
-    const wf = d.workflow_status || 'etude';
-    const wfInfo = workflowLabels[wf] || ['Inconnu', 'secondary'];
-
-    document.getElementById('detailContent').innerHTML = `
-        <div class="mb-3">${buildWorkflowProgress(wf)}</div>
-        ${getEndettementAlert(tauxEndettement)}
-        <div class="row g-3">
-            <div class="col-md-6">
-                <h5>Client</h5>
-                <table class="table table-sm"><tbody>
-                    <tr><td>N° personne</td><td><strong>${escapeHtml(d.numero_personne)}</strong></td></tr>
-                    <tr><td>Type</td><td>${escapeHtml(d.type_client)}</td></tr>
-                    <tr><td>Occupation</td><td>${escapeHtml(d.type_occupation)}</td></tr>
-                    <tr><td>Résidence</td><td>${d.type_residence === 'RP' ? 'Principale' : d.type_residence === 'RS' ? 'Secondaire' : ''}</td></tr>
-                    <tr><td>Bien</td><td>${escapeHtml(d.type_bien)}</td></tr>
-                    <tr><td>Propriétaire logement</td><td>${chk(d.proprietaire_logement)}</td></tr>
-                    <tr><td>Adresse bien</td><td>${escapeHtml(d.adresse_bien)}</td></tr>
-                </tbody></table>
-            </div>
-            <div class="col-md-6">
-                <h5>Crédit</h5>
-                <table class="table table-sm"><tbody>
-                    <tr><td>Type crédit</td><td>${escapeHtml(d.type_credit)}</td></tr>
-                    <tr><td>Montant acquisition</td><td>${fmt(d.montant_acquisition)} &euro;</td></tr>
-                    <tr><td>Frais notaire</td><td>${fmt(d.frais_notaire)} &euro;</td></tr>
-                    <tr><td>Frais agence</td><td>${fmt(d.frais_agence)} &euro;</td></tr>
-                    <tr><td>Frais courtage/dossier</td><td>${fmt(d.frais_courtage)} / ${fmt(d.frais_dossier)} &euro;</td></tr>
-                    <tr><td>CEGC / ADE</td><td>${fmt(d.cegc)} / ${fmt(d.ade)} &euro;</td></tr>
-                    <tr><td>Travaux</td><td>${fmt(d.travaux)} &euro;</td></tr>
-                    <tr><td>Apport</td><td>${fmt(d.apport)} &euro;</td></tr>
-                    <tr><td>Taux / Durée</td><td>${d.taux_emprunt}% / ${d.duree_emprunt} mois</td></tr>
-                    <tr class="table-info"><td><strong>Total financement</strong></td><td><strong>${fmt(totalFinancement)} &euro;</strong></td></tr>
-                    <tr class="table-info"><td><strong>Montant emprunté</strong></td><td><strong>${fmt(montantEmprunte)} &euro;</strong></td></tr>
-                    <tr class="table-warning"><td><strong>Mensualité</strong></td><td><strong>${fmt(mensualite)} &euro;</strong></td></tr>
-                    <tr class="table-secondary"><td><strong>Coût total intérêts</strong></td><td><strong>${fmt(totalInterets)} &euro;</strong></td></tr>
-                    <tr class="table-secondary"><td><strong>Coût total crédit</strong></td><td><strong>${fmt(coutTotal)} &euro;</strong></td></tr>
-                    ${ptzMontant > 0 ? `<tr class="table-success"><td><strong>Montant PTZ/EcoPTZ</strong></td><td><strong>${fmt(ptzMontant)} &euro;</strong></td></tr>` : ''}
-                </tbody></table>
-            </div>
-            <div class="col-md-6">
-                <h5>Situation financière</h5>
-                <table class="table table-sm"><tbody>
-                    <tr><td>Revenus mensuels</td><td>${fmt(d.revenus_mensuels)} &euro;</td></tr>
-                    <tr><td>Charges fixes</td><td>${fmt(d.charges_fixes)} &euro;</td></tr>
-                    <tr><td>Loyer actuel</td><td>${fmt(d.loyer)} &euro;</td></tr>
-                    <tr><td>Crédits en cours</td><td>${fmt(d.credits_en_cours)} &euro;</td></tr>
-                    <tr><td>Épargne</td><td>${fmt(d.epargne)} &euro;</td></tr>
-                    <tr><td><strong>Taux d'endettement</strong></td><td>${getEndettementBadge(tauxEndettement)}</td></tr>
-                    <tr class="table-info"><td><strong>Reste à vivre</strong></td><td><strong>${fmt(resteAVivre)} &euro;</strong></td></tr>
-                </tbody></table>
-            </div>
-            <div class="col-md-6">
-                <h5>Suivi documents</h5>
-                <table class="table table-sm"><tbody>
-                    <tr><td>JI</td><td>${chk(d.doc_ji)}</td><td>JD</td><td>${chk(d.doc_jd)}</td></tr>
-                    <tr><td>IR</td><td>${chk(d.doc_ir)}</td><td>Contrat travail</td><td>${chk(d.doc_contrat_travail)}</td></tr>
-                    <tr><td>Bulletins salaire</td><td>${chk(d.doc_bulletins_salaire)}</td><td>Justif. propriété</td><td>${chk(d.doc_justif_propriete)}</td></tr>
-                    <tr><td>Relevés externes</td><td>${chk(d.doc_releves_externes)}</td><td>Épargnes externes</td><td>${chk(d.doc_epargnes_externes)}</td></tr>
-                </tbody></table>
-                <h5>Suivi EcoPTZ</h5>
-                <table class="table table-sm"><tbody>
-                    <tr><td>ADEME emprunteur</td><td>${chk(d.eco_ademe_emprunteur)}</td><td>ADEME entreprises</td><td>${chk(d.eco_ademe_entreprises)}</td></tr>
-                    <tr><td>DPE</td><td>${chk(d.eco_dpe)}</td><td>Audit</td><td>${chk(d.eco_audit)}</td></tr>
-                    <tr><td>Devis travaux</td><td>${chk(d.eco_devis_travaux)}</td><td></td><td></td></tr>
-                </tbody></table>
-                <h5>Suivi dossier</h5>
-                <table class="table table-sm"><tbody>
-                    <tr><td>Synthèse envoyée</td><td>${chk(d.suivi_synthese_envoyee)}</td></tr>
-                    <tr><td>Contrôle conformité</td><td>${chk(d.suivi_controle_conformite)}</td></tr>
-                    <tr><td>Édition offres</td><td>${chk(d.suivi_edition_offres)}</td></tr>
-                    <tr><td>Envoi signature</td><td>${chk(d.suivi_envoi_signature)}</td></tr>
-                    <tr><td>Offre signée</td><td>${chk(d.suivi_offre_signee)} ${d.suivi_offre_signee_date ? '(' + d.suivi_offre_signee_date + ')' : ''}</td></tr>
-                </tbody></table>
-                <h5>CEGC</h5>
-                <table class="table table-sm"><tbody>
-                    <tr><td>Date demande accord</td><td>${d.suivi_date_demande_cegc||'-'}</td><td>Date retour</td><td>${d.suivi_date_retour_cegc||'-'}</td></tr>
-                    <tr><td>Accord</td><td>${chk(d.suivi_cegc_accord)}</td><td>Refus</td><td>${chk(d.suivi_cegc_refus)}</td></tr>
-                </tbody></table>
-                <h5>CNP</h5>
-                <table class="table table-sm"><tbody>
-                    <tr><td>Date création dossier</td><td>${d.suivi_date_creation_cnp||'-'}</td><td>Date retour</td><td>${d.suivi_date_retour_cnp||'-'}</td></tr>
-                </tbody></table>
-                <h5>Liasse (FSI / demande de crédit)</h5>
-                <table class="table table-sm"><tbody>
-                    <tr><td>Date édition liasse</td><td>${d.suivi_date_edition_liasse||'-'}</td><td>Date signature liasse</td><td>${d.suivi_date_signature_liasse||'-'}</td></tr>
-                </tbody></table>
-                <h5>Contrôle conformité</h5>
-                <table class="table table-sm"><tbody>
-                    <tr><td>Date envoi</td><td>${d.suivi_date_envoi_conformite||'-'}</td><td>Date retour</td><td>${d.suivi_date_retour_conformite||'-'}</td></tr>
-                    <tr><td>Conforme</td><td>${chk(d.suivi_conformite_conforme)}</td><td>Non conforme</td><td>${chk(d.suivi_conformite_non_conforme)}</td></tr>
-                    ${d.suivi_conformite_motif ? `<tr><td>Motif</td><td colspan="3">${escapeHtml(d.suivi_conformite_motif)}</td></tr>` : ''}
-                </tbody></table>
-                <h5>Offres</h5>
-                <table class="table table-sm"><tbody>
-                    <tr><td>Date édition offres</td><td>${d.suivi_date_edition_offres_dt||'-'}</td><td>Date accusé réception</td><td>${d.suivi_date_accuse_reception||'-'}</td></tr>
-                    <tr><td>Date J+11</td><td>${d.suivi_date_j11||'-'}</td><td></td><td></td></tr>
-                </tbody></table>
-            </div>
-            ${d.notes ? `<div class="col-12"><h5>Notes du conseiller</h5><div class="alert alert-light">${escapeHtml(d.notes)}</div></div>` : ''}
-        </div>`;
-    new bootstrap.Modal(document.getElementById('detailModal')).show();
-}
-
-function sel(name, val, options) {
-    return options.map(o => `<option value="${o[0]}" ${val === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('');
-}
-
-function editDossier(id) {
-    const d = dossiersData.find(x => x.id == id);
-    if (!d) return;
-    const tc = (d.type_credit || '').split(',');
-    const hasPTZ = tc.includes('PTZ') || tc.includes('EcoPTZ');
-    const hasPrescripteur = tc.includes('Prescripteur');
-    const avecTravaux = d.avec_travaux == 1;
-
-    const bouquetOptions = [
-        ['1 Action hors parois vitrees - 15000', '1 Action hors parois vitrées - 15 000 €'],
-        ['1 Action parois vitrees - 7000', '1 Action parois vitrées - 7 000 €'],
-        ['2 Actions - 25000', '2 Actions - 25 000 €'],
-        ['3 Actions et + - 30000', '3 Actions et + - 30 000 €']
-    ];
-
-    document.getElementById('editContent').innerHTML = `
-        <form method="POST">
-            <input type="hidden" name="action" value="edit">
-            <input type="hidden" name="id" value="${id}">
-            <ul class="nav nav-tabs mb-3" role="tablist">
-                <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#eTabClient">Client</a></li>
-                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#eTabCredit">Crédit</a></li>
-                <li class="nav-item edit-ptz-tab" style="${hasPTZ ? '' : 'display:none'}"><a class="nav-link" data-bs-toggle="tab" href="#eTabPTZ">PTZ/EcoPTZ</a></li>
-                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#eTabSituation">Situation</a></li>
-                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#eTabSuivi">Suivi</a></li>
-            </ul>
-            <div class="tab-content">
-                <div class="tab-pane fade show active" id="eTabClient">
-                    <div class="row g-3">
-                        <div class="col-md-4"><label class="form-label">N° personne</label><input type="text" name="numero_personne" class="form-control" value="${escapeHtml(d.numero_personne)}"></div>
-                        <div class="col-md-4"><label class="form-label">Type client</label><select name="type_client" class="form-select">${sel('type_client', d.type_client, [['Particulier','Particulier'],['Pro','Professionnel'],['Asso','Association']])}</select></div>
-                        <div class="col-md-4"><label class="form-label">Type occupation</label><select name="type_occupation" class="form-select"><option value="">--</option>${sel('', d.type_occupation, [['Proprietaire','Propriétaire'],['Locatif','Locatif']])}</select></div>
-                        <div class="col-md-4"><label class="form-label">Résidence</label><select name="type_residence" class="form-select"><option value="">--</option>${sel('', d.type_residence, [['RP','Principale'],['RS','Secondaire']])}</select></div>
-                        <div class="col-md-4"><label class="form-label">Type bien</label><select name="type_bien" class="form-select"><option value="">--</option>${sel('', d.type_bien, [['Appartement','Appartement'],['Maison','Maison'],['Copro','Copropriété']])}</select></div>
-                        <div class="col-md-4"><div class="form-check mt-4"><input class="form-check-input edit-proprio-check" type="checkbox" name="proprietaire_logement" ${d.proprietaire_logement == 1 ? 'checked' : ''}><label class="form-check-label">Propriétaire logement</label></div></div>
-                        <div class="col-12"><label class="form-label">Adresse bien</label><textarea name="adresse_bien" class="form-control" rows="2">${escapeHtml(d.adresse_bien)}</textarea></div>
-                    </div>
-                </div>
-                <div class="tab-pane fade" id="eTabCredit">
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <label class="form-label">Type de crédit</label>
-                            <div class="d-flex flex-wrap gap-3">
-                                <div class="form-check"><input class="form-check-input edit-type-credit" type="checkbox" name="type_credit[]" value="PH" ${tc.includes('PH') ? 'checked' : ''}><label class="form-check-label">PH</label></div>
-                                <div class="form-check"><input class="form-check-input edit-type-credit" type="checkbox" name="type_credit[]" value="PTZ" ${tc.includes('PTZ') ? 'checked' : ''}><label class="form-check-label">PTZ</label></div>
-                                <div class="form-check"><input class="form-check-input edit-type-credit" type="checkbox" name="type_credit[]" value="EcoPTZ" ${tc.includes('EcoPTZ') ? 'checked' : ''}><label class="form-check-label">EcoPTZ</label></div>
-                                <div class="form-check"><input class="form-check-input edit-type-credit" type="checkbox" name="type_credit[]" value="Prescripteur" ${tc.includes('Prescripteur') ? 'checked' : ''}><label class="form-check-label">Prescripteur</label></div>
-                                <div class="form-check"><input class="form-check-input edit-type-credit" type="checkbox" name="type_credit[]" value="SCI" ${tc.includes('SCI') ? 'checked' : ''}><label class="form-check-label">SCI</label></div>
-                            </div>
-                        </div>
-                        <div class="col-md-4"><div class="form-check mt-2"><input class="form-check-input edit-travaux-check" type="checkbox" name="avec_travaux" ${avecTravaux ? 'checked' : ''}><label class="form-check-label">Avec travaux</label></div></div>
-                        <div class="col-md-4"><label class="form-label">Montant acquisition</label><input type="number" step="0.01" name="montant_acquisition" class="form-control" value="${d.montant_acquisition}"></div>
-                        <div class="col-md-4"><label class="form-label">Frais de notaire</label><input type="number" step="0.01" name="frais_notaire" class="form-control" value="${d.frais_notaire}"></div>
-                        <div class="col-md-3"><label class="form-label">Frais d'agence</label><input type="number" step="0.01" name="frais_agence" class="form-control" value="${d.frais_agence}"></div>
-                        <div class="col-md-3 edit-courtage-wrap" style="${hasPrescripteur ? '' : 'display:none'}"><label class="form-label">Frais de courtage</label><input type="number" step="0.01" name="frais_courtage" class="form-control" value="${d.frais_courtage}"></div>
-                        <div class="col-md-3"><label class="form-label">Frais de dossier</label><input type="number" step="0.01" name="frais_dossier" class="form-control" value="${d.frais_dossier}"></div>
-                        <div class="col-md-3"><label class="form-label">CEGC</label><input type="number" step="0.01" name="cegc" class="form-control" value="${d.cegc}"></div>
-                        <div class="col-md-3"><label class="form-label">ADE</label><input type="number" step="0.01" name="ade" class="form-control" value="${d.ade}"></div>
-                        <div class="col-md-3 edit-travaux-wrap" style="${avecTravaux ? '' : 'display:none'}"><label class="form-label">Travaux</label><input type="number" step="0.01" name="travaux" class="form-control" value="${d.travaux}"></div>
-                        <div class="col-md-3 edit-ecoptz-wrap" style="${avecTravaux && hasPTZ ? '' : 'display:none'}"><label class="form-label">Dont EcoPTZ/PTZ</label><input type="number" step="0.01" name="dont_ecoptz_ptz" class="form-control" value="${d.dont_ecoptz_ptz}"></div>
-                        <div class="col-md-4"><label class="form-label">Taux (%)</label><input type="number" step="0.001" name="taux_emprunt" class="form-control" value="${d.taux_emprunt}"></div>
-                        <div class="col-md-4"><label class="form-label">Durée (mois)</label><input type="number" name="duree_emprunt" class="form-control" value="${d.duree_emprunt}"></div>
-                        <div class="col-md-4"><label class="form-label">Apport</label><input type="number" step="0.01" name="apport" class="form-control" value="${d.apport}"></div>
-                    </div>
-                </div>
-                <div class="tab-pane fade" id="eTabPTZ">
-                    <div class="row g-3">
-                        <div class="col-md-4"><label class="form-label">Demande</label><select name="ptz_demande" class="form-select"><option value="">--</option>${sel('', d.ptz_demande, [['Initiale','Initiale'],['Complementaire','Complémentaire']])}</select></div>
-                        <div class="col-md-4"><label class="form-label">Type</label><select name="ptz_type" class="form-select"><option value="">--</option>${sel('', d.ptz_type, [['Perf globale','Performance globale'],['Bouquets','Bouquets']])}</select></div>
-                        <div class="col-md-4"><label class="form-label">Nombre de bouquets</label><select name="ptz_nombre_bouquets" class="form-select"><option value="">--</option>${bouquetOptions.map(o => '<option value="'+o[0]+'" '+(d.ptz_nombre_bouquets===o[0]?'selected':'')+'>'+o[1]+'</option>').join('')}</select></div>
-                    </div>
-                </div>
-                <div class="tab-pane fade" id="eTabSituation">
-                    <div class="mb-3"><button type="button" class="btn btn-sm btn-outline-primary" onclick="prefillFromBudget('edit')"><i class="fas fa-link"></i> Pré-remplir depuis le calculateur budget</button></div>
-                    <div class="row g-3">
-                        <div class="col-md-4"><label class="form-label">Revenus mensuels</label><input type="number" step="0.01" name="revenus_mensuels" class="form-control" id="editRevenus" value="${d.revenus_mensuels}"></div>
-                        <div class="col-md-4"><label class="form-label">Charges fixes</label><input type="number" step="0.01" name="charges_fixes" class="form-control" id="editCharges" value="${d.charges_fixes}"></div>
-                        <div class="col-md-4"><label class="form-label">Loyer actuel</label><input type="number" step="0.01" name="loyer" class="form-control" id="editLoyer" value="${d.loyer}"></div>
-                        <div class="col-md-4"><label class="form-label">Crédits en cours</label><input type="number" step="0.01" name="credits_en_cours" class="form-control" id="editCredits" value="${d.credits_en_cours}"></div>
-                        <div class="col-md-4"><label class="form-label">Épargne</label><input type="number" step="0.01" name="epargne" class="form-control" id="editEpargne" value="${d.epargne}"></div>
-                    </div>
-                </div>
-                <div class="tab-pane fade" id="eTabSuivi">
-                    <h6>Documents</h6>
-                    <div class="row g-2 mb-3">
-                        <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="doc_ji" value="1" ${d.doc_ji==1?'checked':''}><label class="form-check-label">JI</label></div></div>
-                        <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="doc_jd" value="1" ${d.doc_jd==1?'checked':''}><label class="form-check-label">JD</label></div></div>
-                        <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="doc_ir" value="1" ${d.doc_ir==1?'checked':''}><label class="form-check-label">IR</label></div></div>
-                        <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="doc_contrat_travail" value="1" ${d.doc_contrat_travail==1?'checked':''}><label class="form-check-label">Contrat de travail</label></div></div>
-                        <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="doc_bulletins_salaire" value="1" ${d.doc_bulletins_salaire==1?'checked':''}><label class="form-check-label">3 derniers bulletins de salaire</label></div></div>
-                        <div class="col-md-3 edit-justif-proprio-wrap" style="${d.proprietaire_logement==1?'':'display:none'}"><div class="form-check"><input class="form-check-input" type="checkbox" name="doc_justif_propriete" value="1" ${d.doc_justif_propriete==1?'checked':''}><label class="form-check-label">Justificatif de propriété</label></div></div>
-                        <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="doc_releves_externes" value="1" ${d.doc_releves_externes==1?'checked':''}><label class="form-check-label">3 derniers relevés comptes externes</label></div></div>
-                        <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="doc_epargnes_externes" value="1" ${d.doc_epargnes_externes==1?'checked':''}><label class="form-check-label">Relevés épargnes externes</label></div></div>
-                    </div>
-                    <div class="edit-eco-suivi-wrap" style="${hasPTZ?'':'display:none'}">
-                        <h6>EcoPTZ</h6>
-                        <div class="row g-2 mb-3">
-                            <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="eco_ademe_emprunteur" value="1" ${d.eco_ademe_emprunteur==1?'checked':''}><label class="form-check-label">ADEME Emprunteur</label></div></div>
-                            <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="eco_ademe_entreprises" value="1" ${d.eco_ademe_entreprises==1?'checked':''}><label class="form-check-label">ADEME Entreprises</label></div></div>
-                            <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="eco_dpe" value="1" ${d.eco_dpe==1?'checked':''}><label class="form-check-label">DPE</label></div></div>
-                            <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="eco_audit" value="1" ${d.eco_audit==1?'checked':''}><label class="form-check-label">Audit</label></div></div>
-                            <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="eco_devis_travaux" value="1" ${d.eco_devis_travaux==1?'checked':''}><label class="form-check-label">Devis travaux</label></div></div>
-                        </div>
-                    </div>
-                    <h6>Suivi workflow</h6>
-                    <div class="row g-2 mb-2">
-                        <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_synthese_envoyee" value="1" ${d.suivi_synthese_envoyee==1?'checked':''}><label class="form-check-label">Synthèse envoyée</label></div></div>
-                        <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_controle_conformite" value="1" ${d.suivi_controle_conformite==1?'checked':''}><label class="form-check-label">Contrôle conformité</label></div></div>
-                        <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_edition_offres" value="1" ${d.suivi_edition_offres==1?'checked':''}><label class="form-check-label">Édition offres</label></div></div>
-                        <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_envoi_signature" value="1" ${d.suivi_envoi_signature==1?'checked':''}><label class="form-check-label">Envoi signature</label></div></div>
-                        <div class="col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_offre_signee" value="1" ${d.suivi_offre_signee==1?'checked':''}><label class="form-check-label">Offre signée</label></div></div>
-                        <div class="col-md-3"><label class="form-label">Date offre signée</label><input type="date" name="suivi_offre_signee_date" class="form-control" value="${d.suivi_offre_signee_date || ''}"></div>
-                    </div>
-                    <hr class="my-2">
-                    <h6>CEGC</h6>
-                    <div class="row g-2 mb-2">
-                        <div class="col-md-3"><label class="form-label">Date demande accord</label><input type="date" name="suivi_date_demande_cegc" class="form-control" value="${d.suivi_date_demande_cegc||''}"></div>
-                        <div class="col-md-3"><label class="form-label">Date retour</label><input type="date" name="suivi_date_retour_cegc" class="form-control" value="${d.suivi_date_retour_cegc||''}"></div>
-                        <div class="col-md-3 d-flex align-items-end gap-3 pb-1">
-                            <div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_cegc_accord" value="1" ${d.suivi_cegc_accord==1?'checked':''}><label class="form-check-label">Accord</label></div>
-                            <div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_cegc_refus" value="1" ${d.suivi_cegc_refus==1?'checked':''}><label class="form-check-label">Refus</label></div>
-                        </div>
-                    </div>
-                    <h6>CNP</h6>
-                    <div class="row g-2 mb-2">
-                        <div class="col-md-3"><label class="form-label">Date création dossier</label><input type="date" name="suivi_date_creation_cnp" class="form-control" value="${d.suivi_date_creation_cnp||''}"></div>
-                        <div class="col-md-3"><label class="form-label">Date retour</label><input type="date" name="suivi_date_retour_cnp" class="form-control" value="${d.suivi_date_retour_cnp||''}"></div>
-                    </div>
-                    <h6>Liasse (FSI / demande de crédit)</h6>
-                    <div class="row g-2 mb-2">
-                        <div class="col-md-3"><label class="form-label">Date édition liasse</label><input type="date" name="suivi_date_edition_liasse" class="form-control" value="${d.suivi_date_edition_liasse||''}"></div>
-                        <div class="col-md-3"><label class="form-label">Date signature liasse</label><input type="date" name="suivi_date_signature_liasse" class="form-control" value="${d.suivi_date_signature_liasse||''}"></div>
-                    </div>
-                    <h6>Contrôle conformité</h6>
-                    <div class="row g-2 mb-2">
-                        <div class="col-md-3"><label class="form-label">Date envoi</label><input type="date" name="suivi_date_envoi_conformite" class="form-control" value="${d.suivi_date_envoi_conformite||''}"></div>
-                        <div class="col-md-3"><label class="form-label">Date retour</label><input type="date" name="suivi_date_retour_conformite" class="form-control" value="${d.suivi_date_retour_conformite||''}"></div>
-                        <div class="col-md-3 d-flex align-items-end gap-3 pb-1">
-                            <div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_conformite_conforme" value="1" ${d.suivi_conformite_conforme==1?'checked':''}><label class="form-check-label">Conforme</label></div>
-                            <div class="form-check"><input class="form-check-input" type="checkbox" name="suivi_conformite_non_conforme" value="1" ${d.suivi_conformite_non_conforme==1?'checked':''}><label class="form-check-label">Non conforme</label></div>
-                        </div>
-                        <div class="col-md-3"><label class="form-label">Motif non conformité</label><input type="text" name="suivi_conformite_motif" class="form-control" placeholder="Motif..." value="${escapeHtml(d.suivi_conformite_motif||'')}"></div>
-                    </div>
-                    <h6>Offres</h6>
-                    <div class="row g-2 mb-2">
-                        <div class="col-md-3"><label class="form-label">Date édition offres</label><input type="date" name="suivi_date_edition_offres_dt" class="form-control" value="${d.suivi_date_edition_offres_dt||''}"></div>
-                        <div class="col-md-3"><label class="form-label">Date accusé réception</label><input type="date" name="suivi_date_accuse_reception" id="editAccuseReception" class="form-control" value="${d.suivi_date_accuse_reception||''}" oninput="calcJ11Edit(this)"></div>
-                        <div class="col-md-3"><label class="form-label">Date J+11</label><input type="date" name="suivi_date_j11" id="editDateJ11" class="form-control" value="${d.suivi_date_j11||''}"></div>
-                    </div>
-                </div>
-            </div>
-            <div class="row g-3 mt-2">
-                <div class="col-md-4">
-                    <label class="form-label">Statut du dossier</label>
-                    <select name="workflow_status" class="form-select">
-                        ${Object.entries(workflowLabels).map(([k,v]) => '<option value="'+k+'" '+(d.workflow_status===k?'selected':'')+'>'+v[0]+'</option>').join('')}
-                    </select>
-                </div>
-                <div class="col-md-8">
-                    <label class="form-label">Notes du conseiller</label>
-                    <textarea name="notes" class="form-control" rows="2">${escapeHtml(d.notes || '')}</textarea>
-                </div>
-            </div>
-            <div class="mt-3">
-                <button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Enregistrer</button>
-            </div>
-        </form>`;
-    initEditConditionalLogic();
-    new bootstrap.Modal(document.getElementById('editModal')).show();
-}
-
-function initEditConditionalLogic() {
-    const typeCredits = document.querySelectorAll('.edit-type-credit');
-    const travauxCheck = document.querySelector('.edit-travaux-check');
-    const ptzTab = document.querySelector('.edit-ptz-tab');
-    const travauxWrap = document.querySelector('.edit-travaux-wrap');
-    const ecoptzWrap = document.querySelector('.edit-ecoptz-wrap');
-    const courtageWrap = document.querySelector('.edit-courtage-wrap');
-    const ecoSuiviWrap = document.querySelector('.edit-eco-suivi-wrap');
-    const proprioCheck = document.querySelector('.edit-proprio-check');
-    const justifProprioWrap = document.querySelector('.edit-justif-proprio-wrap');
-
-    function updateVisibility() {
-        const checked = Array.from(typeCredits).filter(c => c.checked).map(c => c.value);
-        const hasPTZ = checked.includes('PTZ') || checked.includes('EcoPTZ');
-        const hasPrescripteur = checked.includes('Prescripteur');
-
-        if (hasPTZ) travauxCheck.checked = true;
-        if (ptzTab) ptzTab.style.display = hasPTZ ? '' : 'none';
-        if (courtageWrap) courtageWrap.style.display = hasPrescripteur ? '' : 'none';
-        if (ecoSuiviWrap) ecoSuiviWrap.style.display = hasPTZ ? '' : 'none';
-        updateTravauxVisibility();
-    }
-
-    function updateTravauxVisibility() {
-        const checked = Array.from(typeCredits).filter(c => c.checked).map(c => c.value);
-        const hasPTZ = checked.includes('PTZ') || checked.includes('EcoPTZ');
-        const avecTravaux = travauxCheck.checked;
-        if (travauxWrap) travauxWrap.style.display = avecTravaux ? '' : 'none';
-        if (ecoptzWrap) ecoptzWrap.style.display = (avecTravaux && hasPTZ) ? '' : 'none';
-    }
-
-    function updateProprioVisibility() {
-        if (justifProprioWrap) justifProprioWrap.style.display = proprioCheck && proprioCheck.checked ? '' : 'none';
-    }
-
-    typeCredits.forEach(cb => cb.addEventListener('change', updateVisibility));
-    if (travauxCheck) travauxCheck.addEventListener('change', updateTravauxVisibility);
-    if (proprioCheck) proprioCheck.addEventListener('change', updateProprioVisibility);
-}
-
-function showAmortissement(id) {
-    const d = dossiersData.find(x => x.id == id);
-    if (!d) return;
-
-    const totalFinancement = parseFloat(d.montant_acquisition||0) + parseFloat(d.frais_notaire||0) + parseFloat(d.frais_agence||0)
-        + parseFloat(d.frais_courtage||0) + parseFloat(d.frais_dossier||0) + parseFloat(d.cegc||0) + parseFloat(d.ade||0)
-        + parseFloat(d.travaux||0);
-    const capital = totalFinancement - parseFloat(d.apport||0);
-    const tauxAnnuel = parseFloat(d.taux_emprunt||0) / 100;
-    const tauxMensuel = tauxAnnuel / 12;
-    const duree = parseInt(d.duree_emprunt||0);
-
-    if (duree <= 0 || capital <= 0) {
-        document.getElementById('amortContent').innerHTML = '<div class="alert alert-warning">Données insuffisantes pour générer le tableau (capital ou durée manquant).</div>';
-        new bootstrap.Modal(document.getElementById('amortModal')).show();
-        return;
-    }
-
-    let mensualite;
-    if (tauxMensuel > 0) {
-        mensualite = capital * tauxMensuel / (1 - Math.pow(1 + tauxMensuel, -duree));
-    } else {
-        mensualite = capital / duree;
-    }
-
-    const coutTotal = mensualite * duree;
-    const totalInterets = coutTotal - capital;
-
-    let solde = capital;
-    let rows = '';
-    let totalIntPaid = 0;
-    let totalCapPaid = 0;
-
-    for (let m = 1; m <= duree; m++) {
-        const interets = solde * tauxMensuel;
-        const capitalRembourse = mensualite - interets;
-        solde -= capitalRembourse;
-        if (solde < 0) solde = 0;
-        totalIntPaid += interets;
-        totalCapPaid += capitalRembourse;
-
-        rows += `<tr>
-            <td>${m}</td>
-            <td>${fmt(mensualite)}</td>
-            <td>${fmt(capitalRembourse)}</td>
-            <td>${fmt(interets)}</td>
-            <td>${fmt(solde)}</td>
-        </tr>`;
-    }
-
-    document.getElementById('amortContent').innerHTML = `
-        <div class="row g-3 mb-3">
-            <div class="col-md-3"><div class="stat-card"><div class="stat-number">${fmt(capital)} &euro;</div><div class="stat-label">Capital emprunté</div></div></div>
-            <div class="col-md-3"><div class="stat-card"><div class="stat-number">${fmt(mensualite)} &euro;</div><div class="stat-label">Mensualité</div></div></div>
-            <div class="col-md-3"><div class="stat-card"><div class="stat-number">${fmt(totalInterets)} &euro;</div><div class="stat-label">Coût total intérêts</div></div></div>
-            <div class="col-md-3"><div class="stat-card"><div class="stat-number">${fmt(coutTotal)} &euro;</div><div class="stat-label">Coût total crédit</div></div></div>
-        </div>
-        <div class="table-responsive" style="max-height:500px;overflow-y:auto;">
-            <table class="table table-sm table-striped table-hover">
-                <thead class="table-dark" style="position:sticky;top:0;z-index:1;">
-                    <tr><th>Mois</th><th>Mensualité</th><th>Capital</th><th>Intérêts</th><th>Solde restant</th></tr>
-                </thead>
-                <tbody>${rows}</tbody>
-                <tfoot class="table-secondary">
-                    <tr><td><strong>Total</strong></td><td><strong>${fmt(coutTotal)}</strong></td><td><strong>${fmt(totalCapPaid)}</strong></td><td><strong>${fmt(totalIntPaid)}</strong></td><td>-</td></tr>
-                </tfoot>
-            </table>
-        </div>`;
-    new bootstrap.Modal(document.getElementById('amortModal')).show();
-}
-
-function printDossier(id) {
-    const d = dossiersData.find(x => x.id == id);
-    if (!d) return;
-
-    const totalFinancement = getTotalFinancement(d);
-    const montantEmprunte = getCapital(d);
-    const mensualite = calcMensualite(montantEmprunte, parseFloat(d.taux_emprunt||0), parseInt(d.duree_emprunt||0));
-    const revenus = parseFloat(d.revenus_mensuels||0);
-    const tauxEndettement = revenus > 0
-        ? ((mensualite + parseFloat(d.credits_en_cours||0)) / revenus * 100).toFixed(1)
-        : 'N/A';
-    const wfLabel = (workflowLabels[d.workflow_status] || ['Inconnu'])[0];
-    const coutCredit = mensualite > 0 ? (mensualite * parseInt(d.duree_emprunt||0) - montantEmprunte) : 0;
-    const dureeAns = Math.round(parseInt(d.duree_emprunt||0) / 12 * 10) / 10;
-    const p = (label, val) => `<tr><td class="lbl">${label}</td><td class="val">${val}</td></tr>`;
-    const ck = val => val == 1 ? '<span class="ck-ok">✓</span>' : '<span class="ck-no">—</span>';
-
-    document.getElementById('printArea').innerHTML = `
-<div class="pr-wrap">
-  <!-- EN-TÊTE -->
-  <div class="pr-header">
-    <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRKmky9-XoScC_uRBERr-pjPJuedYPHmyGh5w&s" alt="Caisse d'Épargne" class="pr-logo">
-    <div class="pr-header-center">
-      <div class="pr-title">SYNTHÈSE CRÉDIT IMMOBILIER</div>
-      <div class="pr-subtitle">Dossier N° <strong>${escapeHtml(d.numero_personne)}</strong></div>
-    </div>
-    <div class="pr-header-right">
-      <div class="pr-date">${new Date().toLocaleDateString('fr-FR')}</div>
-      <div class="pr-statut">${wfLabel}</div>
-    </div>
-  </div>
-
-  <!-- LIGNE 1 : CLIENT + SITUATION -->
-  <div class="pr-cols">
-    <div class="pr-col">
-      <div class="pr-section">
-        <div class="pr-section-title">CLIENT</div>
-        <table><tbody>
-          ${p('N° personne', escapeHtml(d.numero_personne))}
-          ${p('Type client', escapeHtml(d.type_client)||'-')}
-          ${p('Occupation', escapeHtml(d.type_occupation)||'-')}
-          ${p('Résidence', d.type_residence==='RP'?'Principale':d.type_residence==='RS'?'Secondaire':'-')}
-          ${p('Type bien', escapeHtml(d.type_bien)||'-')}
-          ${p('Adresse', escapeHtml(d.adresse_bien)||'-')}
-        </tbody></table>
-      </div>
-    </div>
-    <div class="pr-col">
-      <div class="pr-section">
-        <div class="pr-section-title">SITUATION FINANCIÈRE</div>
-        <table><tbody>
-          ${p('Revenus mensuels', fmt(d.revenus_mensuels)+' €')}
-          ${p('Charges fixes', fmt(d.charges_fixes)+' €')}
-          ${p('Loyer actuel', fmt(d.loyer)+' €')}
-          ${p('Crédits en cours', fmt(d.credits_en_cours)+' €')}
-          ${p('Épargne disponible', fmt(d.epargne)+' €')}
-        </tbody></table>
-        <div class="pr-kpi-row">
-          <div class="pr-kpi ${parseFloat(tauxEndettement)>35?'pr-kpi-warn':'pr-kpi-ok'}">
-            <div class="pr-kpi-val">${tauxEndettement}%</div>
-            <div class="pr-kpi-lbl">Taux d'endettement</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- LIGNE 2 : FINANCEMENT + CONDITIONS -->
-  <div class="pr-cols">
-    <div class="pr-col">
-      <div class="pr-section">
-        <div class="pr-section-title">PLAN DE FINANCEMENT</div>
-        <table><tbody>
-          ${p('Montant acquisition', fmt(d.montant_acquisition)+' €')}
-          ${p('Frais notaire', fmt(d.frais_notaire)+' €')}
-          ${p('Frais agence', fmt(d.frais_agence)+' €')}
-          ${p('Frais courtage', fmt(d.frais_courtage)+' €')}
-          ${p('Frais dossier / CEGC', fmt(d.frais_dossier)+' € / '+fmt(d.cegc)+' €')}
-          ${p('ADE (assurance)', fmt(d.ade)+' €')}
-          ${d.travaux>0?p('Travaux (dont EcoPTZ/PTZ)', fmt(d.travaux)+' € ('+fmt(d.dont_ecoptz_ptz)+' €)'):''}
-          ${p('Apport personnel', fmt(d.apport)+' €')}
-        </tbody></table>
-        <div class="pr-kpi-row">
-          <div class="pr-kpi pr-kpi-green">
-            <div class="pr-kpi-val">${fmt(totalFinancement)} €</div>
-            <div class="pr-kpi-lbl">Total à financer</div>
-          </div>
-          <div class="pr-kpi pr-kpi-green">
-            <div class="pr-kpi-val">${fmt(montantEmprunte)} €</div>
-            <div class="pr-kpi-lbl">Capital emprunté</div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="pr-col">
-      <div class="pr-section">
-        <div class="pr-section-title">CONDITIONS DU CRÉDIT</div>
-        <table><tbody>
-          ${p('Type de crédit', escapeHtml(d.type_credit)||'-')}
-          ${p('Avec travaux', d.avec_travaux==1?'Oui':'Non')}
-          ${p('Taux d\'emprunt', d.taux_emprunt+' %')}
-          ${p('Durée', d.duree_emprunt+' mois ('+dureeAns+' ans)')}
-          ${p('Coût total crédit', fmt(coutCredit)+' €')}
-        </tbody></table>
-        <div class="pr-kpi-row">
-          <div class="pr-kpi pr-kpi-primary">
-            <div class="pr-kpi-val">${fmt(mensualite)} €</div>
-            <div class="pr-kpi-lbl">Mensualité estimée</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- SUIVI DOSSIER -->
-  <div class="pr-section">
-    <div class="pr-section-title">SUIVI DOSSIER</div>
-    <div class="pr-cols">
-      <div class="pr-col">
-        <table><tbody>
-          <tr><td colspan="2" class="pr-sub-title">CEGC</td></tr>
-          ${p('Demande accord', d.suivi_date_demande_cegc||'—')}
-          ${p('Retour CEGC', d.suivi_date_retour_cegc||'—')}
-          <tr><td class="lbl">Accord / Refus</td><td class="val">${ck(d.suivi_cegc_accord)} Accord &nbsp; ${ck(d.suivi_cegc_refus)} Refus</td></tr>
-          <tr><td colspan="2" class="pr-sub-title">CNP</td></tr>
-          ${p('Création dossier', d.suivi_date_creation_cnp||'—')}
-          ${p('Retour CNP', d.suivi_date_retour_cnp||'—')}
-          <tr><td colspan="2" class="pr-sub-title">Liasse (FSI)</td></tr>
-          ${p('Édition liasse', d.suivi_date_edition_liasse||'—')}
-          ${p('Signature liasse', d.suivi_date_signature_liasse||'—')}
-        </tbody></table>
-      </div>
-      <div class="pr-col">
-        <table><tbody>
-          <tr><td colspan="2" class="pr-sub-title">Contrôle conformité</td></tr>
-          ${p('Envoi', d.suivi_date_envoi_conformite||'—')}
-          ${p('Retour', d.suivi_date_retour_conformite||'—')}
-          <tr><td class="lbl">Résultat</td><td class="val">${ck(d.suivi_conformite_conforme)} Conforme &nbsp; ${ck(d.suivi_conformite_non_conforme)} Non conforme</td></tr>
-          ${d.suivi_conformite_motif?p('Motif', escapeHtml(d.suivi_conformite_motif)):''}
-          <tr><td colspan="2" class="pr-sub-title">Offres</td></tr>
-          ${p('Édition offres', d.suivi_date_edition_offres_dt||'—')}
-          ${p('Accusé réception', d.suivi_date_accuse_reception||'—')}
-          ${p('Date J+11', d.suivi_date_j11||'—')}
-        </tbody></table>
-      </div>
-    </div>
-  </div>
-
-  ${d.notes ? `<div class="pr-section pr-notes"><div class="pr-section-title">NOTES</div><p>${escapeHtml(d.notes)}</p></div>` : ''}
-
-  <!-- PIED DE PAGE -->
-  <div class="pr-footer">Document confidentiel — Caisse d'Épargne — ${new Date().toLocaleDateString('fr-FR')}</div>
-</div>
-    `;
-
-    window.print();
-}
-
-// Simulation "Et si..."
-function showSimulation(id) {
-    const d = dossiersData.find(x => x.id == id);
-    if (!d) return;
-    const capital = getCapital(d);
-    const taux = parseFloat(d.taux_emprunt||0);
-    const duree = parseInt(d.duree_emprunt||0);
-    const revenus = parseFloat(d.revenus_mensuels||0);
-    const creditsEnCours = parseFloat(d.credits_en_cours||0);
-
-    document.getElementById('simulContent').innerHTML = `
-        <div class="row g-3 mb-3">
-            <div class="col-md-12"><h6>Dossier : ${escapeHtml(d.numero_personne)} - Capital emprunté : ${fmt(capital)} &euro;</h6></div>
-            <div class="col-md-4">
-                <label class="form-label">Taux d'emprunt (%)</label>
-                <input type="range" class="form-range" id="simTaux" min="0" max="8" step="0.1" value="${taux}" oninput="updateSimulation(${id})">
-                <div class="text-center fw-bold" id="simTauxVal">${taux}%</div>
-            </div>
-            <div class="col-md-4">
-                <label class="form-label">Durée (mois)</label>
-                <input type="range" class="form-range" id="simDuree" min="60" max="360" step="12" value="${duree}" oninput="updateSimulation(${id})">
-                <div class="text-center fw-bold" id="simDureeVal">${duree} mois (${(duree/12).toFixed(0)} ans)</div>
-            </div>
-            <div class="col-md-4">
-                <label class="form-label">Remboursement anticipé</label>
-                <input type="number" class="form-control" id="simRembAnticipe" value="0" step="1000" min="0" oninput="updateSimulation(${id})">
-            </div>
-        </div>
-        <div id="simResults"></div>
-        <hr>
-        <h6>Hausse de taux : impact sur la mensualité</h6>
-        <div id="simTauxTable"></div>
-    `;
-    updateSimulation(id);
-    new bootstrap.Modal(document.getElementById('simulModal')).show();
-}
-
-function updateSimulation(id) {
-    const d = dossiersData.find(x => x.id == id);
-    const capitalBase = getCapital(d);
-    const rembAnticipe = parseFloat(document.getElementById('simRembAnticipe').value || 0);
-    const capital = capitalBase - rembAnticipe;
-    const taux = parseFloat(document.getElementById('simTaux').value);
-    const duree = parseInt(document.getElementById('simDuree').value);
-    const revenus = parseFloat(d.revenus_mensuels||0);
-    const creditsEnCours = parseFloat(d.credits_en_cours||0);
-
-    document.getElementById('simTauxVal').textContent = taux + '%';
-    document.getElementById('simDureeVal').textContent = duree + ' mois (' + (duree/12).toFixed(0) + ' ans)';
-
-    const mensualite = calcMensualite(capital > 0 ? capital : 0, taux, duree);
-    const coutTotal = mensualite * duree;
-    const totalInterets = coutTotal - (capital > 0 ? capital : 0);
-    const tauxEnd = revenus > 0 ? ((mensualite + creditsEnCours) / revenus * 100).toFixed(1) : 'N/A';
-
-    // Comparaison avec l'original
-    const origMens = calcMensualite(capitalBase, parseFloat(d.taux_emprunt||0), parseInt(d.duree_emprunt||0));
-    const origCout = origMens * parseInt(d.duree_emprunt||0);
-    const diffMens = mensualite - origMens;
-    const diffCout = (mensualite * duree) - origCout;
-
-    document.getElementById('simResults').innerHTML = `
-        <div class="row g-3">
-            <div class="col-md-3"><div class="stat-card"><div class="stat-number">${fmt(mensualite)} &euro;</div><div class="stat-label">Mensualité</div></div></div>
-            <div class="col-md-3"><div class="stat-card"><div class="stat-number">${fmt(totalInterets)} &euro;</div><div class="stat-label">Total intérêts</div></div></div>
-            <div class="col-md-3"><div class="stat-card"><div class="stat-number">${getEndettementBadge(tauxEnd)}</div><div class="stat-label">Endettement</div></div></div>
-            <div class="col-md-3"><div class="stat-card"><div class="stat-number" style="color:${diffMens > 0 ? '#dc3545' : '#28a745'}">${diffMens > 0 ? '+' : ''}${fmt(diffMens)} &euro;</div><div class="stat-label">Diff. mensualité</div></div></div>
-        </div>
-        ${getEndettementAlert(tauxEnd)}
-        ${rembAnticipe > 0 ? '<div class="alert alert-info mt-2"><i class="fas fa-info-circle"></i> Économie avec remboursement anticipé de ' + fmt(rembAnticipe) + ' € : <strong>' + fmt(-diffCout) + ' €</strong> sur le coût total.</div>' : ''}
-    `;
-
-    // Tableau hausse de taux
-    let tauxRows = '';
-    for (let t = taux; t <= taux + 2; t += 0.5) {
-        const m = calcMensualite(capital > 0 ? capital : 0, t, duree);
-        const te = revenus > 0 ? ((m + creditsEnCours) / revenus * 100).toFixed(1) : 'N/A';
-        tauxRows += `<tr><td>${t.toFixed(1)}%</td><td>${fmt(m)} &euro;</td><td>${fmt(m * duree)} &euro;</td><td>${getEndettementBadge(te)}</td></tr>`;
-    }
-    document.getElementById('simTauxTable').innerHTML = `
-        <table class="table table-sm table-striped">
-            <thead><tr><th>Taux</th><th>Mensualité</th><th>Coût total</th><th>Endettement</th></tr></thead>
-            <tbody>${tauxRows}</tbody>
-        </table>
-    `;
-}
-
-// Comparaison de scénarios
-function showCompareSelect() {
-    if (dossiersData.length < 2) {
-        alert('Il faut au moins 2 dossiers pour comparer.');
-        return;
-    }
-    let opts = dossiersData.map(d => `<div class="form-check"><input class="form-check-input compare-check" type="checkbox" value="${d.id}" id="cmp_${d.id}"><label class="form-check-label" for="cmp_${d.id}">${escapeHtml(d.numero_personne)} - ${fmt(d.montant_acquisition)} € @ ${d.taux_emprunt}% / ${d.duree_emprunt} mois</label></div>`).join('');
-    document.getElementById('compareContent').innerHTML = `
-        <p>Sélectionnez les dossiers à comparer :</p>
-        ${opts}
-        <button class="btn btn-ce mt-3" onclick="runComparison()"><i class="fas fa-balance-scale"></i> Comparer</button>
-        <div id="compareResults" class="mt-3"></div>
-    `;
-    new bootstrap.Modal(document.getElementById('compareModal')).show();
-}
-
-function runComparison() {
-    const ids = Array.from(document.querySelectorAll('.compare-check:checked')).map(c => parseInt(c.value));
-    if (ids.length < 2) { alert('Sélectionnez au moins 2 dossiers.'); return; }
-
-    const dossiers = ids.map(id => dossiersData.find(d => d.id == id)).filter(Boolean);
-    let headers = '<th>Critère</th>' + dossiers.map(d => `<th>${escapeHtml(d.numero_personne)}<br><small>${escapeHtml(d.type_credit)}</small></th>`).join('');
-
-    function row(label, values, highlight) {
-        const vals = values.map(v => typeof v === 'number' ? v : 0);
-        const best = highlight === 'min' ? Math.min(...vals) : highlight === 'max' ? Math.max(...vals) : null;
-        return '<tr><td><strong>' + label + '</strong></td>' + values.map((v, i) => {
-            const isBest = best !== null && vals[i] === best;
-            return `<td${isBest ? ' class="table-success"' : ''}>${typeof v === 'number' ? fmt(v) + ' €' : v}</td>`;
-        }).join('') + '</tr>';
-    }
-
-    const data = dossiers.map(d => {
-        const capital = getCapital(d);
-        const taux = parseFloat(d.taux_emprunt||0);
-        const duree = parseInt(d.duree_emprunt||0);
-        const mens = calcMensualite(capital, taux, duree);
-        const coutTotal = mens * duree;
-        const interets = coutTotal - capital;
-        const revenus = parseFloat(d.revenus_mensuels||0);
-        const te = revenus > 0 ? ((mens + parseFloat(d.credits_en_cours||0)) / revenus * 100).toFixed(1) : 'N/A';
-        return { capital, taux, duree, mens, coutTotal, interets, te };
-    });
-
-    let tableRows = row('Capital emprunté', data.map(r => r.capital), null);
-    tableRows += '<tr><td><strong>Taux</strong></td>' + data.map(r => `<td>${r.taux}%</td>`).join('') + '</tr>';
-    tableRows += '<tr><td><strong>Durée</strong></td>' + data.map(r => `<td>${r.duree} mois</td>`).join('') + '</tr>';
-    tableRows += row('Mensualité', data.map(r => r.mens), 'min');
-    tableRows += row('Total intérêts', data.map(r => r.interets), 'min');
-    tableRows += row('Coût total', data.map(r => r.coutTotal), 'min');
-    tableRows += '<tr><td><strong>Endettement</strong></td>' + data.map(r => `<td>${getEndettementBadge(r.te)}</td>`).join('') + '</tr>';
-
-    document.getElementById('compareResults').innerHTML = `
-        <table class="table table-sm table-bordered table-hover">
-            <thead class="table-dark"><tr>${headers}</tr></thead>
-            <tbody>${tableRows}</tbody>
-        </table>
-        <p class="text-muted"><small><i class="fas fa-check-circle text-success"></i> = meilleure valeur</small></p>
-    `;
-}
-
-// Pré-remplissage depuis calculateur budget
-function prefillFromBudget(mode) {
-    fetch('index.php?ajax=budget')
-        .then(r => r.json())
-        .then(data => {
-            if (data.error) { alert('Aucun budget trouvé. Veuillez d\'abord remplir le calculateur budget.'); return; }
-            const prefix = mode === 'edit' ? 'edit' : 'add';
-            const revenus = parseFloat(data.salaire||0) + parseFloat(data.salaire_conjoint||0)
-                + parseFloat(data.autres_revenus||0) + parseFloat(data.autres_revenus_conjoint||0)
-                + parseFloat(data.allocations||0) + parseFloat(data.pensions||0)
-                + parseFloat(data.pensions_conjoint||0) + parseFloat(data.revenus_fonciers||0)
-                + parseFloat(data.revenus_fonciers_conjoint||0);
-            const charges = parseFloat(data.assurance_habitation||0) + parseFloat(data.assurance_auto||0)
-                + parseFloat(data.assurance_sante||0) + parseFloat(data.impots||0)
-                + parseFloat(data.taxe_fonciere||0) + parseFloat(data.taxe_habitation||0)
-                + parseFloat(data.electricite_gaz||0) + parseFloat(data.eau||0)
-                + parseFloat(data.telephone_internet||0) + parseFloat(data.transport||0)
-                + parseFloat(data.alimentation||0) + parseFloat(data.habillement||0)
-                + parseFloat(data.sante||0) + parseFloat(data.loisirs||0) + parseFloat(data.divers||0);
-            const loyer = parseFloat(data.loyer_charges||0);
-            const credits = parseFloat(data.credit_immo||0) + parseFloat(data.credits_conso||0);
-            const epargne = parseFloat(data.epargne_mensuelle||0);
-
-            const el = (id) => document.getElementById(id);
-            if (el(prefix + 'Revenus')) el(prefix + 'Revenus').value = revenus.toFixed(2);
-            if (el(prefix + 'Charges')) el(prefix + 'Charges').value = charges.toFixed(2);
-            if (el(prefix + 'Loyer')) el(prefix + 'Loyer').value = loyer.toFixed(2);
-            if (el(prefix + 'Credits')) el(prefix + 'Credits').value = credits.toFixed(2);
-            if (el(prefix + 'Epargne')) el(prefix + 'Epargne').value = epargne.toFixed(2);
-
-            alert('Données importées du calculateur budget !');
-        })
-        .catch(() => alert('Erreur lors du chargement des données budget.'));
-}
-
-// Initialize conditional logic for add modal
-document.addEventListener('DOMContentLoaded', initAddConditionalLogic);
-
-// Auto-ouverture du dossier après enregistrement
+const dossiersData   = <?= json_encode(array_values($dossiers)) ?>;
+const workflowLabels = <?= json_encode($workflowLabels) ?>;
+const workflowSteps  = ['etude','dossier_complet','synthese_envoyee','controle','edition_offres','envoi_signature','offre_signee','deblocage','termine'];
+</script>
+<script src="ci.js"></script>
+<script>
+// Auto-ouverture du dossier après enregistrement ou depuis la recherche globale
 const urlParams = new URLSearchParams(window.location.search);
 const openId = urlParams.get('open');
 if (openId) {
     showDetail(parseInt(openId));
-    history.replaceState(null, '', 'index.php');
+    history.replaceState(null, '', 'index.php' + (window.location.search.indexOf('embedded=1') !== -1 ? '?embedded=1' : ''));
 }
 </script>
 
 <style>
-.bg-orange { background-color: #fd7e14 !important; }
-
-/* ── PRINT ────────────────────────────────────────────── */
-@media print {
-    @page { size: A4 portrait; margin: 7mm 8mm; }
-    body * { visibility: hidden !important; }
-    #printArea, #printArea * { visibility: visible !important; }
-    #printArea {
-        display: block !important;
-        position: absolute;
-        left: 0; top: 0;
-        width: 100%;
-        font-family: 'Segoe UI', Arial, sans-serif;
-        font-size: 7.8pt;
-        color: #1a1a1a;
-        line-height: 1.3;
-    }
+.bg-orange{background-color:#fd7e14!important}
+.ci-json-list{border:1px solid #dee2e6;border-radius:6px;padding:8px;background:#fafafa}
+.ci-json-row{background:#fff;border:1px solid #e0e0e0;border-radius:4px;padding:6px 8px;margin-bottom:6px;position:relative}
+.ci-json-row .btn-rm{position:absolute;top:4px;right:4px}
+.taux-endett-live{font-weight:700;font-size:1.1em}
+@media print{
+    @page{size:A4 portrait;margin:7mm 8mm}
+    body *{visibility:hidden!important}
+    #printArea,#printArea *{visibility:visible!important}
+    #printArea{display:block!important;position:absolute;left:0;top:0;width:100%;font-family:'Segoe UI',Arial,sans-serif;font-size:7.8pt;color:#1a1a1a;line-height:1.3}
 }
-/* Styles communs (visibles en prévisualisation et en impression) */
-.pr-wrap { font-family: 'Segoe UI', Arial, sans-serif; font-size: 7.8pt; color: #1a1a1a; }
-
-/* En-tête */
-.pr-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-bottom: 3px solid #1B6234;
-    padding-bottom: 5px;
-    margin-bottom: 7px;
-}
-.pr-logo { height: 38px; width: auto; object-fit: contain; }
-.pr-header-center { text-align: center; flex: 1; padding: 0 10px; }
-.pr-title { font-size: 13pt; font-weight: 700; color: #1B6234; letter-spacing: 1px; }
-.pr-subtitle { font-size: 8.5pt; color: #444; margin-top: 2px; }
-.pr-header-right { text-align: right; min-width: 90px; }
-.pr-date { font-size: 7pt; color: #666; }
-.pr-statut { font-size: 7.5pt; font-weight: 600; color: #1B6234; margin-top: 2px; background: #e8f5ee; padding: 2px 5px; border-radius: 3px; display: inline-block; }
-
-/* Colonnes 50/50 */
-.pr-cols { display: flex; gap: 6px; margin-bottom: 6px; }
-.pr-col { flex: 1; min-width: 0; }
-
-/* Section */
-.pr-section { border: 1px solid #d0e8d8; border-radius: 4px; padding: 5px 6px; margin-bottom: 6px; background: #fff; }
-.pr-section-title {
-    font-size: 7.5pt; font-weight: 700; color: #fff;
-    background: #1B6234; padding: 2px 6px; border-radius: 2px;
-    margin: -5px -6px 5px -6px; letter-spacing: 0.5px;
-}
-.pr-sub-title { font-size: 7pt; font-weight: 700; color: #1B6234; background: #edf7f1; padding: 1px 4px; }
-
-/* Tables */
-.pr-wrap table { width: 100%; border-collapse: collapse; }
-.pr-wrap table td { padding: 2px 5px; font-size: 7.5pt; border-bottom: 1px solid #eee; vertical-align: top; }
-.pr-wrap table td.lbl { color: #555; width: 48%; }
-.pr-wrap table td.val { font-weight: 600; color: #111; }
-
-/* KPI boxes */
-.pr-kpi-row { display: flex; gap: 5px; margin-top: 5px; }
-.pr-kpi { flex: 1; text-align: center; border-radius: 4px; padding: 4px 3px; }
-.pr-kpi-val { font-size: 10pt; font-weight: 700; }
-.pr-kpi-lbl { font-size: 6.5pt; margin-top: 1px; opacity: .85; }
-.pr-kpi-green { background: #e8f5ee; color: #1B6234; border: 1px solid #b2dfc2; }
-.pr-kpi-primary { background: #1B6234; color: #fff; }
-.pr-kpi-ok { background: #e8f5ee; color: #1B6234; border: 1px solid #b2dfc2; }
-.pr-kpi-warn { background: #fff3cd; color: #856404; border: 1px solid #ffe08a; }
-
-/* Check marks */
-.ck-ok { color: #1B6234; font-weight: 700; }
-.ck-no { color: #bbb; }
-
-/* Notes */
-.pr-notes p { margin: 0; padding: 4px; background: #fafafa; border: 1px solid #eee; border-radius: 3px; font-size: 7.5pt; }
-
-/* Pied de page */
-.pr-footer { margin-top: 5px; border-top: 1px solid #ccc; padding-top: 4px; text-align: center; font-size: 6.5pt; color: #888; }
+.pr-wrap{font-family:'Segoe UI',Arial,sans-serif;font-size:7.8pt;color:#1a1a1a}
+.pr-header{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #1B6234;padding-bottom:5px;margin-bottom:7px}
+.pr-logo{height:38px;width:auto;object-fit:contain}
+.pr-header-center{text-align:center;flex:1;padding:0 10px}
+.pr-title{font-size:13pt;font-weight:700;color:#1B6234;letter-spacing:1px}
+.pr-subtitle{font-size:8.5pt;color:#444;margin-top:2px}
+.pr-header-right{text-align:right;min-width:90px}
+.pr-date{font-size:7pt;color:#666}
+.pr-statut{font-size:7.5pt;font-weight:600;color:#1B6234;margin-top:2px;background:#e8f5ee;padding:2px 5px;border-radius:3px;display:inline-block}
+.pr-cols{display:flex;gap:6px;margin-bottom:6px}
+.pr-col{flex:1;min-width:0}
+.pr-section{border:1px solid #d0e8d8;border-radius:4px;padding:5px 6px;margin-bottom:6px;background:#fff}
+.pr-section-title{font-size:7.5pt;font-weight:700;color:#fff;background:#1B6234;padding:2px 6px;border-radius:2px;margin:-5px -6px 5px -6px;letter-spacing:.5px}
+.pr-sub-title{font-size:7pt;font-weight:700;color:#1B6234;background:#edf7f1;padding:1px 4px}
+.pr-wrap table{width:100%;border-collapse:collapse}
+.pr-wrap table td{padding:2px 5px;font-size:7.5pt;border-bottom:1px solid #eee;vertical-align:top}
+.pr-wrap table td.lbl{color:#555;width:48%}
+.pr-wrap table td.val{font-weight:600;color:#111}
+.pr-kpi-row{display:flex;gap:5px;margin-top:5px}
+.pr-kpi{flex:1;text-align:center;border-radius:4px;padding:4px 3px}
+.pr-kpi-val{font-size:10pt;font-weight:700}
+.pr-kpi-lbl{font-size:6.5pt;margin-top:1px;opacity:.85}
+.pr-kpi-green{background:#e8f5ee;color:#1B6234;border:1px solid #b2dfc2}
+.pr-kpi-primary{background:#1B6234;color:#fff}
+.pr-kpi-ok{background:#e8f5ee;color:#1B6234;border:1px solid #b2dfc2}
+.pr-kpi-warn{background:#fff3cd;color:#856404;border:1px solid #ffe08a}
+.pr-kpi-danger{background:#f8d7da;color:#842029;border:1px solid #f5c2c7}
+.ck-ok{color:#1B6234;font-weight:700}
+.ck-no{color:#bbb}
+.pr-footer{margin-top:5px;border-top:1px solid #ccc;padding-top:4px;text-align:center;font-size:6.5pt;color:#888}
+.note-card{background:#fffde7;border:1px solid #ffe082;border-radius:6px;padding:10px 12px;margin-bottom:8px}
+.note-card .note-meta{font-size:.75em;color:#888;margin-bottom:4px}
 </style>
 
 <?php require_once __DIR__ . '/../../templates/footer.php'; ?>
