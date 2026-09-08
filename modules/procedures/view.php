@@ -103,6 +103,9 @@ if ($accessViaToken) {
         <?php endif; ?>
             <div class="meta-info">
                 <i class="fas fa-calendar"></i> Publiée le <?= formatDate($procedure['created_at']) ?>
+                <?php if (!empty($procedure['contributor_prenom']) || !empty($procedure['contributor_nom'])): ?>
+                    <br><i class="fas fa-user-edit"></i> Contributeur : <?= e(trim($procedure['contributor_prenom'] . ' ' . $procedure['contributor_nom'])) ?>
+                <?php endif; ?>
             </div>
         </div>
         <div class="text-center mb-4 no-print">
@@ -141,6 +144,9 @@ require_once __DIR__ . '/../../templates/header.php';
             <?php endif; ?>
         </h3>
         <small class="text-muted">Créée le <?= formatDate($procedure['created_at']) ?></small>
+        <?php if (!empty($procedure['contributor_prenom']) || !empty($procedure['contributor_nom'])): ?>
+            <div class="text-muted small"><i class="fas fa-user-edit"></i> Contributeur : <?= e(trim($procedure['contributor_prenom'] . ' ' . $procedure['contributor_nom'])) ?></div>
+        <?php endif; ?>
         <hr>
         <?php if (preg_match('/<[a-z][\s\S]*>/i', $procedure['texte'])): ?>
             <div class="wysiwyg-content" style="font-size:15px;"><?= $procedure['texte'] ?></div>

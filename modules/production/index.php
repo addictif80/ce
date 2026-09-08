@@ -7,6 +7,7 @@ $userId = getCurrentUserId();
 // Migration
 try { $db->exec("ALTER TABLE suivi_production ADD COLUMN eai_cle VARCHAR(50) DEFAULT '' AFTER produit_vendu"); } catch (PDOException $e) {}
 try { $db->exec("ALTER TABLE suivi_production ADD COLUMN categorie VARCHAR(100) DEFAULT ''"); } catch (PDOException $e) {}
+$categoriesProduction = getCategoriesProduction();
 
 // Liste des produits avec clé EAI et unité associées
 $produits = [
@@ -41,8 +42,9 @@ foreach ($produits as $p) $produitsIndex[$p['libelle']] = $p;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add') {
     $libelle = $_POST['produit_vendu'] ?? '';
     $eaiCle = $produitsIndex[$libelle]['eai_cle'] ?? '';
-    $stmt = $db->prepare("INSERT INTO suivi_production (user_id, date_rdv, produit_vendu, eai_cle, montant_nombre, details) VALUES (?, ?, ?, ?, ?, ?)");
-    $stmt->execute([$userId, $_POST['date_rdv'] ?: null, $libelle, $eaiCle, $_POST['montant_nombre'], $_POST['details']]);
+    $categorie = in_array($_POST['categorie'] ?? '', $categoriesProduction, true) ? $_POST['categorie'] : '';
+    $stmt = $db->prepare("INSERT INTO suivi_production (user_id, date_rdv, categorie, produit_vendu, eai_cle, montant_nombre, details) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$userId, $_POST['date_rdv'] ?: null, $categorie, $libelle, $eaiCle, $_POST['montant_nombre'], $_POST['details']]);
     header('Location: index.php');
     exit;
 }
@@ -51,8 +53,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'edit') {
     $libelle = $_POST['produit_vendu'] ?? '';
     $eaiCle = $produitsIndex[$libelle]['eai_cle'] ?? '';
-    $stmt = $db->prepare("UPDATE suivi_production SET date_rdv = ?, produit_vendu = ?, eai_cle = ?, montant_nombre = ?, details = ? WHERE id = ? AND user_id = ?");
-    $stmt->execute([$_POST['date_rdv'] ?: null, $libelle, $eaiCle, $_POST['montant_nombre'], $_POST['details'], (int)$_POST['id'], $userId]);
+    $categorie = in_array($_POST['categorie'] ?? '', $categoriesProduction, true) ? $_POST['categorie'] : '';
+    $stmt = $db->prepare("UPDATE suivi_production SET date_rdv = ?, categorie = ?, produit_vendu = ?, eai_cle = ?, montant_nombre = ?, details = ? WHERE id = ? AND user_id = ?");
+    $stmt->execute([$_POST['date_rdv'] ?: null, $categorie, $libelle, $eaiCle, $_POST['montant_nombre'], $_POST['details'], (int)$_POST['id'], $userId]);
     header('Location: index.php?open=' . (int)$_POST['id']);
     exit;
 }
@@ -120,6 +123,7 @@ $productions = $stmt->fetchAll();
         <thead>
             <tr>
                 <th>Date RDV</th>
+                <th>Catégorie</th>
                 <th>Produit</th>
                 <th>Montant/Nombre</th>
                 <th>Détails</th>
@@ -130,6 +134,7 @@ $productions = $stmt->fetchAll();
         <?php foreach ($productions as $prod): ?>
             <tr>
                 <td><?= formatDateTime($prod['date_rdv']) ?></td>
+                <td><?= !empty($prod['categorie']) ? '<span class="badge bg-secondary">' . e($prod['categorie']) . '</span>' : '<span class="text-muted">—</span>' ?></td>
                 <td><strong><?= e($prod['produit_vendu']) ?></strong></td>
                 <td><?= e($prod['montant_nombre']) ?></td>
                 <td><?= e(excerpt($prod['details'])) ?></td>
@@ -170,6 +175,15 @@ $productions = $stmt->fetchAll();
                                 <option value="">-- Choisir --</option>
                                 <?php foreach ($produits as $p): ?>
                                     <option value="<?= e($p['libelle']) ?>" data-unite="<?= $p['unite'] ?>"><?= e($p['libelle']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Catégorie</label>
+                            <select name="categorie" class="form-select">
+                                <option value="">-- Choisir --</option>
+                                <?php foreach ($categoriesProduction as $cat): ?>
+                                    <option value="<?= e($cat) ?>"><?= e($cat) ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
@@ -224,6 +238,13 @@ filterTable('searchProduction', 'tableProduction');
 
 const productionsData = <?= json_encode($productions) ?>;
 const produitsData = <?= json_encode($produits) ?>;
+const categoriesProduction = <?= json_encode($categoriesProduction) ?>;
+
+function buildCategoriesOptions(selected) {
+    return '<option value="">-- Choisir --</option>' + categoriesProduction.map(c =>
+        `<option value="${c}" ${c === selected ? 'selected' : ''}>${c}</option>`
+    ).join('');
+}
 const allNotes = {};
 <?php
 foreach ($productions as $prod) {
@@ -272,6 +293,7 @@ function showDetail(id) {
         <div class="row">
             <div class="col-md-6">
                 <p><strong>Date RDV :</strong> ${formatDT(prod.date_rdv)}</p>
+                <p><strong>Catégorie :</strong> ${prod.categorie || '-'}</p>
                 <p><strong>Produit :</strong> ${prod.produit_vendu || '-'}</p>
                 <p><strong>${montantLabel} :</strong> ${prod.montant_nombre || '-'}</p>
             </div>
@@ -319,6 +341,10 @@ function editProduction(id) {
                     </select>
                 </div>
                 <div class="col-md-6">
+                    <label class="form-label">Catégorie</label>
+                    <select name="categorie" class="form-select">${buildCategoriesOptions(prod.categorie)}</select>
+                </div>
+                <div class="col-md-6">
                     <label class="form-label" id="editMontantLabel">${montantLabel}</label>
                     <input type="text" name="montant_nombre" class="form-control" value="${prod.montant_nombre || ''}">
                 </div>
@@ -339,7 +365,7 @@ const urlParams = new URLSearchParams(window.location.search);
 const openId = urlParams.get('open');
 if (openId) {
     showDetail(parseInt(openId));
-    history.replaceState(null, '', 'index.php');
+    history.replaceState(null, '', 'index.php' + (window.location.search.indexOf('embedded=1') !== -1 ? '?embedded=1' : ''));
 }
 </script>
 

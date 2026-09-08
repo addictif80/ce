@@ -340,7 +340,7 @@ function openDossier(id) {
                 <th>Heure</th><th>N° / Nom</th><th>Résultat</th><th>Date RDV</th><th>Motif</th><th>ANV</th><th>Commentaire</th><th></th>
             </tr></thead><tbody>`;
         appels.forEach(a => {
-            const time = a.created_at ? new Date(a.created_at.replace(' ', 'T') + 'Z').toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'}) : '';
+            const time = a.created_at ? new Date(a.created_at.replace(' ', 'T')).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'}) : '';
             appelsHtml += `<tr>
                 <td>${time}</td>
                 <td><strong>${esc(a.numero_personne)}</strong></td>
@@ -491,7 +491,7 @@ const urlParams = new URLSearchParams(window.location.search);
 const openId = urlParams.get('open');
 if (openId) {
     openDossier(parseInt(openId));
-    history.replaceState(null, '', 'index.php');
+    history.replaceState(null, '', 'index.php' + (window.location.search.indexOf('embedded=1') !== -1 ? '?embedded=1' : ''));
 }
 </script>
 

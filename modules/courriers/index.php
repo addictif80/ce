@@ -211,7 +211,7 @@ $modeles = $stmt->fetchAll();
                     <button class="btn btn-sm btn-ce-outline" onclick="editCourrier(<?= $c['id'] ?>)" title="Modifier"><i class="fas fa-edit"></i></button>
                     <button class="btn btn-sm btn-ce-outline" onclick="printCourrier(<?= $c['id'] ?>)" title="Imprimer"><i class="fas fa-print"></i></button>
                     <?php if (!empty($c['email_dest'])): ?>
-                    <a href="send_mail.php?id=<?= $c['id'] ?>" class="btn btn-sm btn-ce-outline" title="Envoyer par mail<?= $c['dernier_envoi'] ? ' (dernier : ' . date('d/m/Y H:i', strtotime($c['dernier_envoi'] . ' UTC')) . ')' : '' ?>"><i class="fas fa-envelope"></i></a>
+                    <a href="send_mail.php?id=<?= $c['id'] ?>" class="btn btn-sm btn-ce-outline" title="Envoyer par mail<?= $c['dernier_envoi'] ? ' (dernier : ' . date('d/m/Y H:i', strtotime($c['dernier_envoi'])) . ')' : '' ?>"><i class="fas fa-envelope"></i></a>
                     <?php endif; ?>
                     <form method="POST" class="d-inline" onsubmit="return confirm('Supprimer ce courrier ?')">
                         <input type="hidden" name="action" value="delete">
@@ -792,12 +792,12 @@ function saveTemplate(prefix) {
 // Formater la date
 function fmtDate(dateStr) {
     if (!dateStr) return '';
-    const d = new Date(dateStr.replace(' ', 'T') + 'Z');
+    const d = new Date(dateStr.replace(' ', 'T'));
     return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
 }
 function fmtDateHeure(dateStr) {
     if (!dateStr) return '';
-    const d = new Date(dateStr.replace(' ', 'T') + 'Z');
+    const d = new Date(dateStr.replace(' ', 'T'));
     return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
          + ' à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 }
@@ -1046,7 +1046,7 @@ const urlParams = new URLSearchParams(window.location.search);
 const openId = urlParams.get('open');
 if (openId) {
     showDetail(parseInt(openId));
-    history.replaceState(null, '', 'index.php');
+    history.replaceState(null, '', 'index.php' + (window.location.search.indexOf('embedded=1') !== -1 ? '?embedded=1' : ''));
 }
 </script>
 

@@ -8,12 +8,16 @@ $isUserAdmin = isAdmin();
 // Auto-add approval columns
 try { $db->exec("ALTER TABLE offres ADD COLUMN approved TINYINT(1) DEFAULT 0"); } catch (Exception $e) {}
 try { $db->exec("ALTER TABLE offres ADD COLUMN approved_by INT DEFAULT NULL"); } catch (Exception $e) {}
+try { $db->exec("ALTER TABLE offres ADD COLUMN categorie VARCHAR(100) DEFAULT ''"); } catch (Exception $e) {}
+ensureInteretsClientsSchema();
+$categoriesProduction = getCategoriesProduction();
 
 // Ajout
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add') {
-    $stmt = $db->prepare("INSERT INTO offres (user_id, nom, date_debut, date_fin, details, approved, approved_by) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    $categorie = in_array($_POST['categorie'] ?? '', $categoriesProduction, true) ? $_POST['categorie'] : '';
+    $stmt = $db->prepare("INSERT INTO offres (user_id, nom, categorie, date_debut, date_fin, details, approved, approved_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
     $stmt->execute([
-        $userId, $_POST['nom'], $_POST['date_debut'] ?: null, $_POST['date_fin'] ?: null, $_POST['details'],
+        $userId, $_POST['nom'], $categorie, $_POST['date_debut'] ?: null, $_POST['date_fin'] ?: null, $_POST['details'],
         $isUserAdmin ? 1 : 0,
         $isUserAdmin ? $userId : null
     ]);
@@ -24,12 +28,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 // Edition
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'edit') {
     $id = (int)$_POST['id'];
+    $categorie = in_array($_POST['categorie'] ?? '', $categoriesProduction, true) ? $_POST['categorie'] : '';
     if ($isUserAdmin) {
-        $stmt = $db->prepare("UPDATE offres SET nom = ?, date_debut = ?, date_fin = ?, details = ? WHERE id = ?");
-        $stmt->execute([$_POST['nom'], $_POST['date_debut'] ?: null, $_POST['date_fin'] ?: null, $_POST['details'], $id]);
+        $stmt = $db->prepare("UPDATE offres SET nom = ?, categorie = ?, date_debut = ?, date_fin = ?, details = ? WHERE id = ?");
+        $stmt->execute([$_POST['nom'], $categorie, $_POST['date_debut'] ?: null, $_POST['date_fin'] ?: null, $_POST['details'], $id]);
     } else {
-        $stmt = $db->prepare("UPDATE offres SET nom = ?, date_debut = ?, date_fin = ?, details = ? WHERE id = ? AND user_id = ?");
-        $stmt->execute([$_POST['nom'], $_POST['date_debut'] ?: null, $_POST['date_fin'] ?: null, $_POST['details'], $id, $userId]);
+        $stmt = $db->prepare("UPDATE offres SET nom = ?, categorie = ?, date_debut = ?, date_fin = ?, details = ? WHERE id = ? AND user_id = ?");
+        $stmt->execute([$_POST['nom'], $categorie, $_POST['date_debut'] ?: null, $_POST['date_fin'] ?: null, $_POST['details'], $id, $userId]);
     }
     header('Location: index.php?open=' . $id);
     exit;
@@ -73,6 +78,16 @@ $stmt = $db->prepare("SELECT o.*, u.nom AS author_nom, u.prenom AS author_prenom
     ORDER BY o.date_debut DESC");
 $stmt->execute([$userId]);
 $offres = $stmt->fetchAll();
+
+// Intérêts clients de l'utilisateur, pour repérer les offres qui les concernent
+$stmt = $db->prepare("SELECT * FROM interets_clients WHERE user_id = ? ORDER BY client_nom ASC");
+$stmt->execute([$userId]);
+$interetsClients = $stmt->fetchAll();
+
+foreach ($offres as &$offre) {
+    $offre['clients_interesses'] = matchInteretsForOffre($interetsClients, $offre['nom'], $offre['details']);
+}
+unset($offre);
 ?>
 
 <!-- Stats -->
@@ -107,10 +122,12 @@ $offres = $stmt->fetchAll();
         <thead>
             <tr>
                 <th>Nom</th>
+                <th>Catégorie</th>
                 <th>Date début</th>
                 <th>Date fin</th>
                 <th>Auteur</th>
                 <th>Statut</th>
+                <th>Clients intéressés</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -125,6 +142,7 @@ $offres = $stmt->fetchAll();
         ?>
             <tr>
                 <td><strong><?= e($offre['nom']) ?></strong></td>
+                <td><?= !empty($offre['categorie']) ? '<span class="badge bg-secondary">' . e($offre['categorie']) . '</span>' : '<span class="text-muted">—</span>' ?></td>
                 <td><span class="<?= $classDebut ?> px-2 py-1 rounded"><?= formatDate($offre['date_debut']) ?></span></td>
                 <td><span class="<?= $classFin ?> px-2 py-1 rounded"><?= formatDate($offre['date_fin']) ?></span></td>
                 <td>
@@ -139,6 +157,15 @@ $offres = $stmt->fetchAll();
                         <span class="badge bg-success"><i class="fas fa-check"></i> Approuvé</span>
                     <?php elseif ($isOwn): ?>
                         <span class="badge bg-warning text-dark"><i class="fas fa-clock"></i> En attente</span>
+                    <?php endif; ?>
+                </td>
+                <td>
+                    <?php if (!empty($offre['clients_interesses'])): ?>
+                        <?php foreach ($offre['clients_interesses'] as $ci): ?>
+                            <span class="badge bg-info text-dark mb-1" title="<?= e($ci['interet']) ?>"><i class="fas fa-star"></i> <?= e($ci['client_nom']) ?></span>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <span class="text-muted">—</span>
                     <?php endif; ?>
                 </td>
                 <td class="actions">
@@ -170,9 +197,18 @@ $offres = $stmt->fetchAll();
                 <form method="POST">
                     <input type="hidden" name="action" value="add">
                     <div class="row g-3">
-                        <div class="col-md-12">
+                        <div class="col-md-8">
                             <label class="form-label">Nom de l'offre</label>
                             <input type="text" name="nom" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Catégorie</label>
+                            <select name="categorie" class="form-select">
+                                <option value="">-- Choisir --</option>
+                                <?php foreach ($categoriesProduction as $cat): ?>
+                                    <option value="<?= e($cat) ?>"><?= e($cat) ?></option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Date de début</label>
@@ -233,6 +269,7 @@ $offres = $stmt->fetchAll();
 filterTable('searchOffres', 'tableOffres');
 
 const offresData = <?= json_encode($offres) ?>;
+const categoriesProduction = <?= json_encode($categoriesProduction) ?>;
 const allNotes = {};
 <?php
 foreach ($offres as $offre) {
@@ -240,6 +277,13 @@ foreach ($offres as $offre) {
     echo "allNotes[{$offre['id']}] = " . json_encode($notes) . ";\n";
 }
 ?>
+
+function escapeHtmlOffre(str) {
+    if (!str) return '';
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+}
 
 function showDetail(id) {
     const offre = offresData.find(o => o.id == id);
@@ -249,13 +293,20 @@ function showDetail(id) {
         `<div class="note-item"><div class="note-meta"><strong>${n.prenom} ${n.nom}</strong> - ${formatLocalDateTime(n.created_at)}</div><div class="note-content">${n.message}</div></div>`
     ).join('');
 
+    const clientsInteresses = offre.clients_interesses || [];
+    const clientsHtml = clientsInteresses.length
+        ? clientsInteresses.map(ci => `<span class="badge bg-info text-dark me-1 mb-1" title="${escapeHtmlOffre(ci.interet)}"><i class="fas fa-star"></i> ${escapeHtmlOffre(ci.client_nom)}</span>`).join('')
+        : '<span class="text-muted">Aucun client intéressé identifié</span>';
+
     document.getElementById('detailContent').innerHTML = `
         <div class="row">
             <div class="col-md-6">
                 <p><strong>Nom :</strong> ${offre.nom}</p>
+                <p><strong>Catégorie :</strong> ${offre.categorie || '-'}</p>
                 <p><strong>Date de début :</strong> ${offre.date_debut || 'Non définie'}</p>
                 <p><strong>Date de fin :</strong> ${offre.date_fin || 'Non définie'}</p>
                 <p><strong>Statut :</strong> ${offre.approved == 1 ? '<span class="badge bg-success">Approuvé</span>' : '<span class="badge bg-warning text-dark">En attente</span>'}</p>
+                <p><strong>Clients intéressés :</strong><br>${clientsHtml}</p>
             </div>
             <div class="col-md-6">
                 <p><strong>Détails :</strong></p>
@@ -281,14 +332,23 @@ function editOffre(id) {
     const offre = offresData.find(o => o.id == id);
     if (!offre) return;
 
+    let catOptions = '<option value="">-- Choisir --</option>';
+    categoriesProduction.forEach(c => {
+        catOptions += `<option value="${c}" ${offre.categorie === c ? 'selected' : ''}>${c}</option>`;
+    });
+
     document.getElementById('editContent').innerHTML = `
         <form method="POST">
             <input type="hidden" name="action" value="edit">
             <input type="hidden" name="id" value="${id}">
             <div class="row g-3">
-                <div class="col-md-12">
+                <div class="col-md-8">
                     <label class="form-label">Nom de l'offre</label>
                     <input type="text" name="nom" class="form-control" value="${offre.nom}" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Catégorie</label>
+                    <select name="categorie" class="form-select">${catOptions}</select>
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">Date de début</label>
@@ -315,7 +375,7 @@ const urlParams = new URLSearchParams(window.location.search);
 const openId = urlParams.get('open');
 if (openId) {
     showDetail(parseInt(openId));
-    history.replaceState(null, '', 'index.php');
+    history.replaceState(null, '', 'index.php' + (window.location.search.indexOf('embedded=1') !== -1 ? '?embedded=1' : ''));
 }
 </script>
 
