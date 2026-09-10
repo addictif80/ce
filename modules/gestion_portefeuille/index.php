@@ -146,7 +146,8 @@ $err = $_GET['err'] ?? '';
     <div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> Aucun client n'a pu être ajouté : ils sont déjà présents dans une autre demande d'attribution en cours (<?= e($skippedList) ?>).</div>
 <?php elseif ($createdId): ?>
     <div class="alert alert-success">
-        <i class="fas fa-check"></i> Demande créée et fichier .eml généré au téléchargement.
+        <i class="fas fa-check"></i> Demande créée.
+        <a href="share_mail.php?id=<?= $createdId ?>" class="btn btn-sm btn-ce ms-2"><i class="fas fa-download"></i> Télécharger le fichier .eml</a>
         <?php if ($skippedList): ?>
             <br><i class="fas fa-exclamation-triangle text-warning"></i> Les clients suivants n'ont pas été ajoutés car déjà présents dans une autre demande d'attribution en cours : <strong><?= e($skippedList) ?></strong>
         <?php endif; ?>
@@ -418,10 +419,6 @@ function voirDemande(id) {
     document.getElementById('detailContent').innerHTML = html;
     new bootstrap.Modal(document.getElementById('detailModal')).show();
 }
-
-<?php if ($createdId): ?>
-window.location.href = 'share_mail.php?id=<?= $createdId ?>';
-<?php endif; ?>
 
 const urlParams = new URLSearchParams(window.location.search);
 const openId = urlParams.get('open');
