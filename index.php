@@ -31,7 +31,8 @@ $proceduresEnAvant = $stmtProc->fetchAll();
             'formations' => 'Formation', 'equipe' => 'Équipe', 'phoning' => 'Phoning',
             'courriers_internes' => 'Courrier interne', 'signatures' => 'Signature',
             'mobilites' => 'Mobilité', 'rappels_clients' => 'Rappel client',
-            'production' => 'Production', 'credit_immo' => 'Crédit immo'
+            'production' => 'Production', 'credit_immo' => 'Crédit immo',
+            'gestion_portefeuille' => 'Gestion portefeuille'
         ];
         $typeLinks = [
             'instances' => 'modules/instances/index.php', 'rappels' => 'modules/rappels/index.php',
@@ -45,7 +46,8 @@ $proceduresEnAvant = $stmtProc->fetchAll();
             'mobilites' => 'modules/mobilites/index.php',
             'rappels_clients' => 'modules/rappels_clients/index.php',
             'production' => 'modules/production/index.php',
-            'credit_immo' => 'modules/credit_immo/index.php'
+            'credit_immo' => 'modules/credit_immo/index.php',
+            'gestion_portefeuille' => 'modules/gestion_portefeuille/index.php'
         ];
         foreach ($searchResults as $r): ?>
             <div class="search-result-item">
