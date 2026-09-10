@@ -305,7 +305,7 @@ function getEaiAutoFillData($db, $userId, $tuesdayDate) {
 function getDefaultMenuItems() {
     return [
         // Sections
-        ['item_key' => 'activite', 'parent_key' => null, 'label' => 'Mon activité', 'icon' => 'fa-briefcase', 'url' => null, 'uri_patterns' => 'instances,rappels,demandes_clients,offres,interets_clients,rappels_clients,signatures,envoi_documents,kanban', 'ordre' => 1],
+        ['item_key' => 'activite', 'parent_key' => null, 'label' => 'Mon activité', 'icon' => 'fa-briefcase', 'url' => null, 'uri_patterns' => 'instances,rappels,demandes_clients,offres,interets_clients,rappels_clients,signatures,envoi_documents,kanban,gestion_portefeuille', 'ordre' => 1],
         ['item_key' => 'formation', 'parent_key' => null, 'label' => 'Formation', 'icon' => 'fa-graduation-cap', 'url' => null, 'uri_patterns' => 'formations', 'ordre' => 2],
         ['item_key' => 'commercial', 'parent_key' => null, 'label' => 'Commercial', 'icon' => 'fa-handshake', 'url' => null, 'uri_patterns' => 'production,phoning,eai,mobilites', 'ordre' => 3],
         ['item_key' => 'outils', 'parent_key' => null, 'label' => 'Outils', 'icon' => 'fa-tools', 'url' => null, 'uri_patterns' => 'credit_immo,calculateur,courriers,courriers_internes,blocnotes,procedures,bureau_dom,retraits,/modules/stock/', 'ordre' => 4],
@@ -318,6 +318,7 @@ function getDefaultMenuItems() {
         ['item_key' => 'offres', 'parent_key' => 'activite', 'label' => 'Offres en cours', 'icon' => 'fa-tags', 'url' => '/modules/offres/index.php', 'uri_patterns' => 'offres', 'ordre' => 4],
         ['item_key' => 'interets_clients', 'parent_key' => 'activite', 'label' => 'Intérêts clients', 'icon' => 'fa-star', 'url' => '/modules/interets_clients/index.php', 'uri_patterns' => 'interets_clients', 'ordre' => 9],
         ['item_key' => 'rappels_clients', 'parent_key' => 'activite', 'label' => 'Rappels clients', 'icon' => 'fa-phone-square-alt', 'url' => '/modules/rappels_clients/index.php', 'uri_patterns' => 'rappels_clients', 'ordre' => 5],
+        ['item_key' => 'gestion_portefeuille', 'parent_key' => 'activite', 'label' => 'Gestion portefeuille', 'icon' => 'fa-briefcase', 'url' => '/modules/gestion_portefeuille/index.php', 'uri_patterns' => 'gestion_portefeuille', 'ordre' => 10],
         ['item_key' => 'calendrier_instances', 'parent_key' => 'activite', 'label' => 'Calendrier instances', 'icon' => 'fa-calendar', 'url' => '/modules/instances/calendrier.php', 'uri_patterns' => 'instances/calendrier', 'ordre' => 6],
         ['item_key' => 'signatures', 'parent_key' => 'activite', 'label' => 'Suivi signatures', 'icon' => 'fa-file-signature', 'url' => '/modules/signatures/index.php', 'uri_patterns' => 'signatures', 'ordre' => 7],
         ['item_key' => 'envoi_documents', 'parent_key' => 'activite', 'label' => 'Envoi de documents', 'icon' => 'fa-file-export', 'url' => '/modules/envoi_documents/index.php', 'uri_patterns' => 'envoi_documents', 'ordre' => 8],
@@ -514,6 +515,16 @@ function searchGlobal($query, $userId) {
     try {
         $stmt = $db->prepare("SELECT id, identite_client AS titre, motif AS detail, 'rappels_clients' AS type FROM demandes_rappel_client WHERE user_id = ? AND (identite_client LIKE ? OR motif LIKE ?)");
         $stmt->execute([$userId, $like, $like]);
+        $results = array_merge($results, $stmt->fetchAll());
+    } catch (Exception $e) {}
+
+    // Gestion portefeuille
+    try {
+        $stmt = $db->prepare("SELECT l.demande_id AS id, l.identite_client AS titre, l.motif AS detail, 'gestion_portefeuille' AS type
+            FROM demandes_portefeuille_lignes l
+            JOIN demandes_portefeuille d ON d.id = l.demande_id
+            WHERE d.user_id = ? AND (l.identite_client LIKE ? OR l.motif LIKE ? OR l.numero_personne LIKE ?)");
+        $stmt->execute([$userId, $like, $like, $like]);
         $results = array_merge($results, $stmt->fetchAll());
     } catch (Exception $e) {}
 
