@@ -226,18 +226,21 @@ $eml .= "Content-Type: multipart/alternative;\r\n\tboundary=\"{$boundary}\"\r\n"
 $eml .= "\r\n";
 
 // Partie texte
+// Encodage base64 (plutôt que quoted-printable) pour éviter que les longues URLs
+// (lien "Consulter la demande") ne soient coupées par un retour à la ligne "souple"
+// mal réassemblé par certains clients mails.
 $eml .= "--{$boundary}\r\n";
 $eml .= "Content-Type: text/plain; charset=UTF-8\r\n";
-$eml .= "Content-Transfer-Encoding: quoted-printable\r\n";
+$eml .= "Content-Transfer-Encoding: base64\r\n";
 $eml .= "\r\n";
-$eml .= quoted_printable_encode($textBody) . "\r\n";
+$eml .= chunk_split(base64_encode($textBody));
 
 // Partie HTML
 $eml .= "--{$boundary}\r\n";
 $eml .= "Content-Type: text/html; charset=UTF-8\r\n";
-$eml .= "Content-Transfer-Encoding: quoted-printable\r\n";
+$eml .= "Content-Transfer-Encoding: base64\r\n";
 $eml .= "\r\n";
-$eml .= quoted_printable_encode($htmlBody) . "\r\n";
+$eml .= chunk_split(base64_encode($htmlBody));
 
 $eml .= "--{$boundary}--\r\n";
 
