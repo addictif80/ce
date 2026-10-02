@@ -1,6 +1,14 @@
 <?php
 require_once __DIR__ . '/_layout.php';
 
+$logoUrl = 'https://www.img.caisse-epargne.fr/app/uploads/sites/16/2021/05/31152836/ce-logo-midi-pyrennees.png';
+
+// Contacts équipe gérés par l'admin (user_id NULL) : seuls nom, prénom, téléphone et e-mail sont exposés
+$equipe = [];
+try {
+    $equipe = getDB()->query("SELECT id, prenom, nom, email, telephone FROM contacts_equipe WHERE user_id IS NULL ORDER BY nom, prenom")->fetchAll();
+} catch (Exception $e) {}
+
 toolsHeader('Générateur de courrier', 'courrier', '<style>
     .wy-toolbar{background:#f8f9fa;border:1px solid #dee2e6;border-bottom:none;border-radius:6px 6px 0 0;padding:6px 10px;display:flex;gap:4px;flex-wrap:wrap;align-items:center}
     .wy-toolbar button{background:#fff;border:1px solid #dee2e6;border-radius:4px;width:32px;height:28px;font-size:12px;color:#6c757d}
@@ -19,7 +27,17 @@ toolsHeader('Générateur de courrier', 'courrier', '<style>
 
     <div class="card mb-3"><div class="card-body">
         <h2 class="h6 text-uppercase text-muted">Expéditeur</h2>
+        <img src="<?= e($logoUrl) ?>" alt="Caisse d'Épargne" style="max-width:180px;height:auto;" class="mb-3 d-block">
         <div class="row g-2">
+            <div class="col-12">
+                <label class="form-label">Choisir un expéditeur ou saisir à la main</label>
+                <select id="s-pick" class="form-select">
+                    <option value="">Saisie manuelle</option>
+                    <?php foreach ($equipe as $m): ?>
+                    <option value="<?= (int)$m['id'] ?>" data-nom="<?= e(trim($m['prenom'] . ' ' . $m['nom'])) ?>" data-tel="<?= e($m['telephone']) ?>" data-email="<?= e($m['email']) ?>"><?= e(trim($m['prenom'] . ' ' . $m['nom'])) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
             <div class="col-md-4"><label class="form-label">Nom et prénom</label><input id="s-nom" class="form-control" autocomplete="off"></div>
             <div class="col-md-4"><label class="form-label">Adresse</label><input id="s-adresse" class="form-control" autocomplete="off"></div>
             <div class="col-md-4"><label class="form-label">Code postal et ville</label><input id="s-cpville" class="form-control" autocomplete="off"></div>
@@ -89,6 +107,18 @@ toolsHeader('Générateur de courrier', 'courrier', '<style>
     const today = () => new Date().toISOString().slice(0, 10);
     $('c-date').value = today();
 
+    const AGENCY = {adresse: '5 Avenue Charles de Gaulle', cpville: '12700 Capdenac-Gare'};
+    $('s-pick').onchange = function() {
+        const o = this.selectedOptions[0];
+        if (!this.value) return;
+        $('s-nom').value = o.dataset.nom || '';
+        $('s-tel').value = o.dataset.tel || '';
+        $('s-email').value = o.dataset.email || '';
+        $('s-adresse').value = AGENCY.adresse;
+        $('s-cpville').value = AGENCY.cpville;
+        if (!$('c-lieu').value) $('c-lieu').value = 'Capdenac-Gare';
+    };
+
     document.querySelectorAll('[data-cmd]').forEach(b => b.onclick = () => { editor.focus(); document.execCommand(b.dataset.cmd, false, null); });
     document.querySelectorAll('[data-ins]').forEach(b => b.onclick = () => { editor.focus(); document.execCommand('insertText', false, '{{' + b.dataset.ins + '}}'); });
 
@@ -133,7 +163,10 @@ toolsHeader('Générateur de courrier', 'courrier', '<style>
         const exp = lines([val('s-nom'), val('s-adresse'), val('s-cpville'), val('s-tel'), val('s-email')]);
         const lieuDate = [val('c-lieu'), 'le ' + fmtDate(val('c-date'))].filter(Boolean).join(', ');
         $('letter').innerHTML = `
-            <div style="font-size:9pt;line-height:1.3;min-height:30mm;">${exp}</div>
+            <div style="min-height:30mm;">
+                <img id="letter-logo" src="<?= e($logoUrl) ?>" alt="Caisse d'Épargne" style="max-width:180px;height:auto;">
+                <div style="margin-top:4px;font-size:9pt;line-height:1.3;">${exp}</div>
+            </div>
             <div style="position:absolute;top:32mm;left:100mm;width:85mm;font-size:11pt;line-height:1.5;">${dest}</div>
             <div style="margin-top:25mm;text-align:right;">${esc(lieuDate)}</div>
             <br><br>
@@ -141,12 +174,22 @@ toolsHeader('Générateur de courrier', 'courrier', '<style>
             <br><br>
             <div style="text-align:justify;">${replaceVars(editor.innerHTML, variables())}</div>
             <div style="text-align:right;margin-top:40px;">${esc(val('s-nom'))}</div>`;
-        window.print();
+        // Imprimer une fois le logo chargé (sinon il peut manquer à l'impression)
+        const logo = $('letter-logo');
+        if (logo && !logo.complete) {
+            let done = false;
+            const go = () => { if (!done) { done = true; window.print(); } };
+            logo.onload = logo.onerror = go;
+            setTimeout(go, 3000);
+        } else {
+            window.print();
+        }
     };
 
     $('reset').onclick = () => {
         if (!confirm('Effacer tout le contenu du courrier ?')) return;
         document.querySelectorAll('input.form-control, select').forEach(i => i.value = '');
+        $('s-pick').value = '';
         $('c-date').value = today();
         editor.innerHTML = ''; $('vars').innerHTML = '';
     };

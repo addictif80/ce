@@ -12,7 +12,8 @@ toolsHeader('Outils en libre accès');
         <div>
             <div class="h4 mb-1">Aucune donnée n'est enregistrée</div>
             <div>Ces outils sont accessibles sans connexion ni création de compte. Rien de ce que vous saisissez n'est stocké par ce portail :
-                tout reste dans votre navigateur et disparaît à la fermeture de la page.</div>
+                tout reste dans votre navigateur et disparaît à la fermeture de la page.
+                <span class="small d-block mt-1">Seule exception, signalée sur la carte concernée : proposer une procédure, que vous choisissez d'envoyer pour validation.</span></div>
         </div>
     </div>
 
@@ -37,8 +38,5 @@ toolsHeader('Outils en libre accès');
     </div>
     <?php endif; ?>
 
-    <p class="text-center text-muted mt-5 small">
-        <a href="../login.php">Accès au portail (connexion)</a>
-    </p>
 </div>
 <?php toolsFooter();

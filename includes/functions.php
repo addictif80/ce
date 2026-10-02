@@ -844,21 +844,37 @@ function sendDailyReminderIfNeeded($userId) {
  * Chemins relatifs au dossier tools/.
  */
 function getPublicToolsCatalog() {
+    // 'default' : état tant que l'admin n'a rien décidé (false pour les données internes : rien n'est exposé sans choix explicite)
     return [
         'calculateur' => [
-            'label' => 'Calculateur de budget', 'icon' => 'fa-calculator', 'url' => 'calculateur.php',
+            'label' => 'Calculateur de budget', 'icon' => 'fa-calculator', 'url' => 'calculateur.php', 'default' => true,
             'description' => 'Estimez votre reste à vivre à partir de vos revenus et de vos charges mensuelles.',
             'note' => 'Les calculs se font dans votre navigateur : rien n\'est envoyé ni conservé.',
         ],
         'courrier' => [
-            'label' => 'Générateur de courrier', 'icon' => 'fa-envelope-open-text', 'url' => 'courrier.php',
+            'label' => 'Générateur de courrier', 'icon' => 'fa-envelope-open-text', 'url' => 'courrier.php', 'default' => true,
             'description' => 'Rédigez un courrier mis en forme, avec variables, puis imprimez-le ou enregistrez-le en PDF.',
             'note' => 'Le courrier reste dans votre navigateur : rien n\'est envoyé ni conservé.',
         ],
         'dpe' => [
-            'label' => 'Recherche DPE par adresse', 'icon' => 'fa-leaf', 'url' => '../modules/dpe/index.php',
+            'label' => 'Recherche DPE par adresse', 'icon' => 'fa-leaf', 'url' => '../modules/dpe/index.php', 'default' => true,
             'description' => 'Retrouvez les diagnostics de performance énergétique d\'une adresse, sur une liste ou une carte.',
             'note' => 'L\'adresse saisie est transmise aux API publiques de l\'ADEME et de la Base Adresse Nationale pour la recherche, sans être enregistrée par ce portail.',
+        ],
+        'procedures' => [
+            'label' => 'Procédures', 'icon' => 'fa-book', 'url' => '../modules/procedures/public.php', 'default' => true,
+            'description' => 'Consultez les procédures publiées et leur contenu.',
+            'note' => 'Consultation sans enregistrement. Seule exception : si vous choisissez de proposer une procédure, votre proposition est transmise pour validation.',
+        ],
+        'codes' => [
+            'label' => 'Codes utiles', 'icon' => 'fa-key', 'url' => 'codes.php', 'default' => false,
+            'description' => 'Liste des codes validés et de leur fonction.',
+            'note' => 'Consultation seule : rien n\'est enregistré.',
+        ],
+        'contacts' => [
+            'label' => 'Contacts utiles', 'icon' => 'fa-address-book', 'url' => 'contacts.php', 'default' => false,
+            'description' => 'Services à contacter, avec téléphone, e-mail et motif de contact.',
+            'note' => 'Consultation seule : rien n\'est enregistré.',
         ],
     ];
 }
@@ -870,13 +886,14 @@ function ensurePublicToolsSchema() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 
-/** Clés des outils publics activés (activés par défaut tant que l'admin n'a rien décidé) */
+/** Clés des outils publics activés (valeur par défaut du catalogue tant que l'admin n'a rien décidé) */
 function getEnabledPublicTools() {
     ensurePublicToolsSchema();
     $rows = getDB()->query("SELECT tool_key, enabled FROM public_tools")->fetchAll(PDO::FETCH_KEY_PAIR);
     $enabled = [];
-    foreach (array_keys(getPublicToolsCatalog()) as $key) {
-        if (!isset($rows[$key]) || (int)$rows[$key] === 1) $enabled[] = $key;
+    foreach (getPublicToolsCatalog() as $key => $tool) {
+        $on = isset($rows[$key]) ? (int)$rows[$key] === 1 : !empty($tool['default']);
+        if ($on) $enabled[] = $key;
     }
     return $enabled;
 }
