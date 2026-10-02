@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/functions.php';
+requirePublicTool('procedures');
 
 $db = getDB();
 ensureProcedureProposalsSchema();
@@ -104,7 +105,10 @@ unset($proc);
     </div>
     <div class="container-page content-wrap">
         <div class="mb-3 no-print d-flex justify-content-between flex-wrap gap-2">
-            <a href="../../login.php" class="btn btn-ce-outline btn-sm"><i class="fas fa-sign-in-alt"></i> Se connecter</a>
+            <div class="d-flex gap-2">
+                <a href="../../tools/" class="btn btn-ce-outline btn-sm"><i class="fas fa-th-large"></i> Tous les outils</a>
+                <a href="../../login.php" class="btn btn-ce-outline btn-sm"><i class="fas fa-sign-in-alt"></i> Se connecter</a>
+            </div>
             <button class="btn btn-ce btn-sm" data-bs-toggle="modal" data-bs-target="#proposeAddModal"><i class="fas fa-plus"></i> Proposer une nouvelle procédure</button>
         </div>
 
