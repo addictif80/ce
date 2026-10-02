@@ -62,6 +62,11 @@ require_once __DIR__ . '/../../includes/functions.php';
     <div id="dpe-results"></div>
 </div>
 
+<div class="modal fade" id="dpe-modal" tabindex="-1"><div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title" id="dpe-modal-title">Détail du DPE</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body" id="dpe-modal-body"></div>
+</div></div></div>
+
 <script>
 (function() {
     const input = document.getElementById('dpe-addr');
@@ -76,7 +81,57 @@ require_once __DIR__ . '/../../includes/functions.php';
     const fmtDate = d => d ? d.split('-').reverse().join('/') : '';
     const badge = l => l ? `<span class="dpe-badge dpe-${esc(l)}">${esc(l)}</span>` : '<span class="dpe-badge dpe-none" title="Non classé">–</span>';
     const sources = () => [...document.querySelectorAll('.src:checked')].map(c => c.value).join(',') || 'new';
-    const officialUrl = n => 'https://observatoire-dpe-audit.ademe.fr/afficher-dpe/' + encodeURIComponent(n);
+
+    const detailBtn = r => `<button type="button" class="btn btn-sm btn-outline-primary" data-detail="${esc(r.numero_dpe)}" data-src="${esc(r.source)}" title="Voir le détail du DPE"><i class="fas fa-eye"></i> Détail</button>`;
+
+    // Libellés lisibles pour les champs techniques de l'ADEME
+    const WORDS = {conso:'consommation', consommation:'consommation', ep:'(énergie primaire)', ef:'(énergie finale)', ges:'GES', ecs:'ECS',
+        ban:'(BAN)', dpe:'DPE', m2:'/m²', nb:'nombre', nom:'nom', type:'type', date:'date', surface:'surface', cout:'coût', emission:'émissions',
+        deperditions:'déperditions', isolation:'isolation', chauffage:'chauffage', installation:'installation', generateur:'générateur',
+        energie:'énergie', logement:'logement', batiment:'bâtiment', annee:'année', numero:'numéro', etiquette:'étiquette', qualite:'qualité',
+        besoin:'besoin', apport:'apport', usages:'usages', code:'code', adresse:'adresse', complement:'complément', commune:'commune', rue:'rue',
+        voie:'voie', departement:'département', region:'région', periode:'période', hauteur:'hauteur', sous:'sous', plafond:'plafond',
+        plancher:'plancher', murs:'murs', menuiseries:'menuiseries', toiture:'toiture', ventilation:'ventilation', production:'production',
+        solaire:'solaire', photovoltaique:'photovoltaïque', confort:'confort', ete:'été', classe:'classe', altitude:'altitude', zone:'zone',
+        climatique:'climatique', modele:'modèle', methode:'méthode', version:'version', statut:'statut', geocodage:'géocodage', score:'score',
+        presence:'présence', brasseur:'brasseur', air:'d\'air', auxiliaires:'auxiliaires', eclairage:'éclairage', refroidissement:'refroidissement',
+        fin:'fin', validite:'validité', etablissement:'établissement', reception:'réception', visite:'visite', diagnostiqueur:'diagnostiqueur'};
+    const label = k => { const t = k.split('_').map(w => WORDS[w] || (/^n\d$/.test(w) ? w.toUpperCase() : w)); const s = t.join(' '); return s.charAt(0).toUpperCase() + s.slice(1); };
+    const fmtVal = v => typeof v === 'number' ? (Math.round(v * 100) / 100).toLocaleString('fr-FR') : (/^\d{4}-\d{2}-\d{2}$/.test(v) ? fmtDate(v) : esc(v));
+
+    async function showDetail(n, src) {
+        const body = document.getElementById('dpe-modal-body');
+        document.getElementById('dpe-modal-title').textContent = 'DPE ' + n;
+        body.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-1"></i>Chargement…</div>';
+        const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('dpe-modal'));
+        modal.show();
+        try {
+            const r = await fetch('api.php?mode=detail&source=' + src + '&n=' + encodeURIComponent(n));
+            const j = await r.json();
+            if (j.error) { body.innerHTML = `<div class="alert alert-danger">${esc(j.error)}</div>`; return; }
+            const s = j.summary;
+            let html = `<div class="row g-3 mb-3 text-center">
+                <div class="col-6 col-md-3"><div class="small text-muted">Étiquette énergie</div><div class="fs-3">${badge(s.etiquette_dpe)}</div><div class="small">${s.conso != null ? s.conso + ' kWh/m²/an' : ''}</div></div>
+                <div class="col-6 col-md-3"><div class="small text-muted">Étiquette climat (GES)</div><div class="fs-3">${badge(s.etiquette_ges)}</div><div class="small">${s.ges != null ? s.ges + ' kgCO₂/m²/an' : ''}</div></div>
+                <div class="col-6 col-md-3"><div class="small text-muted">Surface</div><div class="fs-4">${s.surface != null ? Math.round(s.surface * 10) / 10 + ' m²' : '–'}</div></div>
+                <div class="col-6 col-md-3"><div class="small text-muted">Coût annuel estimé</div><div class="fs-4">${s.cout != null ? Math.round(s.cout) + ' €' : '–'}</div></div>
+            </div>
+            <p class="mb-3"><i class="fas fa-map-marker-alt me-1"></i><b>${esc(s.adresse)}</b> ${s.complement ? '<span class="text-muted">– ' + esc(s.complement) + '</span>' : ''}<br>
+            <span class="text-muted">Établi le ${fmtDate(s.date)}${s.validite ? ' · valide jusqu\'au ' + fmtDate(s.validite) : ''}</span></p>
+            <div class="accordion" id="dpe-acc">`;
+            j.groups.forEach((g, i) => {
+                html += `<div class="accordion-item"><h2 class="accordion-header"><button class="accordion-button ${i ? 'collapsed' : ''}" type="button" data-bs-toggle="collapse" data-bs-target="#g${i}">${esc(g.name)} <span class="badge bg-secondary ms-2">${g.fields.length}</span></button></h2>
+                <div id="g${i}" class="accordion-collapse collapse ${i ? '' : 'show'}"><div class="accordion-body p-0"><table class="table table-sm table-striped mb-0"><tbody>
+                ${g.fields.map(f => `<tr><td class="text-muted" style="width:50%" title="${esc(f.key)}">${esc(label(f.key))}</td><td>${fmtVal(f.value)}</td></tr>`).join('')}
+                </tbody></table></div></div></div>`;
+            });
+            body.innerHTML = html + '</div>';
+        } catch (e) { body.innerHTML = '<div class="alert alert-danger">Erreur lors du chargement du détail.</div>'; }
+    }
+    document.addEventListener('click', e => {
+        const b = e.target.closest('[data-detail]');
+        if (b) { e.preventDefault(); showDetail(b.dataset.detail, b.dataset.src); }
+    });
 
     // ---------- Carte ----------
     const map = L.map('dpe-map').setView([46.6, 2.5], 6);
@@ -97,7 +152,7 @@ require_once __DIR__ . '/../../includes/functions.php';
                 const l = p.dpe[0].etiquette_dpe;
                 const icon = L.divIcon({className: '', iconSize: [26, 26],
                     html: `<div class="dpe-pin" style="background:${COLORS[l] || '#999'}">${l || '–'}</div>`});
-                const lines = p.dpe.map(d => `<li>${fmtDate(d.date)} ${badge(d.etiquette_dpe)} ${d.surface ? Math.round(d.surface) + ' m²' : ''}
+                const lines = p.dpe.map(d => `<li><a href="#" data-detail="${esc(d.numero_dpe)}" data-src="${esc(d.source)}" class="text-decoration-none">${fmtDate(d.date)}</a> ${badge(d.etiquette_dpe)} ${d.surface ? Math.round(d.surface) + ' m²' : ''}
                     ${d.source === 'old' ? '<span class="badge bg-secondary">avant 07/2021</span>' : ''}</li>`).join('');
                 const m = L.marker([p.lat, p.lon], {icon}).bindPopup(
                     `<b>${esc(p.adresse)}</b><br>${p.count} DPE<ul class="ps-3 mb-1">${lines}</ul>
@@ -159,7 +214,7 @@ require_once __DIR__ . '/../../includes/functions.php';
             <td>${r.conso != null ? r.conso + ' kWh/m²/an' : ''}<div class="small text-muted">${r.ges != null ? r.ges + ' kgCO₂/m²/an' : ''}</div></td>
             <td>${r.cout != null ? Math.round(r.cout) + ' €/an' : ''}<div class="small text-muted">${esc(r.energie)}</div></td>
             <td>${esc(r.construction)}</td>
-            <td><a href="${officialUrl(r.numero_dpe)}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary" title="Voir le DPE officiel"><i class="fas fa-external-link-alt"></i></a>
+            <td>${detailBtn(r)}
                 <div class="small text-muted">${esc(r.numero_dpe)}</div></td></tr>`;
     }
     function table(title, rows, showAddr) {
