@@ -861,6 +861,11 @@ function getPublicToolsCatalog() {
             'description' => 'Retrouvez les diagnostics de performance énergétique d\'une adresse, sur une liste ou une carte.',
             'note' => 'L\'adresse saisie est transmise aux API publiques de l\'ADEME et de la Base Adresse Nationale pour la recherche, sans être enregistrée par ce portail.',
         ],
+        'bureau_dom' => [
+            'label' => 'Bureau domiciliaire', 'icon' => 'fa-building', 'url' => 'bureau_dom.php', 'default' => true,
+            'description' => 'Remplissez le formulaire de modification de bureau domiciliaire, puis imprimez-le.',
+            'note' => 'Le formulaire reste dans votre navigateur : rien n\'est envoyé ni conservé.',
+        ],
         'procedures' => [
             'label' => 'Procédures', 'icon' => 'fa-book', 'url' => '../modules/procedures/public.php', 'default' => true,
             'description' => 'Consultez les procédures publiées et leur contenu.',
