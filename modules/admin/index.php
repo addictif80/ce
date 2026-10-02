@@ -342,6 +342,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         exit;
     }
 
+    if ($action === 'save_tools_protection') {
+        setToolsSetting('protection_enabled', isset($_POST['protection_enabled']) ? '1' : '0');
+        header('Location: index.php?tab=outils_publics&msg=tools_protection_saved');
+        exit;
+    }
+
+    if ($action === 'add_tools_code') {
+        ensureToolsAccessSchema();
+        $label = mb_substr(trim($_POST['label'] ?? ''), 0, 100);
+        $code = trim($_POST['code'] ?? '');
+        $expires = $_POST['expires_at'] ?? '';
+        $expires = preg_match('/^\d{4}-\d{2}-\d{2}$/', $expires) ? $expires : null;
+        if ($code === '') { // génération : alphabet sans caractères ambigus
+            $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            for ($i = 0; $i < 8; $i++) $code .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+        }
+        $dup = false;
+        foreach ($db->query("SELECT code_hash FROM tools_codes")->fetchAll() as $r) {
+            if (password_verify($code, $r['code_hash'])) { $dup = true; break; }
+        }
+        if ($label === '' || mb_strlen($code) < 4 || mb_strlen($code) > 100) {
+            header('Location: index.php?tab=outils_publics&msg=tools_code_invalid');
+        } elseif ($dup) {
+            header('Location: index.php?tab=outils_publics&msg=tools_code_dup');
+        } else {
+            $db->prepare("INSERT INTO tools_codes (label, code_hash, actif, expires_at) VALUES (?, ?, 1, ?)")
+               ->execute([$label, password_hash($code, PASSWORD_DEFAULT), $expires]);
+            $_SESSION['new_tools_code'] = ['label' => $label, 'code' => $code]; // affiché une seule fois
+            header('Location: index.php?tab=outils_publics&msg=tools_code_added');
+        }
+        exit;
+    }
+
+    if ($action === 'toggle_tools_code' || $action === 'delete_tools_code') {
+        ensureToolsAccessSchema();
+        $id = (int)($_POST['id'] ?? 0);
+        if ($action === 'toggle_tools_code') $db->prepare("UPDATE tools_codes SET actif = 1 - actif WHERE id = ?")->execute([$id]);
+        else $db->prepare("DELETE FROM tools_codes WHERE id = ?")->execute([$id]);
+        header('Location: index.php?tab=outils_publics&msg=tools_code_updated');
+        exit;
+    }
+
     if ($action === 'feedback_read' || $action === 'feedback_delete') {
         ensureToolsFeedbackSchema();
         $id = (int)($_POST['id'] ?? 0);
@@ -522,6 +564,11 @@ try {
         'smtp_saved' => 'Configuration SMTP enregistrée.',
         'public_tools_saved' => 'Outils publics enregistrés.',
         'feedback_read' => 'Retour marqué comme lu.',
+        'tools_protection_saved' => 'Protection de /tools enregistrée.',
+        'tools_code_added' => 'Code d\'accès créé.',
+        'tools_code_updated' => 'Code d\'accès mis à jour.',
+        'tools_code_invalid' => 'Libellé requis et code de 4 à 100 caractères.',
+        'tools_code_dup' => 'Ce code existe déjà.',
         'smtp_test_ok'   => 'Email de test envoyé avec succès !',
         'smtp_test_fail' => 'Échec de l\'envoi du mail de test. Vérifiez la configuration SMTP.',
         'event_added'    => 'Événement ajouté avec succès.',
@@ -1855,6 +1902,73 @@ function editMenuItem(id) {
 
 <?php elseif ($activeTab === 'outils_publics'): ?>
 <!-- =============== OUTILS PUBLICS =============== -->
+<?php
+ensureToolsAccessSchema();
+$protectionOn = toolsProtectionEnabled();
+$toolsCodes = $db->query("SELECT * FROM tools_codes ORDER BY created_at DESC")->fetchAll();
+$activeCodesCount = count(getActiveToolsCodes());
+$newCode = $_SESSION['new_tools_code'] ?? null;
+unset($_SESSION['new_tools_code']);
+?>
+<div class="data-table-container mb-4">
+    <div class="data-table-header">
+        <h3><i class="fas fa-lock"></i> Protection de /tools par code d'accès</h3>
+    </div>
+    <div class="p-3">
+        <?php if ($newCode): ?>
+        <div class="alert alert-success">
+            Code « <?= e($newCode['label']) ?> » créé : <strong class="fs-5 user-select-all"><?= e($newCode['code']) ?></strong><br>
+            <small>Notez-le maintenant : il est stocké haché et ne pourra plus être affiché.</small>
+        </div>
+        <?php endif; ?>
+        <form method="post" class="mb-3">
+            <input type="hidden" name="action" value="save_tools_protection">
+            <div class="form-check form-switch mb-2">
+                <input class="form-check-input" type="checkbox" name="protection_enabled" id="protection_enabled" <?= $protectionOn ? 'checked' : '' ?>>
+                <label class="form-check-label" for="protection_enabled">Exiger un code d'accès pour utiliser <code>/tools</code> et tous les outils publics (y compris DPE et procédures)</label>
+            </div>
+            <?php if ($protectionOn && $activeCodesCount === 0): ?>
+            <div class="alert alert-warning py-2"><i class="fas fa-exclamation-triangle"></i> La protection est activée mais aucun code n'est actif : seuls les utilisateurs connectés au portail peuvent accéder aux outils.</div>
+            <?php endif; ?>
+            <button type="submit" class="btn btn-ce btn-sm"><i class="fas fa-save"></i> Enregistrer</button>
+        </form>
+
+        <h5 class="mt-4">Codes d'accès</h5>
+        <?php if ($toolsCodes): ?>
+        <div class="table-responsive"><table class="table align-middle">
+            <thead><tr><th>Libellé</th><th>État</th><th>Expire le</th><th>Créé le</th><th>Actions</th></tr></thead>
+            <tbody>
+            <?php foreach ($toolsCodes as $c):
+                $expired = $c['expires_at'] && $c['expires_at'] < date('Y-m-d'); ?>
+                <tr>
+                    <td><strong><?= e($c['label']) ?></strong></td>
+                    <td><?= $expired ? '<span class="badge bg-secondary">Expiré</span>' : ($c['actif'] ? '<span class="badge bg-success">Actif</span>' : '<span class="badge bg-warning text-dark">Désactivé</span>') ?></td>
+                    <td><?= $c['expires_at'] ? formatDate($c['expires_at']) : '—' ?></td>
+                    <td><?= formatDateTime($c['created_at']) ?></td>
+                    <td class="text-nowrap">
+                        <form method="post" class="d-inline"><input type="hidden" name="action" value="toggle_tools_code"><input type="hidden" name="id" value="<?= (int)$c['id'] ?>">
+                            <button class="btn btn-sm btn-outline-secondary"><?= $c['actif'] ? 'Désactiver' : 'Activer' ?></button></form>
+                        <form method="post" class="d-inline" onsubmit="return confirm('Supprimer ce code ? Les visiteurs qui l\'utilisent perdront l\'accès.')"><input type="hidden" name="action" value="delete_tools_code"><input type="hidden" name="id" value="<?= (int)$c['id'] ?>">
+                            <button class="btn btn-sm btn-outline-danger" title="Supprimer"><i class="fas fa-trash"></i></button></form>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table></div>
+        <?php else: ?>
+        <p class="text-muted">Aucun code créé.</p>
+        <?php endif; ?>
+
+        <form method="post" class="row g-2 align-items-end mt-2">
+            <input type="hidden" name="action" value="add_tools_code">
+            <div class="col-md-3"><label class="form-label">Libellé <small class="text-muted">(à qui il est destiné)</small></label><input type="text" name="label" class="form-control" maxlength="100" required></div>
+            <div class="col-md-3"><label class="form-label">Code <small class="text-muted">(vide = généré)</small></label><input type="text" name="code" class="form-control" minlength="4" maxlength="100" autocomplete="off"></div>
+            <div class="col-md-3"><label class="form-label">Expire le <small class="text-muted">(facultatif)</small></label><input type="date" name="expires_at" class="form-control"></div>
+            <div class="col-md-3"><button type="submit" class="btn btn-ce"><i class="fas fa-plus"></i> Ajouter un code</button></div>
+        </form>
+    </div>
+</div>
+
 <?php
 $publicCatalog = getPublicToolsCatalog();
 $publicStatus = getPublicToolsStatus();
