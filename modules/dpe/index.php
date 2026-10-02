@@ -2,6 +2,7 @@
 // Page publique : accessible sans connexion
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/functions.php';
+requirePublicTool('dpe');
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -32,7 +33,7 @@ require_once __DIR__ . '/../../includes/functions.php';
 <div class="page-header">
     <div class="container d-flex justify-content-between align-items-center flex-wrap gap-2">
         <h1 class="h3 mb-0"><i class="fas fa-leaf me-2"></i>Recherche DPE par adresse</h1>
-        <a href="../../index.php" class="btn btn-sm btn-light"><i class="fas fa-home me-1"></i>Application</a>
+        <a href="../../tools/" class="btn btn-sm btn-light"><i class="fas fa-th-large me-1"></i>Tous les outils</a>
     </div>
 </div>
 

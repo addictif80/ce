@@ -327,6 +327,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         exit;
     }
 
+    if ($action === 'save_public_tools') {
+        ensurePublicToolsSchema();
+        $chosen = (array)($_POST['tools'] ?? []);
+        $stmt = $db->prepare("INSERT INTO public_tools (tool_key, enabled) VALUES (?, ?) ON DUPLICATE KEY UPDATE enabled = VALUES(enabled)");
+        foreach (array_keys(getPublicToolsCatalog()) as $key) {
+            $stmt->execute([$key, in_array($key, $chosen, true) ? 1 : 0]);
+        }
+        header('Location: index.php?tab=outils_publics&msg=public_tools_saved');
+        exit;
+    }
+
     if ($action === 'save_smtp') {
         $db->exec("CREATE TABLE IF NOT EXISTS smtp_config (
             id INT AUTO_INCREMENT PRIMARY KEY, smtp_host VARCHAR(255) NOT NULL DEFAULT '', smtp_port INT DEFAULT 587,
@@ -496,6 +507,7 @@ try {
         'updated' => 'Enregistrement modifié avec succès.',
         'equipe_added' => 'Contact équipe ajouté avec succès.',
         'smtp_saved' => 'Configuration SMTP enregistrée.',
+        'public_tools_saved' => 'Outils publics enregistrés.',
         'smtp_test_ok'   => 'Email de test envoyé avec succès !',
         'smtp_test_fail' => 'Échec de l\'envoi du mail de test. Vérifiez la configuration SMTP.',
         'event_added'    => 'Événement ajouté avec succès.',
@@ -532,6 +544,9 @@ try {
     </li>
     <li class="nav-item">
         <a class="nav-link <?= $activeTab === 'menu' ? 'active' : '' ?>" href="?tab=menu"><i class="fas fa-bars"></i> Menu</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link <?= $activeTab === 'outils_publics' ? 'active' : '' ?>" href="?tab=outils_publics"><i class="fas fa-globe"></i> Outils publics</a>
     </li>
     <li class="nav-item">
         <a class="nav-link <?= $activeTab === 'smtp' ? 'active' : '' ?>" href="?tab=smtp"><i class="fas fa-envelope"></i> Emails</a>
@@ -1823,6 +1838,31 @@ function editMenuItem(id) {
     new bootstrap.Modal(document.getElementById('editMenuItemModal')).show();
 }
 </script>
+
+<?php elseif ($activeTab === 'outils_publics'): ?>
+<!-- =============== OUTILS PUBLICS =============== -->
+<?php $publicCatalog = getPublicToolsCatalog(); $publicEnabled = getEnabledPublicTools(); ?>
+<div class="data-table-container">
+    <div class="data-table-header">
+        <h3><i class="fas fa-globe"></i> Outils accessibles sans connexion</h3>
+    </div>
+    <div class="p-3">
+        <p class="text-muted">Les outils cochés sont affichés sur la page publique <a href="../../tools/" target="_blank"><code>/tools</code></a> et accessibles sans connexion. Un outil décoché devient indisponible pour les visiteurs non connectés (les utilisateurs connectés y accèdent toujours).</p>
+        <form method="post">
+            <input type="hidden" name="action" value="save_public_tools">
+            <?php foreach ($publicCatalog as $key => $tool): ?>
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" name="tools[]" value="<?= e($key) ?>" id="pt-<?= e($key) ?>" <?= in_array($key, $publicEnabled, true) ? 'checked' : '' ?>>
+                <label class="form-check-label" for="pt-<?= e($key) ?>">
+                    <strong><i class="fas <?= e($tool['icon']) ?> me-1"></i><?= e($tool['label']) ?></strong><br>
+                    <small class="text-muted"><?= e($tool['description']) ?></small>
+                </label>
+            </div>
+            <?php endforeach; ?>
+            <button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Enregistrer</button>
+        </form>
+    </div>
+</div>
 
 <?php elseif ($activeTab === 'smtp'): ?>
 <!-- =============== CONFIGURATION SMTP =============== -->
