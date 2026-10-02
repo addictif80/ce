@@ -8,6 +8,7 @@ require_once __DIR__ . '/../includes/functions.php';
 function toolsHeader($title, $key = null, $extraHead = '') {
     $GLOBALS['toolsCurrentKey'] = $key;
     if ($key !== null) requirePublicTool($key);
+    elseif (empty($GLOBALS['toolsNoGate'])) requireToolsAccess();
     ?>
 <!DOCTYPE html>
 <html lang="fr">

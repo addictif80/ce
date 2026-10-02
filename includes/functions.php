@@ -861,6 +861,11 @@ function getPublicToolsCatalog() {
             'description' => 'Retrouvez les diagnostics de performance énergétique d\'une adresse, sur une liste ou une carte.',
             'note' => 'L\'adresse saisie est transmise aux API publiques de l\'ADEME et de la Base Adresse Nationale pour la recherche, sans être enregistrée par ce portail.',
         ],
+        'bureau_dom' => [
+            'label' => 'Bureau domiciliaire', 'icon' => 'fa-building', 'url' => 'bureau_dom.php', 'default' => true,
+            'description' => 'Remplissez le formulaire de modification de bureau domiciliaire, puis imprimez-le.',
+            'note' => 'Le formulaire reste dans votre navigateur : rien n\'est envoyé ni conservé.',
+        ],
         'procedures' => [
             'label' => 'Procédures', 'icon' => 'fa-book', 'url' => '../modules/procedures/public.php', 'default' => true,
             'description' => 'Consultez les procédures publiées et leur contenu.',
@@ -913,12 +918,19 @@ function getEnabledPublicTools() {
     return array_keys(array_filter(getPublicToolsStatus(), fn($s) => $s['state'] === 'actif'));
 }
 
-/** Bloque l'accès public à un outil non actif (page « indisponible » avec le motif, ou 404 si masqué) ; les utilisateurs connectés passent toujours. */
-function requirePublicTool($key, $json = false) {
+/** Vrai si un utilisateur du portail est connecté (il passe outre états et codes d'accès) */
+function toolsVisitorIsLoggedIn() {
     if (isset($_COOKIE[session_name()])) {
         if (session_status() !== PHP_SESSION_ACTIVE) @session_start();
-        if (!empty($_SESSION['user_id'])) return;
+        return !empty($_SESSION['user_id']);
     }
+    return false;
+}
+
+/** Bloque l'accès public à un outil non actif (page « indisponible » avec le motif, ou 404 si masqué) ; les utilisateurs connectés passent toujours. */
+function requirePublicTool($key, $json = false) {
+    if (toolsVisitorIsLoggedIn()) return;
+    requireToolsAccess($json);
     $st = getPublicToolsStatus()[$key] ?? ['state' => 'masque', 'motif' => ''];
     if ($st['state'] === 'actif') return;
 
@@ -947,4 +959,106 @@ function ensureToolsFeedbackSchema() {
         lu TINYINT(1) NOT NULL DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
+/**
+ * Protection par code d'accès de /tools : l'admin peut activer la protection et créer plusieurs codes
+ * (libellé, activation, date d'expiration facultative). Les codes sont stockés hachés.
+ * Une fois un code valide saisi, le visiteur reçoit un cookie signé ; supprimer/désactiver le code
+ * (ou le laisser expirer) coupe l'accès au prochain chargement.
+ */
+function ensureToolsAccessSchema() {
+    $db = getDB();
+    $db->exec("CREATE TABLE IF NOT EXISTS tools_settings (
+        k VARCHAR(50) PRIMARY KEY,
+        v TEXT
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $db->exec("CREATE TABLE IF NOT EXISTS tools_codes (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        label VARCHAR(100) NOT NULL,
+        code_hash VARCHAR(255) NOT NULL,
+        actif TINYINT(1) NOT NULL DEFAULT 1,
+        expires_at DATE DEFAULT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
+function getToolsSetting($key, $default = '') {
+    ensureToolsAccessSchema();
+    $stmt = getDB()->prepare("SELECT v FROM tools_settings WHERE k = ?");
+    $stmt->execute([$key]);
+    $v = $stmt->fetchColumn();
+    return $v === false ? $default : $v;
+}
+
+function setToolsSetting($key, $value) {
+    ensureToolsAccessSchema();
+    getDB()->prepare("REPLACE INTO tools_settings (k, v) VALUES (?, ?)")->execute([$key, $value]);
+}
+
+function toolsProtectionEnabled() {
+    return getToolsSetting('protection_enabled', '0') === '1';
+}
+
+/** Codes utilisables aujourd'hui (actifs et non expirés) */
+function getActiveToolsCodes() {
+    ensureToolsAccessSchema();
+    $stmt = getDB()->prepare("SELECT * FROM tools_codes WHERE actif = 1 AND (expires_at IS NULL OR expires_at >= ?)");
+    $stmt->execute([date('Y-m-d')]);
+    return $stmt->fetchAll();
+}
+
+function toolsAccessSecret() {
+    $secret = getToolsSetting('secret', '');
+    if ($secret === '') { $secret = bin2hex(random_bytes(32)); setToolsSetting('secret', $secret); }
+    return $secret;
+}
+
+/** Chemin de base de l'application (ex. "" ou "/ce"), déduit de l'URL du script courant */
+function toolsBasePath() {
+    return preg_match('#^(.*?)/(tools|modules)/#', $_SERVER['SCRIPT_NAME'] ?? '', $m) ? $m[1] : '';
+}
+
+function toolsAccessToken(array $codeRow) {
+    $payload = $codeRow['id'] . '.' . substr(md5($codeRow['code_hash']), 0, 10);
+    return $payload . '.' . hash_hmac('sha256', $payload, toolsAccessSecret());
+}
+
+function toolsGrantAccess(array $codeRow) {
+    setcookie('tools_access', toolsAccessToken($codeRow), [
+        'expires' => time() + 30 * 86400, 'path' => toolsBasePath() . '/',
+        'secure' => !empty($_SERVER['HTTPS']), 'httponly' => true, 'samesite' => 'Lax',
+    ]);
+}
+
+/** Vrai si la protection est désactivée, ou si le visiteur présente un cookie lié à un code encore valide */
+function toolsAccessGranted() {
+    if (!toolsProtectionEnabled()) return true;
+    $parts = explode('.', $_COOKIE['tools_access'] ?? '');
+    if (count($parts) !== 3) return false;
+    foreach (getActiveToolsCodes() as $row) {
+        if (hash_equals(toolsAccessToken($row), implode('.', $parts))) return true;
+    }
+    return false;
+}
+
+/** Vérifie un code saisi ; retourne la ligne du code correspondant ou null */
+function findToolsCode($input) {
+    foreach (getActiveToolsCodes() as $row) {
+        if (password_verify($input, $row['code_hash'])) return $row;
+    }
+    return null;
+}
+
+/** Redirige vers la saisie du code (ou répond 401 pour une API) si /tools est protégé et le visiteur n'a pas de code valide */
+function requireToolsAccess($json = false) {
+    if (toolsVisitorIsLoggedIn() || toolsAccessGranted()) return;
+    if ($json) {
+        http_response_code(401);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => "Code d'accès requis."]);
+        exit;
+    }
+    header('Location: ' . toolsBasePath() . '/tools/access.php?next=' . urlencode($_SERVER['REQUEST_URI'] ?? ''));
+    exit;
 }

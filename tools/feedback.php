@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/_layout.php';
+requireToolsAccess(); // avant le traitement du formulaire
 
 $catalog = getPublicToolsCatalog();
 $types = ['bug' => 'Un problème', 'suggestion' => 'Une suggestion', 'question' => 'Une question', 'autre' => 'Autre'];
