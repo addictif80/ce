@@ -2,6 +2,7 @@
 /**
  * API publique (sans connexion) de recherche de DPE, proxy vers l'open data de l'ADEME.
  *   ?mode=address&q=<adresse>[&sources=new,old]  -> DPE d'une adresse
+ *   ?mode=detail&n=<numéro DPE>&source=new|old -> fiche complète d'un DPE, regroupée par thème
  *   ?mode=map&bbox=lonMin,latMin,lonMax,latMax[&sources=new,old] -> DPE dans une zone (carte)
  * Sources : new = logements depuis juillet 2021 (dpe03existant), old = avant juillet 2021 (dpe-france).
  */
@@ -72,9 +73,47 @@ function mapOld($r) {
     ];
 }
 
+$mode = $_GET['mode'] ?? 'address';
+if ($mode === 'detail') {
+    $n = $_GET['n'] ?? '';
+    if (!preg_match('/^[0-9A-Za-z]{10,20}$/', $n)) fail('Numéro de DPE invalide.');
+    $new = ($_GET['source'] ?? 'new') !== 'old';
+    $dataset = $new ? 'dpe03existant' : 'dpe-france';
+    $data = ademe($dataset, ['qs' => 'numero_dpe:"' . $n . '"', 'size' => 1]);
+    if ($data === null) fail("L'API de l'ADEME est momentanément indisponible.", 502);
+    if (!$data['results']) fail('DPE introuvable.', 404);
+    $rec = $data['results'][0];
+
+    // Regroupement par thème grâce au schéma du jeu de données (mis en cache 1 jour)
+    $cache = sys_get_temp_dir() . "/dpe_schema_$dataset.json";
+    $groupOf = (is_file($cache) && filemtime($cache) > time() - 86400) ? json_decode(file_get_contents($cache), true) : null;
+    if (!$groupOf) {
+        $ch = curl_init("https://data.ademe.fr/data-fair/api/v1/datasets/$dataset/schema?mimeType=application/json");
+        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 20]);
+        $schema = json_decode((string)curl_exec($ch), true);
+        curl_close($ch);
+        $groupOf = [];
+        foreach (is_array($schema) ? $schema : [] as $f) $groupOf[$f['key']] = $f['x-group'] ?? 'Informations';
+        if ($groupOf) @file_put_contents($cache, json_encode($groupOf));
+    }
+    $groups = [];
+    foreach ($rec as $k => $v) {
+        if ($k[0] === '_' || $v === null || $v === '') continue;
+        $groups[$groupOf[$k] ?? 'Informations'][] = ['key' => $k, 'value' => $v];
+    }
+    $out = [];
+    $order = ['Bilan DPE', 'Caractéristiques bâtiment', 'Consommation en énergie primaire', 'Consommation en énergie finale', 'Emissions de GES', 'Coûts', 'Isolation', 'Chauffage', 'ECS'];
+    uksort($groups, function ($a, $b) use ($order) {
+        $ia = array_search($a, $order); $ib = array_search($b, $order);
+        return ($ia === false ? 99 : $ia) <=> ($ib === false ? 99 : $ib);
+    });
+    foreach ($groups as $name => $fields) $out[] = ['name' => $name, 'fields' => $fields];
+    echo json_encode(['summary' => $new ? mapNew($rec) : mapOld($rec), 'groups' => $out]);
+    exit;
+}
+
 $sources = array_intersect(explode(',', $_GET['sources'] ?? 'new,old'), ['new', 'old']);
 if (!$sources) fail('Source inconnue.');
-$mode = $_GET['mode'] ?? 'address';
 $all = [];
 $errors = 0;
 
