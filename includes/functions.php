@@ -837,3 +837,59 @@ function sendDailyReminderIfNeeded($userId) {
     $db->prepare("INSERT INTO notifications_log (user_id, type, nb_instances, nb_demandes) VALUES (?, 'rappel_retards', ?, ?)")
         ->execute([$userId, $nbInstances, $nbDemandes]);
 }
+
+/**
+ * Outils publics (accessibles sans connexion, sans enregistrement de données)
+ * L'administrateur choisit ceux qui sont affichés sur /tools et accessibles publiquement.
+ * Chemins relatifs au dossier tools/.
+ */
+function getPublicToolsCatalog() {
+    return [
+        'calculateur' => [
+            'label' => 'Calculateur de budget', 'icon' => 'fa-calculator', 'url' => 'calculateur.php',
+            'description' => 'Estimez votre reste à vivre à partir de vos revenus et de vos charges mensuelles.',
+            'note' => 'Les calculs se font dans votre navigateur : rien n\'est envoyé ni conservé.',
+        ],
+        'courrier' => [
+            'label' => 'Générateur de courrier', 'icon' => 'fa-envelope-open-text', 'url' => 'courrier.php',
+            'description' => 'Rédigez un courrier mis en forme, avec variables, puis imprimez-le ou enregistrez-le en PDF.',
+            'note' => 'Le courrier reste dans votre navigateur : rien n\'est envoyé ni conservé.',
+        ],
+        'dpe' => [
+            'label' => 'Recherche DPE par adresse', 'icon' => 'fa-leaf', 'url' => '../modules/dpe/index.php',
+            'description' => 'Retrouvez les diagnostics de performance énergétique d\'une adresse, sur une liste ou une carte.',
+            'note' => 'L\'adresse saisie est transmise aux API publiques de l\'ADEME et de la Base Adresse Nationale pour la recherche, sans être enregistrée par ce portail.',
+        ],
+    ];
+}
+
+function ensurePublicToolsSchema() {
+    getDB()->exec("CREATE TABLE IF NOT EXISTS public_tools (
+        tool_key VARCHAR(50) PRIMARY KEY,
+        enabled TINYINT(1) NOT NULL DEFAULT 1
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
+/** Clés des outils publics activés (activés par défaut tant que l'admin n'a rien décidé) */
+function getEnabledPublicTools() {
+    ensurePublicToolsSchema();
+    $rows = getDB()->query("SELECT tool_key, enabled FROM public_tools")->fetchAll(PDO::FETCH_KEY_PAIR);
+    $enabled = [];
+    foreach (array_keys(getPublicToolsCatalog()) as $key) {
+        if (!isset($rows[$key]) || (int)$rows[$key] === 1) $enabled[] = $key;
+    }
+    return $enabled;
+}
+
+/** Bloque (404) l'accès public à un outil désactivé ; les utilisateurs connectés passent toujours. */
+function requirePublicTool($key, $json = false) {
+    if (isset($_COOKIE[session_name()])) {
+        if (session_status() !== PHP_SESSION_ACTIVE) @session_start();
+        if (!empty($_SESSION['user_id'])) return;
+    }
+    if (in_array($key, getEnabledPublicTools(), true)) return;
+    http_response_code(404);
+    if ($json) { header('Content-Type: application/json'); echo json_encode(['error' => 'Outil indisponible.']); }
+    else echo '<!DOCTYPE html><meta charset="utf-8"><title>Indisponible</title><p style="font-family:sans-serif;margin:40px">Cet outil n\'est pas disponible.</p>';
+    exit;
+}

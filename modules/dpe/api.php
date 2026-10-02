@@ -7,6 +7,8 @@
  * Sources : new = logements depuis juillet 2021 (dpe03existant), old = avant juillet 2021 (dpe-france).
  */
 header('Content-Type: application/json; charset=utf-8');
+require_once __DIR__ . '/../../includes/functions.php';
+requirePublicTool('dpe', true);
 
 function fail($msg, $code = 400) {
     http_response_code($code);

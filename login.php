@@ -54,6 +54,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="text-center mt-3">
                 <a href="modules/procedures/public.php"><i class="fas fa-book"></i> Consulter les procédures publiées</a>
             </div>
+            <div class="text-center mt-2">
+                <a href="tools/"><i class="fas fa-toolbox"></i> Outils en libre accès (sans connexion)</a>
+            </div>
         </div>
     </div>
 </body>
