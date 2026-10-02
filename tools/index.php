@@ -2,7 +2,8 @@
 require_once __DIR__ . '/_layout.php';
 
 $catalog = getPublicToolsCatalog();
-$enabled = getEnabledPublicTools();
+$status = getPublicToolsStatus();
+$visible = array_keys(array_filter($status, fn($st) => $st['state'] !== 'masque'));
 
 toolsHeader('Outils en libre accès');
 ?>
@@ -17,26 +18,36 @@ toolsHeader('Outils en libre accès');
         </div>
     </div>
 
-    <?php if (!$enabled): ?>
+    <?php if (!$visible): ?>
         <div class="alert alert-info">Aucun outil n'est disponible pour le moment.</div>
     <?php else: ?>
     <div class="row g-4">
-        <?php foreach ($enabled as $key): $t = $catalog[$key]; ?>
+        <?php foreach ($visible as $key): $t = $catalog[$key]; $off = $status[$key]['state'] === 'indisponible'; ?>
         <div class="col-md-6 col-lg-4">
-            <a href="<?= e($t['url']) ?>" class="text-decoration-none text-dark">
-                <div class="card h-100 shadow-sm border-0">
+            <<?= $off ? 'div' : 'a href="' . e($t['url']) . '"' ?> class="text-decoration-none text-dark d-block h-100" <?= $off ? 'aria-disabled="true"' : '' ?>>
+                <div class="card h-100 shadow-sm border-0" style="<?= $off ? 'opacity:.6;filter:grayscale(1);cursor:not-allowed' : '' ?>">
                     <div class="card-body">
-                        <div class="mb-3" style="color:#e4002b;font-size:2rem"><i class="fas <?= e($t['icon']) ?>"></i></div>
+                        <div class="mb-3 d-flex justify-content-between align-items-start">
+                            <span style="color:#e4002b;font-size:2rem"><i class="fas <?= e($t['icon']) ?>"></i></span>
+                            <?php if ($off): ?><span class="badge bg-secondary">Indisponible</span><?php endif; ?>
+                        </div>
                         <h2 class="h5"><?= e($t['label']) ?></h2>
                         <p class="text-muted mb-2"><?= e($t['description']) ?></p>
-                        <p class="small text-success mb-0"><i class="fas fa-check-circle me-1"></i><?= e($t['note']) ?></p>
+                        <?php if ($off): ?>
+                            <p class="small mb-0 fw-semibold"><i class="fas fa-ban me-1"></i><?= nl2br(e($status[$key]['motif'] !== '' ? $status[$key]['motif'] : 'Temporairement indisponible.')) ?></p>
+                        <?php else: ?>
+                            <p class="small text-success mb-0"><i class="fas fa-check-circle me-1"></i><?= e($t['note']) ?></p>
+                        <?php endif; ?>
                     </div>
                 </div>
-            </a>
+            </<?= $off ? 'div' : 'a' ?>>
         </div>
         <?php endforeach; ?>
     </div>
     <?php endif; ?>
 
+    <div class="text-center mt-5">
+        <a href="feedback.php" class="btn btn-outline-secondary"><i class="fas fa-comment-dots me-1"></i>Envoyer un retour à l'administrateur</a>
+    </div>
 </div>
 <?php toolsFooter();

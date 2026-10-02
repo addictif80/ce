@@ -329,12 +329,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
     if ($action === 'save_public_tools') {
         ensurePublicToolsSchema();
-        $chosen = (array)($_POST['tools'] ?? []);
-        $stmt = $db->prepare("INSERT INTO public_tools (tool_key, enabled) VALUES (?, ?) ON DUPLICATE KEY UPDATE enabled = VALUES(enabled)");
+        $etats = (array)($_POST['etat'] ?? []);
+        $motifs = (array)($_POST['motif'] ?? []);
+        $stmt = $db->prepare("INSERT INTO public_tools (tool_key, enabled, indisponible, motif) VALUES (?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE enabled = VALUES(enabled), indisponible = VALUES(indisponible), motif = VALUES(motif)");
         foreach (array_keys(getPublicToolsCatalog()) as $key) {
-            $stmt->execute([$key, in_array($key, $chosen, true) ? 1 : 0]);
+            $etat = $etats[$key] ?? 'masque';
+            if (!in_array($etat, ['actif', 'indisponible', 'masque'], true)) $etat = 'masque';
+            $stmt->execute([$key, $etat === 'actif' ? 1 : 0, $etat === 'indisponible' ? 1 : 0, mb_substr(trim($motifs[$key] ?? ''), 0, 500) ?: null]);
         }
         header('Location: index.php?tab=outils_publics&msg=public_tools_saved');
+        exit;
+    }
+
+    if ($action === 'feedback_read' || $action === 'feedback_delete') {
+        ensureToolsFeedbackSchema();
+        $id = (int)($_POST['id'] ?? 0);
+        if ($action === 'feedback_read') $db->prepare("UPDATE tools_feedback SET lu = 1 WHERE id = ?")->execute([$id]);
+        else $db->prepare("DELETE FROM tools_feedback WHERE id = ?")->execute([$id]);
+        header('Location: index.php?tab=outils_publics&msg=' . ($action === 'feedback_read' ? 'feedback_read' : 'deleted'));
         exit;
     }
 
@@ -508,6 +521,7 @@ try {
         'equipe_added' => 'Contact équipe ajouté avec succès.',
         'smtp_saved' => 'Configuration SMTP enregistrée.',
         'public_tools_saved' => 'Outils publics enregistrés.',
+        'feedback_read' => 'Retour marqué comme lu.',
         'smtp_test_ok'   => 'Email de test envoyé avec succès !',
         'smtp_test_fail' => 'Échec de l\'envoi du mail de test. Vérifiez la configuration SMTP.',
         'event_added'    => 'Événement ajouté avec succès.',
@@ -1841,26 +1855,78 @@ function editMenuItem(id) {
 
 <?php elseif ($activeTab === 'outils_publics'): ?>
 <!-- =============== OUTILS PUBLICS =============== -->
-<?php $publicCatalog = getPublicToolsCatalog(); $publicEnabled = getEnabledPublicTools(); ?>
-<div class="data-table-container">
+<?php
+$publicCatalog = getPublicToolsCatalog();
+$publicStatus = getPublicToolsStatus();
+ensureToolsFeedbackSchema();
+$feedbacks = $db->query("SELECT * FROM tools_feedback ORDER BY lu ASC, created_at DESC LIMIT 200")->fetchAll();
+$feedbackUnread = count(array_filter($feedbacks, fn($f) => !$f['lu']));
+$feedbackTypes = ['bug' => 'Problème', 'suggestion' => 'Suggestion', 'question' => 'Question', 'autre' => 'Autre'];
+?>
+<div class="data-table-container mb-4">
     <div class="data-table-header">
         <h3><i class="fas fa-globe"></i> Outils accessibles sans connexion</h3>
     </div>
     <div class="p-3">
-        <p class="text-muted">Les outils cochés sont affichés sur la page publique <a href="../../tools/" target="_blank"><code>/tools</code></a> et accessibles sans connexion. Un outil décoché devient indisponible pour les visiteurs non connectés (les utilisateurs connectés y accèdent toujours).</p>
+        <p class="text-muted">Pour chaque outil de la page publique <a href="../../tools/" target="_blank"><code>/tools</code></a> :
+            <strong>Actif</strong> (utilisable), <strong>Indisponible</strong> (la carte reste affichée, grisée, avec le motif ci-dessous) ou <strong>Masqué</strong> (ni affiché ni accessible).
+            Les utilisateurs connectés accèdent toujours aux outils.</p>
         <form method="post">
             <input type="hidden" name="action" value="save_public_tools">
-            <?php foreach ($publicCatalog as $key => $tool): ?>
-            <div class="form-check mb-3">
-                <input class="form-check-input" type="checkbox" name="tools[]" value="<?= e($key) ?>" id="pt-<?= e($key) ?>" <?= in_array($key, $publicEnabled, true) ? 'checked' : '' ?>>
-                <label class="form-check-label" for="pt-<?= e($key) ?>">
-                    <strong><i class="fas <?= e($tool['icon']) ?> me-1"></i><?= e($tool['label']) ?></strong><br>
-                    <small class="text-muted"><?= e($tool['description']) ?></small>
-                </label>
-            </div>
-            <?php endforeach; ?>
+            <div class="table-responsive"><table class="table align-middle">
+                <thead><tr><th>Outil</th><th style="width:180px">État</th><th>Motif d'indisponibilité (affiché aux visiteurs)</th></tr></thead>
+                <tbody>
+                <?php foreach ($publicCatalog as $key => $tool): $st = $publicStatus[$key]; ?>
+                <tr>
+                    <td><strong><i class="fas <?= e($tool['icon']) ?> me-1"></i><?= e($tool['label']) ?></strong><br><small class="text-muted"><?= e($tool['description']) ?></small></td>
+                    <td>
+                        <select name="etat[<?= e($key) ?>]" class="form-select form-select-sm">
+                            <option value="actif" <?= $st['state'] === 'actif' ? 'selected' : '' ?>>Actif</option>
+                            <option value="indisponible" <?= $st['state'] === 'indisponible' ? 'selected' : '' ?>>Indisponible</option>
+                            <option value="masque" <?= $st['state'] === 'masque' ? 'selected' : '' ?>>Masqué</option>
+                        </select>
+                    </td>
+                    <td><input type="text" name="motif[<?= e($key) ?>]" class="form-control form-control-sm" maxlength="500" value="<?= e($st['motif']) ?>" placeholder="Ex. : maintenance en cours, retour prévu lundi"></td>
+                </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table></div>
             <button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Enregistrer</button>
         </form>
+    </div>
+</div>
+
+<div class="data-table-container">
+    <div class="data-table-header">
+        <h3><i class="fas fa-comment-dots"></i> Retours des visiteurs <?php if ($feedbackUnread): ?><span class="badge bg-danger"><?= $feedbackUnread ?> non lu<?= $feedbackUnread > 1 ? 's' : '' ?></span><?php endif; ?></h3>
+    </div>
+    <div class="p-3">
+    <?php if (!$feedbacks): ?>
+        <p class="text-muted mb-0">Aucun retour reçu pour le moment.</p>
+    <?php else: ?>
+        <div class="table-responsive"><table class="table align-middle">
+            <thead><tr><th>Date</th><th>Nature</th><th>Outil</th><th>Message</th><th>Contact</th><th>Actions</th></tr></thead>
+            <tbody>
+            <?php foreach ($feedbacks as $f): ?>
+                <tr class="<?= $f['lu'] ? 'text-muted' : 'fw-semibold' ?>">
+                    <td><?= formatDateTime($f['created_at']) ?></td>
+                    <td><?= e($feedbackTypes[$f['type']] ?? $f['type']) ?></td>
+                    <td><?= e($publicCatalog[$f['tool_key']]['label'] ?? 'Général') ?></td>
+                    <td style="max-width:420px"><?= nl2br(e($f['message'])) ?></td>
+                    <td><?= e($f['contact'] ?? '') ?></td>
+                    <td class="text-nowrap">
+                        <?php if (!$f['lu']): ?>
+                        <form method="post" class="d-inline"><input type="hidden" name="action" value="feedback_read"><input type="hidden" name="id" value="<?= (int)$f['id'] ?>">
+                            <button class="btn btn-sm btn-outline-secondary" title="Marquer comme lu"><i class="fas fa-check"></i></button></form>
+                        <?php endif; ?>
+                        <form method="post" class="d-inline" onsubmit="return confirm('Supprimer ce retour ?')"><input type="hidden" name="action" value="feedback_delete"><input type="hidden" name="id" value="<?= (int)$f['id'] ?>">
+                            <button class="btn btn-sm btn-outline-danger" title="Supprimer"><i class="fas fa-trash"></i></button></form>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table></div>
+    <?php endif; ?>
     </div>
 </div>
 

@@ -6,6 +6,7 @@ require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/functions.php';
 
 function toolsHeader($title, $key = null, $extraHead = '') {
+    $GLOBALS['toolsCurrentKey'] = $key;
     if ($key !== null) requirePublicTool($key);
     ?>
 <!DOCTYPE html>
@@ -45,7 +46,12 @@ function privacyBanner($text = null) { ?>
 </div>
 <?php }
 
-function toolsFooter() { ?>
+function toolsFooter() {
+    $key = $GLOBALS['toolsCurrentKey'] ?? null;
+    if (!empty($GLOBALS['toolsNoFeedbackLink'])) { echo "</body>\n</html>\n"; return; } ?>
+<div class="container text-center text-muted small my-4 no-print">
+    <a href="feedback.php<?= $key ? '?tool=' . urlencode($key) : '' ?>" class="text-muted"><i class="fas fa-comment-dots me-1"></i>Un problème, une idée ? Envoyer un retour à l'administrateur</a>
+</div>
 </body>
 </html>
 <?php }
