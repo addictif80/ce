@@ -880,33 +880,71 @@ function getPublicToolsCatalog() {
 }
 
 function ensurePublicToolsSchema() {
-    getDB()->exec("CREATE TABLE IF NOT EXISTS public_tools (
+    $db = getDB();
+    $db->exec("CREATE TABLE IF NOT EXISTS public_tools (
         tool_key VARCHAR(50) PRIMARY KEY,
         enabled TINYINT(1) NOT NULL DEFAULT 1
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    // indisponible = 1 (avec enabled = 0) : la carte reste visible sur /tools, grisée, avec le motif
+    try { $db->exec("ALTER TABLE public_tools ADD COLUMN indisponible TINYINT(1) NOT NULL DEFAULT 0"); } catch (Exception $e) {}
+    try { $db->exec("ALTER TABLE public_tools ADD COLUMN motif VARCHAR(500) DEFAULT NULL"); } catch (Exception $e) {}
 }
 
-/** Clés des outils publics activés (valeur par défaut du catalogue tant que l'admin n'a rien décidé) */
-function getEnabledPublicTools() {
+/**
+ * État de chaque outil public : 'actif' (listé et utilisable), 'indisponible' (carte grisée + motif)
+ * ou 'masque' (ni listé ni utilisable). Valeur par défaut du catalogue tant que l'admin n'a rien décidé.
+ */
+function getPublicToolsStatus() {
     ensurePublicToolsSchema();
-    $rows = getDB()->query("SELECT tool_key, enabled FROM public_tools")->fetchAll(PDO::FETCH_KEY_PAIR);
-    $enabled = [];
+    $rows = [];
+    foreach (getDB()->query("SELECT tool_key, enabled, indisponible, motif FROM public_tools")->fetchAll() as $r) $rows[$r['tool_key']] = $r;
+    $status = [];
     foreach (getPublicToolsCatalog() as $key => $tool) {
-        $on = isset($rows[$key]) ? (int)$rows[$key] === 1 : !empty($tool['default']);
-        if ($on) $enabled[] = $key;
+        if (!isset($rows[$key])) { $status[$key] = ['state' => !empty($tool['default']) ? 'actif' : 'masque', 'motif' => '']; continue; }
+        $r = $rows[$key];
+        $state = (int)$r['enabled'] === 1 ? 'actif' : ((int)$r['indisponible'] === 1 ? 'indisponible' : 'masque');
+        $status[$key] = ['state' => $state, 'motif' => (string)($r['motif'] ?? '')];
     }
-    return $enabled;
+    return $status;
 }
 
-/** Bloque (404) l'accès public à un outil désactivé ; les utilisateurs connectés passent toujours. */
+/** Clés des outils publics actifs */
+function getEnabledPublicTools() {
+    return array_keys(array_filter(getPublicToolsStatus(), fn($s) => $s['state'] === 'actif'));
+}
+
+/** Bloque l'accès public à un outil non actif (page « indisponible » avec le motif, ou 404 si masqué) ; les utilisateurs connectés passent toujours. */
 function requirePublicTool($key, $json = false) {
     if (isset($_COOKIE[session_name()])) {
         if (session_status() !== PHP_SESSION_ACTIVE) @session_start();
         if (!empty($_SESSION['user_id'])) return;
     }
-    if (in_array($key, getEnabledPublicTools(), true)) return;
-    http_response_code(404);
-    if ($json) { header('Content-Type: application/json'); echo json_encode(['error' => 'Outil indisponible.']); }
-    else echo '<!DOCTYPE html><meta charset="utf-8"><title>Indisponible</title><p style="font-family:sans-serif;margin:40px">Cet outil n\'est pas disponible.</p>';
+    $st = getPublicToolsStatus()[$key] ?? ['state' => 'masque', 'motif' => ''];
+    if ($st['state'] === 'actif') return;
+
+    $unavailable = $st['state'] === 'indisponible';
+    http_response_code($unavailable ? 503 : 404);
+    $msg = $unavailable ? ($st['motif'] !== '' ? $st['motif'] : 'Cet outil est temporairement indisponible.') : 'Cet outil n\'est pas disponible.';
+    if ($json) { header('Content-Type: application/json; charset=utf-8'); echo json_encode(['error' => $msg]); exit; }
+    $label = htmlspecialchars(getPublicToolsCatalog()[$key]['label'] ?? 'Outil', ENT_QUOTES, 'UTF-8');
+    echo '<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
+        . '<title>' . $label . ' indisponible</title>'
+        . '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"></head>'
+        . '<body class="bg-light"><div class="container py-5" style="max-width:640px"><div class="card shadow-sm"><div class="card-body text-center p-4">'
+        . '<h1 class="h4">' . $label . '</h1><p class="mt-3 mb-4">' . nl2br(htmlspecialchars($msg, ENT_QUOTES, 'UTF-8')) . '</p>'
+        . ($unavailable ? '<a class="btn btn-outline-secondary" href="' . (strpos($_SERVER['SCRIPT_NAME'] ?? '', '/modules/') !== false ? '../../tools/' : './') . '">Retour aux outils</a>' : '')
+        . '</div></div></div></body></html>';
     exit;
+}
+
+function ensureToolsFeedbackSchema() {
+    getDB()->exec("CREATE TABLE IF NOT EXISTS tools_feedback (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        type VARCHAR(20) NOT NULL,
+        tool_key VARCHAR(50) DEFAULT NULL,
+        message TEXT NOT NULL,
+        contact VARCHAR(255) DEFAULT NULL,
+        lu TINYINT(1) NOT NULL DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
