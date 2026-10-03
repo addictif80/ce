@@ -1062,3 +1062,70 @@ function requireToolsAccess($json = false) {
     header('Location: ' . toolsBasePath() . '/tools/access.php?next=' . urlencode($_SERVER['REQUEST_URI'] ?? ''));
     exit;
 }
+
+/**
+ * Message d'information affiché sur /tools (éditeur WYSIWYG dans l'admin).
+ * Le HTML est assaini à l'enregistrement : liste blanche de balises et d'attributs.
+ */
+function sanitizeToolsMessageHtml($html) {
+    $html = trim((string)$html);
+    if ($html === '') return '';
+    $allowed = ['p', 'br', 'b', 'strong', 'i', 'em', 'u', 'ul', 'ol', 'li', 'h2', 'h3', 'a', 'span', 'div', 'font', 'blockquote'];
+    $dropWhole = ['script', 'style', 'iframe', 'object', 'embed', 'form', 'svg', 'math', 'template'];
+    $doc = new DOMDocument();
+    libxml_use_internal_errors(true);
+    $doc->loadHTML('<?xml encoding="utf-8"?><div id="root">' . $html . '</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+    libxml_clear_errors();
+    $root = $doc->getElementById('root');
+    if (!$root) return '';
+
+    $clean = function (DOMNode $node) use (&$clean, $allowed, $dropWhole) {
+        foreach (iterator_to_array($node->childNodes) as $child) {
+            if ($child->nodeType !== XML_ELEMENT_NODE) {
+                if ($child->nodeType !== XML_TEXT_NODE) $node->removeChild($child); // commentaires, etc.
+                continue;
+            }
+            $tag = strtolower($child->nodeName);
+            if (in_array($tag, $dropWhole, true)) { $node->removeChild($child); continue; }
+            $clean($child);
+            if (!in_array($tag, $allowed, true)) { // balise inconnue : on garde le contenu
+                while ($child->firstChild) $node->insertBefore($child->firstChild, $child);
+                $node->removeChild($child);
+                continue;
+            }
+            foreach (iterator_to_array($child->attributes) as $attr) {
+                $name = strtolower($attr->nodeName);
+                $val = trim($attr->nodeValue);
+                $keep = false;
+                if ($tag === 'a' && $name === 'href' && preg_match('#^(https?://|mailto:)#i', $val)) $keep = true;
+                elseif ($tag === 'font' && $name === 'color' && preg_match('/^(#[0-9a-f]{3,8}|[a-z]+)$/i', $val)) $keep = true;
+                elseif ($name === 'style') {
+                    // uniquement color et text-align
+                    $parts = [];
+                    foreach (explode(';', $val) as $decl) {
+                        if (preg_match('/^\s*(color|text-align)\s*:\s*(#[0-9a-f]{3,8}|rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\)|[a-z]+)\s*$/i', $decl, $m)) $parts[] = strtolower($m[1]) . ':' . $m[2];
+                    }
+                    if ($parts) { $child->setAttribute('style', implode(';', $parts)); continue; }
+                }
+                if (!$keep) $child->removeAttribute($attr->nodeName);
+            }
+            if ($tag === 'a') {
+                if ($child->hasAttribute('href')) { $child->setAttribute('target', '_blank'); $child->setAttribute('rel', 'noopener noreferrer'); }
+                else { while ($child->firstChild) $node->insertBefore($child->firstChild, $child); $node->removeChild($child); }
+            }
+        }
+    };
+    $clean($root);
+    $out = '';
+    foreach ($root->childNodes as $c) $out .= $doc->saveHTML($c);
+    return trim($out);
+}
+
+/** Message à afficher sur /tools pour le visiteur courant, ou '' */
+function getToolsMessageForVisitor() {
+    if (getToolsSetting('message_enabled', '0') !== '1') return '';
+    $html = getToolsSetting('message_html', '');
+    if (trim(strip_tags($html)) === '') return '';
+    if (getToolsSetting('message_audience', 'all') === 'members' && !toolsVisitorIsLoggedIn()) return '';
+    return $html;
+}

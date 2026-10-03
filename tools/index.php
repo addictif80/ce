@@ -5,6 +5,7 @@ $catalog = getPublicToolsCatalog();
 $status = getPublicToolsStatus();
 $visible = array_keys(array_filter($status, fn($st) => $st['state'] !== 'masque'));
 
+$message = getToolsMessageForVisitor();
 toolsHeader('Outils en libre accès');
 ?>
 <div class="container my-4">
@@ -17,6 +18,11 @@ toolsHeader('Outils en libre accès');
                 <span class="small d-block mt-1">Seule exception, signalée sur la carte concernée : proposer une procédure, que vous choisissez d'envoyer pour validation.</span></div>
         </div>
     </div>
+
+    <?php if ($message !== ''): ?>
+    <div class="alert alert-info border-2 mb-4 tools-message"><?= $message /* HTML assaini à l'enregistrement par l'admin */ ?></div>
+    <style>.tools-message > :last-child{margin-bottom:0}.tools-message h2,.tools-message h3{font-size:1.15rem}</style>
+    <?php endif; ?>
 
     <?php if (!$visible): ?>
         <div class="alert alert-info">Aucun outil n'est disponible pour le moment.</div>

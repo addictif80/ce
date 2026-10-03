@@ -342,6 +342,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         exit;
     }
 
+    if ($action === 'save_tools_message') {
+        setToolsSetting('message_enabled', isset($_POST['message_enabled']) ? '1' : '0');
+        setToolsSetting('message_audience', ($_POST['message_audience'] ?? 'all') === 'members' ? 'members' : 'all');
+        setToolsSetting('message_html', sanitizeToolsMessageHtml($_POST['message_html'] ?? ''));
+        header('Location: index.php?tab=outils_publics&msg=tools_message_saved');
+        exit;
+    }
+
     if ($action === 'save_tools_protection') {
         setToolsSetting('protection_enabled', isset($_POST['protection_enabled']) ? '1' : '0');
         header('Location: index.php?tab=outils_publics&msg=tools_protection_saved');
@@ -564,6 +572,7 @@ try {
         'smtp_saved' => 'Configuration SMTP enregistrée.',
         'public_tools_saved' => 'Outils publics enregistrés.',
         'feedback_read' => 'Retour marqué comme lu.',
+        'tools_message_saved' => 'Message de /tools enregistré.',
         'tools_protection_saved' => 'Protection de /tools enregistrée.',
         'tools_code_added' => 'Code d\'accès créé.',
         'tools_code_updated' => 'Code d\'accès mis à jour.',
@@ -1902,6 +1911,72 @@ function editMenuItem(id) {
 
 <?php elseif ($activeTab === 'outils_publics'): ?>
 <!-- =============== OUTILS PUBLICS =============== -->
+<?php
+$msgEnabled = getToolsSetting('message_enabled', '0') === '1';
+$msgAudience = getToolsSetting('message_audience', 'all');
+$msgHtml = getToolsSetting('message_html', '');
+?>
+<div class="data-table-container mb-4">
+    <div class="data-table-header">
+        <h3><i class="fas fa-bullhorn"></i> Message affiché sur /tools</h3>
+    </div>
+    <div class="p-3">
+        <form method="post" id="toolsMessageForm">
+            <input type="hidden" name="action" value="save_tools_message">
+            <input type="hidden" name="message_html" id="toolsMessageHtml">
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="message_enabled" id="message_enabled" <?= $msgEnabled ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="message_enabled">Afficher le message en haut de la page des outils</label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <select name="message_audience" class="form-select form-select-sm">
+                        <option value="all" <?= $msgAudience !== 'members' ? 'selected' : '' ?>>Visible par tous les visiteurs (après saisie du code si la protection est active)</option>
+                        <option value="members" <?= $msgAudience === 'members' ? 'selected' : '' ?>>Visible uniquement par les utilisateurs connectés au portail</option>
+                    </select>
+                </div>
+            </div>
+            <div class="wy-toolbar" style="background:#f8f9fa;border:1px solid #dee2e6;border-bottom:none;border-radius:6px 6px 0 0;padding:6px 10px;display:flex;gap:4px;flex-wrap:wrap;align-items:center">
+                <button type="button" class="btn btn-sm btn-light border" data-cmd="bold" title="Gras"><i class="fas fa-bold"></i></button>
+                <button type="button" class="btn btn-sm btn-light border" data-cmd="italic" title="Italique"><i class="fas fa-italic"></i></button>
+                <button type="button" class="btn btn-sm btn-light border" data-cmd="underline" title="Souligné"><i class="fas fa-underline"></i></button>
+                <button type="button" class="btn btn-sm btn-light border" data-block="h3" title="Titre"><i class="fas fa-heading"></i></button>
+                <button type="button" class="btn btn-sm btn-light border" data-block="p" title="Paragraphe normal"><i class="fas fa-paragraph"></i></button>
+                <button type="button" class="btn btn-sm btn-light border" data-cmd="insertUnorderedList" title="Liste à puces"><i class="fas fa-list-ul"></i></button>
+                <button type="button" class="btn btn-sm btn-light border" data-cmd="insertOrderedList" title="Liste numérotée"><i class="fas fa-list-ol"></i></button>
+                <button type="button" class="btn btn-sm btn-light border" id="tmLink" title="Insérer un lien"><i class="fas fa-link"></i></button>
+                <button type="button" class="btn btn-sm btn-light border" data-cmd="unlink" title="Retirer le lien"><i class="fas fa-unlink"></i></button>
+                <input type="color" id="tmColor" value="#cc0000" title="Couleur du texte" style="width:30px;height:30px;border:none;padding:0;cursor:pointer">
+                <button type="button" class="btn btn-sm btn-light border" data-cmd="removeFormat" title="Effacer la mise en forme"><i class="fas fa-eraser"></i></button>
+            </div>
+            <div id="toolsMessageEditor" contenteditable="true" style="min-height:160px;border:1px solid #dee2e6;border-radius:0 0 6px 6px;padding:12px;background:#fff"><?= $msgHtml /* assaini à l'enregistrement */ ?></div>
+            <div class="mt-3"><button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Enregistrer le message</button></div>
+        </form>
+    </div>
+</div>
+<script>
+(function() {
+    const ed = document.getElementById('toolsMessageEditor');
+    const run = (cmd, val) => { ed.focus(); document.execCommand(cmd, false, val || null); };
+    document.querySelectorAll('#toolsMessageForm [data-cmd]').forEach(b => b.onclick = () => run(b.dataset.cmd));
+    document.querySelectorAll('#toolsMessageForm [data-block]').forEach(b => b.onclick = () => run('formatBlock', b.dataset.block));
+    document.getElementById('tmColor').oninput = function() { run('foreColor', this.value); };
+    document.getElementById('tmLink').onclick = () => {
+        const url = prompt('Adresse du lien (https://… ou mailto:…)');
+        if (!url) return;
+        if (!/^(https?:\/\/|mailto:)/i.test(url)) { alert('Le lien doit commencer par http://, https:// ou mailto:'); return; }
+        run('createLink', url);
+    };
+    // collage en texte brut pour éviter d'importer le HTML d'autres applications
+    ed.addEventListener('paste', e => { e.preventDefault(); document.execCommand('insertText', false, (e.clipboardData || window.clipboardData).getData('text/plain')); });
+    document.getElementById('toolsMessageForm').addEventListener('submit', () => {
+        document.getElementById('toolsMessageHtml').value = ed.innerHTML;
+    });
+})();
+</script>
+
 <?php
 ensureToolsAccessSchema();
 $protectionOn = toolsProtectionEnabled();
