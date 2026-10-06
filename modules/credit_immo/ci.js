@@ -56,7 +56,8 @@ function getLignes(d){
 }
 function getFraisDossier(d){return getLignes(d).reduce((t,l)=>t+num(l.frais_dossier),0);}
 function getTotalFinancement(d){return totalHorsDossier(d)+getFraisDossier(d);}
-function getCoutProjet(d){return totalHorsDossier(d);}
+// Base du Doublissimo : acquisition + frais de notaire + frais de négociation (ni garantie, ni frais divers, ni frais de dossier)
+function getCoutProjet(d){return num(d.montant_acquisition)+num(d.frais_notaire)+num(d.frais_negociation)+num(d.frais_agence);}
 function getResteAFinancer(d){
   return getTotalFinancement(d)-num(d.apport)-ptzMontant(d)-ecoMontant(d)-getLignes(d).reduce((t,l)=>t+num(l.montant),0);
 }
@@ -101,7 +102,8 @@ function computeAll(d){
   const mensLignes=sch.reduce((t,s)=>t+s.mens,0);
   const mensPTZ=getMensPTZ(d), mensEco=getMensEcoPTZ(d);
   const mensHorsAssur=mensLignes+mensPTZ+mensEco;
-  const ass=getAssurances(d).map(a=>assuranceCost(a,lignes));
+  const assRaw=getAssurances(d);
+  const ass=assRaw.map(a=>assuranceCost(a,lignes));
   const mensAssur=ass.reduce((t,a)=>t+a.monthly,0), totAssur=ass.reduce((t,a)=>t+a.total,0);
   const mensTout=mensHorsAssur+mensAssur;
   const revenus=emps.reduce((t,e)=>t+sumRevenus(e.revenus),0);
@@ -111,7 +113,7 @@ function computeAll(d){
   const nbPers=parseInt(d.nb_personnes_foyer)||(emps.length+(parseInt(d.nb_enfants)||0)+(parseInt(d.nb_personnes_charge_supp)||0));
   const interets=sch.reduce((t,s)=>t+s.interets,0);
   const fraisDossier=getFraisDossier(d), garantie=num(d.garantie_montant);
-  return {lignes,sch,emps,ass,mensLignes,mensPTZ,mensEco,mensHorsAssur,mensAssur,mensTout,totAssur,
+  return {lignes,sch,emps,ass,assRaw,mensLignes,mensPTZ,mensEco,mensHorsAssur,mensAssur,mensTout,totAssur,
     revenus,charges,te,reste,restePers:nbPers>0?reste/nbPers:null,nbPers,interets,fraisDossier,garantie,
     coutCredit:interets+totAssur+fraisDossier+garantie,totalFin:getTotalFinancement(d),
     capital:lignes.reduce((t,l)=>t+num(l.montant),0),rfr:emps.reduce((t,e)=>t+num(e.rfr),0),resteAFin:getResteAFinancer(d)};
@@ -459,12 +461,18 @@ function onFormChange(px){
   const rfr=document.getElementById(px+'_rfr_total'); if(rfr) rfr.textContent=fmt(c.rfr)+' €';
   // Mensualité et coût par ligne / par assurance
   document.querySelectorAll(`#${px}_lignes_list .ci-ligne`).forEach((row,i)=>{
-    const s=c.sch[i], el=row.querySelector('.ci-ligne-mens'); if(el) el.textContent=s?fmt(s.mens)+' €/mois':'';
+    const s=c.sch[i], el=row.querySelector('.ci-ligne-mens'); if(!el||!s) return;
+    const ass=ligneAssuranceMensuelle(c,i);
+    el.innerHTML=fmt(s.mens)+' € <span class="text-muted">hors ass.</span>'+(ass>0?'<br><strong>'+fmt(s.mens+ass)+' € avec ass.</strong>':'');
   });
   document.querySelectorAll(`#${px}_ade_list .ci-ass`).forEach((row,i)=>{
     const a=c.ass[i], el=row.querySelector('.ci-ass-cout'); if(el&&a) el.textContent=a.total>0?fmt(a.monthly)+' €/mois — total '+fmt(a.total)+' €':'';
   });
   renderResultPanel(px,d,c);
+}
+// Cotisation d'assurance mensuelle (1re échéance) rattachée à une ligne de crédit, tous emprunteurs confondus
+function ligneAssuranceMensuelle(c,idx){
+  return c.ass.reduce((t,a,k)=>t+(((c.assRaw[k]?.ligne)??0)===idx?a.monthly:0),0);
 }
 function resultPanelHtml(d,c){
   const rest=c.resteAFin;
@@ -619,7 +627,7 @@ function buildFormTabs(px,d){
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
           <h6 class="mb-0">Lignes de crédit</h6>
           <div class="d-flex align-items-center gap-3">
-            <div class="form-check mb-0"><input class="form-check-input" type="checkbox" name="doublissimo" value="1" id="${px}_dbl_cb" ${d.doublissimo==1?'checked':''} onchange="onDoublissimo('${px}')"><label class="form-check-label" for="${px}_dbl_cb" title="Ajoute une ligne égale à 20 % de (coût du projet − apport)">Doublissimo</label></div>
+            <div class="form-check mb-0"><input class="form-check-input" type="checkbox" name="doublissimo" value="1" id="${px}_dbl_cb" ${d.doublissimo==1?'checked':''} onchange="onDoublissimo('${px}')"><label class="form-check-label" for="${px}_dbl_cb" title="Ajoute une ligne égale à 20 % de (acquisition + frais de notaire + frais de négociation − apport)">Doublissimo</label></div>
             <button type="button" class="btn btn-sm btn-outline-secondary" onclick="equilibrerLignes('${px}')" title="Ajuste la dernière ligne pour couvrir exactement le besoin"><i class="fas fa-equals"></i> Affecter le reste à la dernière ligne</button>
           </div>
         </div>
@@ -1072,7 +1080,7 @@ function showDetail(id){
   </tbody></table></div></div></div>`;
 
   // Tab Financement
-  const lignesRows=c.lignes.map((l,i)=>`<tr><td>${escapeHtml(l.libelle||('Ligne '+(i+1)))}${l.doublissimo?' <span class="badge bg-info">Doublissimo</span>':''}</td><td>${money(num(l.montant))}</td><td>${parseInt(l.duree)||0} mois</td><td>${num(l.taux).toFixed(3).replace('.',',')} %</td><td>${money(num(l.frais_dossier))}</td><td><strong>${money(c.sch[i].mens)}</strong></td><td>${money(c.sch[i].interets)}</td></tr>`).join('');
+  const lignesRows=c.lignes.map((l,i)=>`<tr><td>${escapeHtml(l.libelle||('Ligne '+(i+1)))}${l.doublissimo?' <span class="badge bg-info">Doublissimo</span>':''}</td><td>${money(num(l.montant))}</td><td>${parseInt(l.duree)||0} mois</td><td>${num(l.taux).toFixed(3).replace('.',',')} %</td><td>${money(num(l.frais_dossier))}</td><td><strong>${money(c.sch[i].mens)}</strong></td><td><strong>${money(c.sch[i].mens+ligneAssuranceMensuelle(c,i))}</strong></td><td>${money(c.sch[i].interets)}</td></tr>`).join('');
   const assRows=getAssurances(d).map((a,i)=>{
     const cost=c.ass[i]||{monthly:0,total:0};
     return `<tr><td>${escapeHtml((c.emps[a.emp??0]?.nom)||('Emprunteur '+((a.emp??0)+1)))} — ${escapeHtml((c.lignes[a.ligne??0]?.libelle)||('Ligne '+((a.ligne??0)+1)))}</td>
@@ -1101,7 +1109,7 @@ function showDetail(id){
     ${d.ecoptz_actif==1?`<div class="alert alert-info py-1">EcoPTZ : ${money(num(d.ecoptz_montant))} / ${d.ecoptz_duree} mois → mensualité : ${money(c.mensEco)}</div>`:''}
     </div><div class="col-md-7">
       <h6>Lignes de crédit</h6>
-      <table class="table table-sm table-striped"><thead><tr><th>Ligne</th><th>Montant</th><th>Durée</th><th>Taux</th><th>Frais dossier</th><th>Mensualité</th><th>Intérêts</th></tr></thead><tbody>${lignesRows}</tbody></table>
+      <table class="table table-sm table-striped"><thead><tr><th>Ligne</th><th>Montant</th><th>Durée</th><th>Taux</th><th>Frais dossier</th><th>Mensualité hors ass.</th><th>Mensualité avec ass.</th><th>Intérêts</th></tr></thead><tbody>${lignesRows}</tbody></table>
     </div></div>
     <h6>Assurance emprunteur</h6>
     ${assRows?`<div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Assuré — ligne</th><th>Taux</th><th>Quotité</th><th>Garanties</th><th>Détail</th><th>Mensualité</th><th>Coût total</th></tr></thead><tbody>${assRows}</tbody></table></div>`:'<p class="text-muted small">Aucune assurance renseignée</p>'}
