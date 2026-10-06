@@ -23,6 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $row = findToolsCode(trim($_POST['code'] ?? ''));
         if ($row) {
             toolsGrantAccess($row);
+            logToolsCodeUse($row['id']);
             header('Location: ' . $next);
             exit;
         }

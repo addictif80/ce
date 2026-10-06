@@ -6,6 +6,7 @@ $status = getPublicToolsStatus();
 $visible = array_keys(array_filter($status, fn($st) => $st['state'] !== 'masque'));
 
 $message = getToolsMessageForVisitor();
+$procCounts = (isset($status['procedures']) && $status['procedures']['state'] !== 'masque') ? getPublicProcedureCategoryCounts() : [];
 toolsHeader('Outils en libre accès');
 ?>
 <div class="container my-4">
@@ -15,7 +16,7 @@ toolsHeader('Outils en libre accès');
             <div class="h4 mb-1">Aucune donnée n'est enregistrée</div>
             <div>Ces outils sont accessibles sans connexion ni création de compte. Rien de ce que vous saisissez n'est stocké par ce portail :
                 tout reste dans votre navigateur et disparaît à la fermeture de la page.
-                <span class="small d-block mt-1">Seule exception, signalée sur la carte concernée : proposer une procédure, que vous choisissez d'envoyer pour validation.</span></div>
+                <span class="small d-block mt-1">Seules exceptions, volontaires : envoyer un retour à l'administrateur, ou proposer un ajout ou une modification (procédures, codes utiles, contacts utiles), qui est transmis pour validation.</span></div>
         </div>
     </div>
 
@@ -39,6 +40,10 @@ toolsHeader('Outils en libre accès');
                         </div>
                         <h2 class="h5"><?= e($t['label']) ?></h2>
                         <p class="text-muted mb-2"><?= e($t['description']) ?></p>
+                        <?php if ($key === 'procedures' && $procCounts): ?>
+                            <div class="mb-2"><div class="small text-muted mb-1"><?= array_sum(array_column($procCounts, 'nb')) ?> procédure(s) :</div>
+                            <?php foreach ($procCounts as $pc): ?><span class="badge bg-light text-dark border me-1 mb-1"><?= e($pc['nom']) ?> <strong>(<?= (int)$pc['nb'] ?>)</strong></span><?php endforeach; ?></div>
+                        <?php endif; ?>
                         <?php if ($off): ?>
                             <p class="small mb-0 fw-semibold"><i class="fas fa-ban me-1"></i><?= nl2br(e($status[$key]['motif'] !== '' ? $status[$key]['motif'] : 'Temporairement indisponible.')) ?></p>
                         <?php else: ?>
