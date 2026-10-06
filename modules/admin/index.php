@@ -278,6 +278,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         exit;
     }
 
+    // --- Contributions publiques (codes et contacts utiles proposés depuis /tools) ---
+    if ($action === 'approve_tools_proposal' || $action === 'reject_tools_proposal') {
+        ensureToolsProposalsSchema();
+        $id = (int)($_POST['id'] ?? 0);
+        $stmt = $db->prepare("SELECT * FROM tools_proposals WHERE id = ?");
+        $stmt->execute([$id]);
+        $tp = $stmt->fetch();
+        if ($tp && $action === 'approve_tools_proposal') {
+            $d = json_decode($tp['data'], true) ?: [];
+            if ($tp['kind'] === 'code') {
+                if ($tp['type'] === 'create') {
+                    $db->prepare("INSERT INTO codes_utiles (user_id, code, fonction, approved, approved_by) VALUES (?, ?, ?, 1, ?)")
+                       ->execute([$adminUserId, $d['code'] ?? '', $d['fonction'] ?? '', $adminUserId]);
+                } else {
+                    $db->prepare("UPDATE codes_utiles SET code = ?, fonction = ? WHERE id = ?")->execute([$d['code'] ?? '', $d['fonction'] ?? '', $tp['target_id']]);
+                }
+            } else {
+                if ($tp['type'] === 'create') {
+                    $db->prepare("INSERT INTO contacts_utiles (user_id, telephone, mail, service, a_contacter_pour, approved, approved_by) VALUES (?, ?, ?, ?, ?, 1, ?)")
+                       ->execute([$adminUserId, $d['telephone'] ?? '', $d['mail'] ?? '', $d['service'] ?? '', $d['a_contacter_pour'] ?? '', $adminUserId]);
+                } else {
+                    $db->prepare("UPDATE contacts_utiles SET telephone = ?, mail = ?, service = ?, a_contacter_pour = ? WHERE id = ?")
+                       ->execute([$d['telephone'] ?? '', $d['mail'] ?? '', $d['service'] ?? '', $d['a_contacter_pour'] ?? '', $tp['target_id']]);
+                }
+            }
+        }
+        if ($tp) $db->prepare("DELETE FROM tools_proposals WHERE id = ?")->execute([$id]);
+        header('Location: index.php?tab=approbations&msg=' . ($action === 'approve_tools_proposal' ? 'approved' : 'rejected'));
+        exit;
+    }
+
+    if ($action === 'save_tools_templates') {
+        ensurePublicTemplatesColumn();
+        $db->exec("UPDATE modeles_courriers SET public_tools = 0");
+        $stmt = $db->prepare("UPDATE modeles_courriers SET public_tools = 1 WHERE id = ? AND approved = 1");
+        foreach ((array)($_POST['templates'] ?? []) as $tid) $stmt->execute([(int)$tid]);
+        header('Location: index.php?tab=outils_publics&msg=tools_templates_saved');
+        exit;
+    }
+
     // --- Suppression de données (admin gestion) ---
     if ($action === 'admin_delete') {
         $table = $_POST['table'] ?? '';
@@ -387,7 +427,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         ensureToolsAccessSchema();
         $id = (int)($_POST['id'] ?? 0);
         if ($action === 'toggle_tools_code') $db->prepare("UPDATE tools_codes SET actif = 1 - actif WHERE id = ?")->execute([$id]);
-        else $db->prepare("DELETE FROM tools_codes WHERE id = ?")->execute([$id]);
+        else { $db->prepare("DELETE FROM tools_codes WHERE id = ?")->execute([$id]); $db->prepare("DELETE FROM tools_code_logs WHERE code_id = ?")->execute([$id]); }
         header('Location: index.php?tab=outils_publics&msg=tools_code_updated');
         exit;
     }
@@ -531,7 +571,19 @@ $pendingCodes = $db->query("SELECT c.*, u.nom AS author_nom, u.prenom AS author_
 $pendingContacts = $db->query("SELECT c.*, u.nom AS author_nom, u.prenom AS author_prenom FROM contacts_utiles c LEFT JOIN users u ON c.user_id = u.id WHERE c.approved = 0 ORDER BY c.id DESC")->fetchAll();
 $pendingOffres = $db->query("SELECT o.*, u.nom AS author_nom, u.prenom AS author_prenom FROM offres o LEFT JOIN users u ON o.user_id = u.id WHERE o.approved = 0 ORDER BY o.id DESC")->fetchAll();
 $pendingProposals = $db->query("SELECT pr.*, p.nom AS target_nom FROM procedure_proposals pr LEFT JOIN procedures p ON pr.procedure_id = p.id ORDER BY pr.id DESC")->fetchAll();
-$totalPending = count($pendingModeles) + count($pendingProcedures) + count($pendingCodes) + count($pendingContacts) + count($pendingOffres) + count($pendingProposals);
+ensureToolsProposalsSchema();
+$pendingToolsProposals = $db->query("SELECT * FROM tools_proposals ORDER BY id DESC")->fetchAll();
+foreach ($pendingToolsProposals as &$tp) {
+    $tp['fields'] = json_decode($tp['data'], true) ?: [];
+    $tp['current'] = null;
+    if ($tp['type'] === 'edit') {
+        $cs = $db->prepare('SELECT * FROM ' . ($tp['kind'] === 'code' ? 'codes_utiles' : 'contacts_utiles') . ' WHERE id = ?');
+        $cs->execute([$tp['target_id']]);
+        $tp['current'] = $cs->fetch() ?: null;
+    }
+}
+unset($tp);
+$totalPending = count($pendingToolsProposals) + count($pendingModeles) + count($pendingProcedures) + count($pendingCodes) + count($pendingContacts) + count($pendingOffres) + count($pendingProposals);
 
 $activeTab = $_GET['tab'] ?? 'users';
 
@@ -572,6 +624,7 @@ try {
         'smtp_saved' => 'Configuration SMTP enregistrée.',
         'public_tools_saved' => 'Outils publics enregistrés.',
         'feedback_read' => 'Retour marqué comme lu.',
+        'tools_templates_saved' => 'Modèles de courrier de /tools enregistrés.',
         'tools_message_saved' => 'Message de /tools enregistré.',
         'tools_protection_saved' => 'Protection de /tools enregistrée.',
         'tools_code_added' => 'Code d\'accès créé.',
@@ -792,7 +845,7 @@ function editUser(id) {
     </div>
     <div class="col-md-3">
         <div class="stat-card">
-            <div class="stat-number"><?= count($pendingProposals) ?></div>
+            <div class="stat-number"><?= count($pendingProposals) + count($pendingToolsProposals) ?></div>
             <div class="stat-label">Contributions publiques</div>
         </div>
     </div>
@@ -867,6 +920,42 @@ function showProposalDetail(id) {
     new bootstrap.Modal(document.getElementById('proposalDetailModal')).show();
 }
 </script>
+<?php endif; ?>
+
+<?php if (!empty($pendingToolsProposals)): ?>
+<div class="data-table-container mb-4">
+    <div class="data-table-header"><h3><i class="fas fa-hands-helping"></i> Contributions publiques en attente (codes et contacts utiles de /tools)</h3></div>
+    <table class="data-table">
+        <thead><tr><th>Type</th><th>Contenu proposé</th><th>Contributeur</th><th>Actions</th></tr></thead>
+        <tbody>
+        <?php foreach ($pendingToolsProposals as $tp): $labels = getToolsProposalFields($tp['kind']); ?>
+            <tr>
+                <td>
+                    <span class="badge bg-secondary"><?= $tp['kind'] === 'code' ? 'Code utile' : 'Contact utile' ?></span><br>
+                    <?= $tp['type'] === 'create'
+                        ? '<span class="badge bg-primary"><i class="fas fa-plus"></i> Ajout</span>'
+                        : '<span class="badge bg-warning text-dark"><i class="fas fa-edit"></i> Modification' . ($tp['current'] ? '' : ' (élément supprimé)') . '</span>' ?>
+                </td>
+                <td>
+                    <?php foreach ($labels as $field => [$label]):
+                        $new = $tp['fields'][$field] ?? ''; $old = $tp['current'][$field] ?? null; ?>
+                        <div><small class="text-muted"><?= e($label) ?> :</small>
+                            <?php if ($old !== null && $old !== $new): ?><s class="text-muted"><?= e($old) ?></s> → <?php endif; ?>
+                            <strong><?= e($new) ?></strong></div>
+                    <?php endforeach; ?>
+                </td>
+                <td><?= e(trim($tp['contributor_prenom'] . ' ' . $tp['contributor_nom'])) ?></td>
+                <td class="actions">
+                    <form method="POST" class="d-inline"><input type="hidden" name="action" value="approve_tools_proposal"><input type="hidden" name="id" value="<?= (int)$tp['id'] ?>">
+                        <button class="btn btn-sm btn-success" <?= ($tp['type'] === 'edit' && !$tp['current']) ? 'disabled' : '' ?>><i class="fas fa-check"></i> Approuver</button></form>
+                    <form method="POST" class="d-inline" onsubmit="return confirm('Refuser et supprimer cette proposition ?')"><input type="hidden" name="action" value="reject_tools_proposal"><input type="hidden" name="id" value="<?= (int)$tp['id'] ?>">
+                        <button class="btn btn-sm btn-outline-danger"><i class="fas fa-times"></i> Refuser</button></form>
+                </td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+</div>
 <?php endif; ?>
 
 <?php if (!empty($pendingModeles)): ?>
@@ -1912,6 +2001,34 @@ function editMenuItem(id) {
 <?php elseif ($activeTab === 'outils_publics'): ?>
 <!-- =============== OUTILS PUBLICS =============== -->
 <?php
+ensurePublicTemplatesColumn();
+$allTemplates = $db->query("SELECT m.id, m.nom_modele, m.objet, m.public_tools, u.prenom, u.nom FROM modeles_courriers m LEFT JOIN users u ON m.user_id = u.id WHERE m.approved = 1 ORDER BY m.nom_modele")->fetchAll();
+?>
+<div class="data-table-container mb-4">
+    <div class="data-table-header">
+        <h3><i class="fas fa-envelope-open-text"></i> Modèles de courrier disponibles sur /tools</h3>
+    </div>
+    <div class="p-3">
+        <p class="text-muted">Cochez les modèles (déjà approuvés) que les visiteurs pourront charger dans le générateur de courrier public. Ils ne peuvent ni les modifier ni en enregistrer.</p>
+        <?php if (!$allTemplates): ?>
+            <p class="text-muted mb-0">Aucun modèle approuvé.</p>
+        <?php else: ?>
+        <form method="post">
+            <input type="hidden" name="action" value="save_tools_templates">
+            <?php foreach ($allTemplates as $t): ?>
+            <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" name="templates[]" value="<?= (int)$t['id'] ?>" id="tpl-<?= (int)$t['id'] ?>" <?= $t['public_tools'] ? 'checked' : '' ?>>
+                <label class="form-check-label" for="tpl-<?= (int)$t['id'] ?>"><strong><?= e($t['nom_modele']) ?></strong>
+                    <small class="text-muted"> — <?= e($t['objet']) ?><?= $t['prenom'] ? ' (' . e(trim($t['prenom'] . ' ' . $t['nom'])) . ')' : '' ?></small></label>
+            </div>
+            <?php endforeach; ?>
+            <button type="submit" class="btn btn-ce mt-2"><i class="fas fa-save"></i> Enregistrer</button>
+        </form>
+        <?php endif; ?>
+    </div>
+</div>
+
+<?php
 $msgEnabled = getToolsSetting('message_enabled', '0') === '1';
 $msgAudience = getToolsSetting('message_audience', 'all');
 $msgHtml = getToolsSetting('message_html', '');
@@ -1982,6 +2099,7 @@ ensureToolsAccessSchema();
 $protectionOn = toolsProtectionEnabled();
 $toolsCodes = $db->query("SELECT * FROM tools_codes ORDER BY created_at DESC")->fetchAll();
 $activeCodesCount = count(getActiveToolsCodes());
+$codeStats = getToolsCodeStats();
 $newCode = $_SESSION['new_tools_code'] ?? null;
 unset($_SESSION['new_tools_code']);
 ?>
@@ -2011,13 +2129,17 @@ unset($_SESSION['new_tools_code']);
         <h5 class="mt-4">Codes d'accès</h5>
         <?php if ($toolsCodes): ?>
         <div class="table-responsive"><table class="table align-middle">
-            <thead><tr><th>Libellé</th><th>État</th><th>Expire le</th><th>Créé le</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Libellé</th><th>État</th><th>Connexions</th><th>30 derniers jours</th><th>Dernière connexion</th><th>Expire le</th><th>Créé le</th><th>Actions</th></tr></thead>
             <tbody>
             <?php foreach ($toolsCodes as $c):
                 $expired = $c['expires_at'] && $c['expires_at'] < date('Y-m-d'); ?>
                 <tr>
                     <td><strong><?= e($c['label']) ?></strong></td>
                     <td><?= $expired ? '<span class="badge bg-secondary">Expiré</span>' : ($c['actif'] ? '<span class="badge bg-success">Actif</span>' : '<span class="badge bg-warning text-dark">Désactivé</span>') ?></td>
+                    <?php $st = $codeStats[(int)$c['id']] ?? ['total' => 0, 'last' => null, 'days30' => 0]; ?>
+                    <td><strong><?= (int)$st['total'] ?></strong></td>
+                    <td><?= (int)$st['days30'] ?></td>
+                    <td><?= $st['last'] ? formatDateTime($st['last']) : '—' ?></td>
                     <td><?= $c['expires_at'] ? formatDate($c['expires_at']) : '—' ?></td>
                     <td><?= formatDateTime($c['created_at']) ?></td>
                     <td class="text-nowrap">

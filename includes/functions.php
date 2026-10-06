@@ -308,7 +308,7 @@ function getDefaultMenuItems() {
         ['item_key' => 'activite', 'parent_key' => null, 'label' => 'Mon activité', 'icon' => 'fa-briefcase', 'url' => null, 'uri_patterns' => 'instances,rappels,demandes_clients,offres,interets_clients,rappels_clients,signatures,envoi_documents,kanban,gestion_portefeuille', 'ordre' => 1],
         ['item_key' => 'formation', 'parent_key' => null, 'label' => 'Formation', 'icon' => 'fa-graduation-cap', 'url' => null, 'uri_patterns' => 'formations', 'ordre' => 2],
         ['item_key' => 'commercial', 'parent_key' => null, 'label' => 'Commercial', 'icon' => 'fa-handshake', 'url' => null, 'uri_patterns' => 'production,phoning,eai,mobilites', 'ordre' => 3],
-        ['item_key' => 'outils', 'parent_key' => null, 'label' => 'Outils', 'icon' => 'fa-tools', 'url' => null, 'uri_patterns' => 'credit_immo,calculateur,courriers,courriers_internes,blocnotes,procedures,bureau_dom,retraits,dpe,/modules/stock/', 'ordre' => 4],
+        ['item_key' => 'outils', 'parent_key' => null, 'label' => 'Outils', 'icon' => 'fa-tools', 'url' => null, 'uri_patterns' => 'credit_immo,calculateur,courriers,courriers_internes,blocnotes,procedures,bureau_dom,retraits,dpe,/rge/,/modules/stock/', 'ordre' => 4],
         ['item_key' => 'references', 'parent_key' => null, 'label' => 'Références', 'icon' => 'fa-bookmark', 'url' => null, 'uri_patterns' => '/codes/,/contacts/', 'ordre' => 5],
         // Items - Mon activité
         ['item_key' => 'kanban', 'parent_key' => 'activite', 'label' => 'Vue Kanban', 'icon' => 'fa-columns', 'url' => '/modules/kanban/index.php', 'uri_patterns' => 'kanban', 'ordre' => 0],
@@ -341,6 +341,7 @@ function getDefaultMenuItems() {
         ['item_key' => 'procedures', 'parent_key' => 'outils', 'label' => 'Procédures', 'icon' => 'fa-book', 'url' => '/modules/procedures/index.php', 'uri_patterns' => 'procedures', 'ordre' => 6],
         ['item_key' => 'bureau_dom', 'parent_key' => 'outils', 'label' => 'Bureau domiciliaire', 'icon' => 'fa-building', 'url' => '/modules/bureau_dom/index.php', 'uri_patterns' => 'bureau_dom', 'ordre' => 7],
         ['item_key' => 'retraits', 'parent_key' => 'outils', 'label' => 'Calculateur retraits', 'icon' => 'fa-money-bill-wave', 'url' => '/modules/retraits/index.php', 'uri_patterns' => 'retraits', 'ordre' => 8],
+        ['item_key' => 'rge', 'parent_key' => 'outils', 'label' => 'Vérification RGE', 'icon' => 'fa-certificate', 'url' => '/modules/rge/index.php', 'uri_patterns' => '/rge/', 'ordre' => 11],
         ['item_key' => 'dpe', 'parent_key' => 'outils', 'label' => 'Recherche DPE', 'icon' => 'fa-leaf', 'url' => '/modules/dpe/index.php', 'uri_patterns' => '/dpe/', 'ordre' => 10],
         // Items - Références
         ['item_key' => 'codes', 'parent_key' => 'references', 'label' => 'Codes utiles', 'icon' => 'fa-key', 'url' => '/modules/codes/index.php', 'uri_patterns' => '/codes/', 'ordre' => 1],
@@ -861,6 +862,11 @@ function getPublicToolsCatalog() {
             'description' => 'Retrouvez les diagnostics de performance énergétique d\'une adresse, sur une liste ou une carte.',
             'note' => 'L\'adresse saisie est transmise aux API publiques de l\'ADEME et de la Base Adresse Nationale pour la recherche, sans être enregistrée par ce portail.',
         ],
+        'rge' => [
+            'label' => 'Vérification RGE', 'icon' => 'fa-certificate', 'url' => 'rge.php', 'default' => true,
+            'description' => 'Vérifiez la certification RGE d\'une entreprise par nom, SIREN ou SIRET.',
+            'note' => 'Le nom ou le numéro saisi est transmis à l\'API publique de l\'ADEME pour la recherche, sans être enregistré par ce portail.',
+        ],
         'bureau_dom' => [
             'label' => 'Bureau domiciliaire', 'icon' => 'fa-building', 'url' => 'bureau_dom.php', 'default' => true,
             'description' => 'Remplissez le formulaire de modification de bureau domiciliaire, puis imprimez-le.',
@@ -869,17 +875,17 @@ function getPublicToolsCatalog() {
         'procedures' => [
             'label' => 'Procédures', 'icon' => 'fa-book', 'url' => '../modules/procedures/public.php', 'default' => true,
             'description' => 'Consultez les procédures publiées et leur contenu.',
-            'note' => 'Consultation sans enregistrement. Seule exception : si vous choisissez de proposer une procédure, votre proposition est transmise pour validation.',
+            'note' => 'Consultation sans enregistrement. Seule exception : une proposition d\'ajout ou de modification que vous choisissez d\'envoyer pour validation.',
         ],
         'codes' => [
             'label' => 'Codes utiles', 'icon' => 'fa-key', 'url' => 'codes.php', 'default' => false,
             'description' => 'Liste des codes validés et de leur fonction.',
-            'note' => 'Consultation seule : rien n\'est enregistré.',
+            'note' => 'Consultation sans enregistrement. Seule exception : une proposition d\'ajout ou de modification que vous choisissez d\'envoyer pour validation.',
         ],
         'contacts' => [
             'label' => 'Contacts utiles', 'icon' => 'fa-address-book', 'url' => 'contacts.php', 'default' => false,
             'description' => 'Services à contacter, avec téléphone, e-mail et motif de contact.',
-            'note' => 'Consultation seule : rien n\'est enregistré.',
+            'note' => 'Consultation sans enregistrement. Seule exception : une proposition d\'ajout ou de modification que vous choisissez d\'envoyer pour validation.',
         ],
     ];
 }
@@ -980,6 +986,13 @@ function ensureToolsAccessSchema() {
         actif TINYINT(1) NOT NULL DEFAULT 1,
         expires_at DATE DEFAULT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    // Journal des connexions : une ligne par saisie réussie d'un code (aucune IP conservée)
+    $db->exec("CREATE TABLE IF NOT EXISTS tools_code_logs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        code_id INT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_code (code_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 
@@ -1128,4 +1141,182 @@ function getToolsMessageForVisitor() {
     if (trim(strip_tags($html)) === '') return '';
     if (getToolsSetting('message_audience', 'all') === 'members' && !toolsVisitorIsLoggedIn()) return '';
     return $html;
+}
+
+/** Enregistre une connexion réussie avec ce code (aucune donnée sur le visiteur) */
+function logToolsCodeUse($codeId) {
+    ensureToolsAccessSchema();
+    getDB()->prepare("INSERT INTO tools_code_logs (code_id) VALUES (?)")->execute([(int)$codeId]);
+}
+
+/** Statistiques de connexion par code : [code_id => ['total', 'last', 'days30']] */
+function getToolsCodeStats() {
+    ensureToolsAccessSchema();
+    $stmt = getDB()->prepare("SELECT code_id, COUNT(*) AS total, MAX(created_at) AS last_use,
+        SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) AS days30 FROM tools_code_logs GROUP BY code_id");
+    $stmt->execute([date('Y-m-d H:i:s', strtotime('-30 days'))]);
+    $out = [];
+    foreach ($stmt->fetchAll() as $r) $out[(int)$r['code_id']] = ['total' => (int)$r['total'], 'last' => $r['last_use'], 'days30' => (int)$r['days30']];
+    return $out;
+}
+
+/** Nombre de procédures publiées par catégorie (pour la carte « Procédures ») : [['nom','nb'], …] */
+function getPublicProcedureCategoryCounts() {
+    ensureProcedureCategoriesSchema();
+    try { getDB()->exec("ALTER TABLE procedures ADD COLUMN approved TINYINT(1) DEFAULT 0"); } catch (Exception $e) {}
+    $rows = getDB()->query("SELECT c.nom AS nom, COUNT(p.id) AS nb
+        FROM procedures p LEFT JOIN categories_procedures c ON p.categorie_id = c.id
+        WHERE p.approved = 1 GROUP BY c.id, c.nom ORDER BY (c.id IS NULL), c.ordre, c.nom")->fetchAll();
+    foreach ($rows as &$r) { $r['nom'] = $r['nom'] ?? 'Sans catégorie'; $r['nb'] = (int)$r['nb']; }
+    return $rows;
+}
+
+/** Limite par visiteur (fichier temporaire, aucune IP en base) : retourne false si le quota est atteint, sinon enregistre l'essai */
+function toolsRateLimitHit($bucket, $max, $windowSeconds) {
+    $file = sys_get_temp_dir() . '/tools_rl_' . $bucket . '_' . md5($_SERVER['REMOTE_ADDR'] ?? '');
+    $now = time();
+    $hits = is_file($file) ? array_filter(array_map('intval', file($file, FILE_IGNORE_NEW_LINES)), fn($t) => $t > $now - $windowSeconds) : [];
+    if (count($hits) >= $max) return false;
+    $hits[] = $now;
+    @file_put_contents($file, implode("\n", $hits));
+    return true;
+}
+
+/**
+ * Propositions des visiteurs de /tools (ajouts et modifications de codes utiles et de contacts utiles),
+ * à valider par l'administrateur. Les procédures ont leur propre table (procedure_proposals).
+ */
+function ensureToolsProposalsSchema() {
+    getDB()->exec("CREATE TABLE IF NOT EXISTS tools_proposals (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        kind VARCHAR(10) NOT NULL,
+        type VARCHAR(10) NOT NULL,
+        target_id INT DEFAULT NULL,
+        data TEXT NOT NULL,
+        contributor_prenom VARCHAR(100) NOT NULL,
+        contributor_nom VARCHAR(100) NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
+/** Champs proposables par type d'élément : champ => [libellé, longueur max] */
+function getToolsProposalFields($kind) {
+    return $kind === 'code'
+        ? ['code' => ['Code', 100], 'fonction' => ['Fonction', 255]]
+        : ['service' => ['Service', 255], 'telephone' => ['Téléphone', 20], 'mail' => ['E-mail', 150], 'a_contacter_pour' => ['À contacter pour', 1000]];
+}
+
+/**
+ * Traite un POST de proposition (ajout ou modification) depuis une page publique.
+ * Retourne null en cas de succès, sinon un message d'erreur.
+ */
+function handleToolsProposalPost($kind) {
+    if (!empty($_POST['website'])) return null; // champ piège : on fait comme si c'était envoyé
+    $type = ($_POST['type'] ?? '') === 'edit' ? 'edit' : 'create';
+    $prenom = mb_substr(trim($_POST['contributor_prenom'] ?? ''), 0, 100);
+    $nom = mb_substr(trim($_POST['contributor_nom'] ?? ''), 0, 100);
+    if ($prenom === '' || $nom === '') return 'Merci de renseigner votre nom et votre prénom.';
+
+    $data = [];
+    foreach (getToolsProposalFields($kind) as $field => [$label, $max]) {
+        $v = trim((string)($_POST[$field] ?? ''));
+        if ($v === '' && in_array($field, ['code', 'service'], true)) return 'Le champ « ' . $label . ' » est obligatoire.';
+        if (mb_strlen($v) > $max) return 'Le champ « ' . $label . ' » est trop long (' . $max . ' caractères maximum).';
+        $data[$field] = $v;
+    }
+    if ($kind === 'contact' && $data['mail'] !== '' && !filter_var($data['mail'], FILTER_VALIDATE_EMAIL)) return "L'adresse e-mail n'est pas valide.";
+
+    $db = getDB();
+    $targetId = null;
+    if ($type === 'edit') {
+        $targetId = (int)($_POST['target_id'] ?? 0);
+        $table = $kind === 'code' ? 'codes_utiles' : 'contacts_utiles';
+        $stmt = $db->prepare("SELECT id FROM $table WHERE id = ? AND approved = 1");
+        $stmt->execute([$targetId]);
+        if (!$stmt->fetch()) return "L'élément à modifier est introuvable.";
+    }
+    if (!toolsRateLimitHit('proposal', 10, 3600)) return 'Trop de propositions envoyées récemment. Réessayez plus tard.';
+
+    ensureToolsProposalsSchema();
+    $db->prepare("INSERT INTO tools_proposals (kind, type, target_id, data, contributor_prenom, contributor_nom) VALUES (?, ?, ?, ?, ?, ?)")
+       ->execute([$kind, $type, $targetId, json_encode($data, JSON_UNESCAPED_UNICODE), $prenom, $nom]);
+    return null;
+}
+
+/** Modèles de courrier que l'admin rend utilisables sur /tools (colonne ajoutée à la demande) */
+function ensurePublicTemplatesColumn() {
+    try { getDB()->exec("ALTER TABLE modeles_courriers ADD COLUMN public_tools TINYINT(1) NOT NULL DEFAULT 0"); } catch (Exception $e) {}
+}
+
+function getPublicCourrierTemplates() {
+    try {
+        ensurePublicTemplatesColumn();
+        $rows = getDB()->query("SELECT id, nom_modele, objet, corps, variables FROM modeles_courriers WHERE public_tools = 1 AND approved = 1 ORDER BY nom_modele")->fetchAll();
+    } catch (Exception $e) { return []; }
+    foreach ($rows as &$r) $r['corps'] = sanitizeToolsMessageHtml($r['corps'] ?? ''); // affiché à des visiteurs anonymes
+    return $rows;
+}
+
+/**
+ * Recherche globale de /tools : uniquement dans les outils actifs (états de l'admin) et les données
+ * publiables (éléments validés, modèles de courrier choisis). Retourne [['type','titre','detail','url'], …]
+ * avec des URL relatives au dossier tools/.
+ */
+function searchToolsGlobal($query) {
+    $query = trim($query);
+    if (mb_strlen($query) < 2) return [];
+    $db = getDB();
+    $active = getEnabledPublicTools();
+    $catalog = getPublicToolsCatalog();
+    $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $query) . '%';
+    $needle = mb_strtolower($query);
+    $enc = urlencode($query);
+    $results = [];
+
+    // Les outils eux-mêmes
+    foreach ($active as $key) {
+        $t = $catalog[$key];
+        if (preg_match('/(?<![\p{L}\p{N}])' . preg_quote($query, '/') . '/iu', $t['label'] . ' ' . $t['description'])) { // début de mot
+            $results[] = ['type' => 'Outil', 'titre' => $t['label'], 'detail' => $t['description'], 'url' => $t['url']];
+        }
+    }
+
+    if (in_array('procedures', $active, true)) {
+        try {
+            ensureProcedureCategoriesSchema();
+            $stmt = $db->prepare("SELECT p.nom, p.texte, c.nom AS cat FROM procedures p LEFT JOIN categories_procedures c ON p.categorie_id = c.id
+                WHERE p.approved = 1 AND (p.nom LIKE ? OR p.texte LIKE ?) ORDER BY p.mise_en_avant DESC, p.nom LIMIT 10");
+            $stmt->execute([$like, $like]);
+            foreach ($stmt->fetchAll() as $r) {
+                $results[] = ['type' => 'Procédure', 'titre' => $r['nom'], 'detail' => ($r['cat'] ? $r['cat'] . ' – ' : '') . mb_substr(trim(strip_tags($r['texte'] ?? '')), 0, 120),
+                    'url' => '../modules/procedures/public.php?q=' . urlencode($r['nom'])];
+            }
+        } catch (Exception $e) {}
+    }
+    if (in_array('codes', $active, true)) {
+        try {
+            $stmt = $db->prepare("SELECT code, fonction FROM codes_utiles WHERE approved = 1 AND (code LIKE ? OR fonction LIKE ?) ORDER BY code LIMIT 10");
+            $stmt->execute([$like, $like]);
+            foreach ($stmt->fetchAll() as $r) $results[] = ['type' => 'Code utile', 'titre' => $r['code'], 'detail' => mb_substr((string)$r['fonction'], 0, 120), 'url' => 'codes.php?q=' . urlencode($r['code'])];
+        } catch (Exception $e) {}
+    }
+    if (in_array('contacts', $active, true)) {
+        try {
+            $stmt = $db->prepare("SELECT service, a_contacter_pour FROM contacts_utiles WHERE approved = 1 AND (service LIKE ? OR a_contacter_pour LIKE ? OR mail LIKE ? OR telephone LIKE ?) ORDER BY service LIMIT 10");
+            $stmt->execute([$like, $like, $like, $like]);
+            foreach ($stmt->fetchAll() as $r) $results[] = ['type' => 'Contact utile', 'titre' => $r['service'], 'detail' => mb_substr((string)$r['a_contacter_pour'], 0, 120), 'url' => 'contacts.php?q=' . urlencode($r['service'])];
+        } catch (Exception $e) {}
+    }
+    if (in_array('courrier', $active, true)) {
+        foreach (getPublicCourrierTemplates() as $t) {
+            if (mb_strpos(mb_strtolower($t['nom_modele'] . ' ' . $t['objet']), $needle) !== false) {
+                $results[] = ['type' => 'Modèle de courrier', 'titre' => $t['nom_modele'], 'detail' => $t['objet'], 'url' => 'courrier.php?modele=' . (int)$t['id']];
+            }
+        }
+    }
+    // Raccourci : vérifier la recherche dans l'outil RGE
+    if (in_array('rge', $active, true)) {
+        $results[] = ['type' => 'Vérification RGE', 'titre' => 'Vérifier « ' . $query . ' » (RGE)', 'detail' => 'Rechercher une entreprise par nom, SIREN ou SIRET', 'url' => 'rge.php?q=' . $enc];
+    }
+    return $results;
 }

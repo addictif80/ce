@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/_layout.php';
 
+$templates = getPublicCourrierTemplates(); // modèles choisis par l'admin (lecture seule)
 $logoUrl = 'https://www.img.caisse-epargne.fr/app/uploads/sites/16/2021/05/31152836/ce-logo-midi-pyrennees.png';
 
 // Contacts équipe gérés par l'admin (user_id NULL) : seuls nom, prénom, téléphone et e-mail sont exposés
@@ -23,7 +24,7 @@ toolsHeader('Générateur de courrier', 'courrier', '<style>
 </style>');
 ?>
 <div class="container my-3 no-print">
-    <?php privacyBanner('Le courrier est rédigé et mis en page dans votre navigateur : rien n\'est envoyé, et aucun modèle n\'est enregistré. Si vous actualisez la page, tout est effacé.') ?>
+    <?php privacyBanner('Le courrier est rédigé et mis en page dans votre navigateur : rien n\'est envoyé, et vous ne pouvez pas enregistrer de modèle. Si vous actualisez la page, tout est effacé.') ?>
 
     <div class="card mb-3"><div class="card-body">
         <h2 class="h6 text-uppercase text-muted">Expéditeur</h2>
@@ -64,6 +65,14 @@ toolsHeader('Générateur de courrier', 'courrier', '<style>
 
     <div class="card mb-3"><div class="card-body">
         <h2 class="h6 text-uppercase text-muted">Courrier</h2>
+        <?php if ($templates): ?>
+        <div class="row g-2 mb-3">
+            <div class="col-md-8"><label class="form-label">Partir d'un modèle</label>
+                <select id="tpl-pick" class="form-select"><option value="">-- Aucun (courrier vierge) --</option>
+                    <?php foreach ($templates as $t): ?><option value="<?= (int)$t['id'] ?>"><?= e($t['nom_modele']) ?></option><?php endforeach; ?></select></div>
+            <div class="col-md-4 d-flex align-items-end"><button type="button" class="btn btn-outline-secondary w-100" id="tpl-load"><i class="fas fa-download me-1"></i>Charger le modèle</button></div>
+        </div>
+        <?php endif; ?>
         <label class="form-label">Objet</label>
         <input id="c-objet" class="form-control mb-3" autocomplete="off">
 
@@ -122,13 +131,15 @@ toolsHeader('Générateur de courrier', 'courrier', '<style>
     document.querySelectorAll('[data-cmd]').forEach(b => b.onclick = () => { editor.focus(); document.execCommand(b.dataset.cmd, false, null); });
     document.querySelectorAll('[data-ins]').forEach(b => b.onclick = () => { editor.focus(); document.execCommand('insertText', false, '{{' + b.dataset.ins + '}}'); });
 
-    function addVar() {
+    function addVar(name = '', value = '') {
         const row = document.createElement('div');
         row.className = 'var-row';
         row.innerHTML = `<input class="form-control form-control-sm var-name" placeholder="Nom (ex : date-rdv)" autocomplete="off">
             <input class="form-control form-control-sm var-value" placeholder="Valeur (ex : 25/03 à 14h30)" autocomplete="off">
             <button type="button" class="btn btn-sm btn-outline-secondary ins"><i class="fas fa-arrow-down"></i> Insérer</button>
             <button type="button" class="btn btn-sm btn-outline-danger del"><i class="fas fa-times"></i></button>`;
+        row.querySelector('.var-name').value = name;
+        row.querySelector('.var-value').value = value;
         row.querySelector('.ins').onclick = () => {
             const n = row.querySelector('.var-name').value.trim();
             if (!n) { row.querySelector('.var-name').focus(); return; }
@@ -137,7 +148,29 @@ toolsHeader('Générateur de courrier', 'courrier', '<style>
         row.querySelector('.del').onclick = () => row.remove();
         $('vars').appendChild(row);
     }
-    $('add-var').onclick = addVar;
+    $('add-var').onclick = () => addVar();
+
+    // Modèles mis à disposition par l'admin : chargés tels quels dans le navigateur, sans rien enregistrer
+    const templates = <?= json_encode($templates, JSON_UNESCAPED_UNICODE) ?>;
+    const BUILTIN = ['civilite', 'nom_dest', 'prenom_dest'];
+    function loadTemplate(t) {
+        $('c-objet').value = t.objet || '';
+        editor.innerHTML = t.corps || '';
+        $('vars').innerHTML = '';
+        let names = [];
+        try { names = JSON.parse(t.variables || '[]'); } catch (e) {}
+        if (!names.length) names = [...new Set(((t.corps || '').match(/\{\{([^}]+)\}\}/g) || []).map(m => m.slice(2, -2)))].filter(n => !BUILTIN.includes(n));
+        names.forEach(n => addVar(n, ''));
+    }
+    const wanted = new URLSearchParams(location.search).get('modele'); // ouverture depuis la recherche globale
+    const wantedTpl = wanted && templates.find(x => x.id == wanted);
+    if (wantedTpl) { if ($('tpl-pick')) $('tpl-pick').value = wantedTpl.id; loadTemplate(wantedTpl); }
+    if ($('tpl-load')) $('tpl-load').onclick = () => {
+        const t = templates.find(x => x.id == $('tpl-pick').value);
+        if (!t) return;
+        if (editor.innerText.trim() && !confirm('Remplacer le contenu actuel par ce modèle ?')) return;
+        loadTemplate(t);
+    };
 
     function variables() {
         const v = {civilite: val('d-civ'), nom_dest: val('d-nom'), prenom_dest: val('d-prenom')};
