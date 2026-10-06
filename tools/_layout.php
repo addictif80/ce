@@ -32,9 +32,17 @@ function toolsHeader($title, $key = null, $extraHead = '') {
 <div class="tools-header no-print">
     <div class="container d-flex justify-content-between align-items-center flex-wrap gap-2">
         <h1 class="h3 mb-0"><?= e($title) ?></h1>
-        <?php if ($key !== null): ?>
-        <a href="./" class="btn btn-sm btn-light"><i class="fas fa-th-large me-1"></i>Tous les outils</a>
-        <?php endif; ?>
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+            <?php if (empty($GLOBALS['toolsNoGate'])): ?>
+            <form action="<?= $key === null || strpos($_SERVER['SCRIPT_NAME'] ?? '', '/modules/') === false ? '' : '../../tools/' ?>search.php" method="get" class="d-flex" role="search">
+                <input type="search" name="q" class="form-control form-control-sm" placeholder="Rechercher dans les outils…" minlength="2" required value="<?= e($_GET['q'] ?? '') ?>" style="min-width:200px" aria-label="Recherche">
+                <button class="btn btn-sm btn-light ms-1" aria-label="Rechercher"><i class="fas fa-search"></i></button>
+            </form>
+            <?php endif; ?>
+            <?php if ($key !== null): ?>
+            <a href="./" class="btn btn-sm btn-light"><i class="fas fa-th-large me-1"></i>Tous les outils</a>
+            <?php endif; ?>
+        </div>
     </div>
 </div>
 <?php }

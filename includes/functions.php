@@ -308,7 +308,7 @@ function getDefaultMenuItems() {
         ['item_key' => 'activite', 'parent_key' => null, 'label' => 'Mon activité', 'icon' => 'fa-briefcase', 'url' => null, 'uri_patterns' => 'instances,rappels,demandes_clients,offres,interets_clients,rappels_clients,signatures,envoi_documents,kanban,gestion_portefeuille', 'ordre' => 1],
         ['item_key' => 'formation', 'parent_key' => null, 'label' => 'Formation', 'icon' => 'fa-graduation-cap', 'url' => null, 'uri_patterns' => 'formations', 'ordre' => 2],
         ['item_key' => 'commercial', 'parent_key' => null, 'label' => 'Commercial', 'icon' => 'fa-handshake', 'url' => null, 'uri_patterns' => 'production,phoning,eai,mobilites', 'ordre' => 3],
-        ['item_key' => 'outils', 'parent_key' => null, 'label' => 'Outils', 'icon' => 'fa-tools', 'url' => null, 'uri_patterns' => 'credit_immo,calculateur,courriers,courriers_internes,blocnotes,procedures,bureau_dom,retraits,dpe,/modules/stock/', 'ordre' => 4],
+        ['item_key' => 'outils', 'parent_key' => null, 'label' => 'Outils', 'icon' => 'fa-tools', 'url' => null, 'uri_patterns' => 'credit_immo,calculateur,courriers,courriers_internes,blocnotes,procedures,bureau_dom,retraits,dpe,/rge/,/modules/stock/', 'ordre' => 4],
         ['item_key' => 'references', 'parent_key' => null, 'label' => 'Références', 'icon' => 'fa-bookmark', 'url' => null, 'uri_patterns' => '/codes/,/contacts/', 'ordre' => 5],
         // Items - Mon activité
         ['item_key' => 'kanban', 'parent_key' => 'activite', 'label' => 'Vue Kanban', 'icon' => 'fa-columns', 'url' => '/modules/kanban/index.php', 'uri_patterns' => 'kanban', 'ordre' => 0],
@@ -341,6 +341,7 @@ function getDefaultMenuItems() {
         ['item_key' => 'procedures', 'parent_key' => 'outils', 'label' => 'Procédures', 'icon' => 'fa-book', 'url' => '/modules/procedures/index.php', 'uri_patterns' => 'procedures', 'ordre' => 6],
         ['item_key' => 'bureau_dom', 'parent_key' => 'outils', 'label' => 'Bureau domiciliaire', 'icon' => 'fa-building', 'url' => '/modules/bureau_dom/index.php', 'uri_patterns' => 'bureau_dom', 'ordre' => 7],
         ['item_key' => 'retraits', 'parent_key' => 'outils', 'label' => 'Calculateur retraits', 'icon' => 'fa-money-bill-wave', 'url' => '/modules/retraits/index.php', 'uri_patterns' => 'retraits', 'ordre' => 8],
+        ['item_key' => 'rge', 'parent_key' => 'outils', 'label' => 'Vérification RGE', 'icon' => 'fa-certificate', 'url' => '/modules/rge/index.php', 'uri_patterns' => '/rge/', 'ordre' => 11],
         ['item_key' => 'dpe', 'parent_key' => 'outils', 'label' => 'Recherche DPE', 'icon' => 'fa-leaf', 'url' => '/modules/dpe/index.php', 'uri_patterns' => '/dpe/', 'ordre' => 10],
         // Items - Références
         ['item_key' => 'codes', 'parent_key' => 'references', 'label' => 'Codes utiles', 'icon' => 'fa-key', 'url' => '/modules/codes/index.php', 'uri_patterns' => '/codes/', 'ordre' => 1],
@@ -861,6 +862,11 @@ function getPublicToolsCatalog() {
             'description' => 'Retrouvez les diagnostics de performance énergétique d\'une adresse, sur une liste ou une carte.',
             'note' => 'L\'adresse saisie est transmise aux API publiques de l\'ADEME et de la Base Adresse Nationale pour la recherche, sans être enregistrée par ce portail.',
         ],
+        'rge' => [
+            'label' => 'Vérification RGE', 'icon' => 'fa-certificate', 'url' => 'rge.php', 'default' => true,
+            'description' => 'Vérifiez la certification RGE d\'une entreprise par nom, SIREN ou SIRET.',
+            'note' => 'Le nom ou le numéro saisi est transmis à l\'API publique de l\'ADEME pour la recherche, sans être enregistré par ce portail.',
+        ],
         'bureau_dom' => [
             'label' => 'Bureau domiciliaire', 'icon' => 'fa-building', 'url' => 'bureau_dom.php', 'default' => true,
             'description' => 'Remplissez le formulaire de modification de bureau domiciliaire, puis imprimez-le.',
@@ -1249,4 +1255,68 @@ function getPublicCourrierTemplates() {
     } catch (Exception $e) { return []; }
     foreach ($rows as &$r) $r['corps'] = sanitizeToolsMessageHtml($r['corps'] ?? ''); // affiché à des visiteurs anonymes
     return $rows;
+}
+
+/**
+ * Recherche globale de /tools : uniquement dans les outils actifs (états de l'admin) et les données
+ * publiables (éléments validés, modèles de courrier choisis). Retourne [['type','titre','detail','url'], …]
+ * avec des URL relatives au dossier tools/.
+ */
+function searchToolsGlobal($query) {
+    $query = trim($query);
+    if (mb_strlen($query) < 2) return [];
+    $db = getDB();
+    $active = getEnabledPublicTools();
+    $catalog = getPublicToolsCatalog();
+    $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $query) . '%';
+    $needle = mb_strtolower($query);
+    $enc = urlencode($query);
+    $results = [];
+
+    // Les outils eux-mêmes
+    foreach ($active as $key) {
+        $t = $catalog[$key];
+        if (preg_match('/(?<![\p{L}\p{N}])' . preg_quote($query, '/') . '/iu', $t['label'] . ' ' . $t['description'])) { // début de mot
+            $results[] = ['type' => 'Outil', 'titre' => $t['label'], 'detail' => $t['description'], 'url' => $t['url']];
+        }
+    }
+
+    if (in_array('procedures', $active, true)) {
+        try {
+            ensureProcedureCategoriesSchema();
+            $stmt = $db->prepare("SELECT p.nom, p.texte, c.nom AS cat FROM procedures p LEFT JOIN categories_procedures c ON p.categorie_id = c.id
+                WHERE p.approved = 1 AND (p.nom LIKE ? OR p.texte LIKE ?) ORDER BY p.mise_en_avant DESC, p.nom LIMIT 10");
+            $stmt->execute([$like, $like]);
+            foreach ($stmt->fetchAll() as $r) {
+                $results[] = ['type' => 'Procédure', 'titre' => $r['nom'], 'detail' => ($r['cat'] ? $r['cat'] . ' – ' : '') . mb_substr(trim(strip_tags($r['texte'] ?? '')), 0, 120),
+                    'url' => '../modules/procedures/public.php?q=' . urlencode($r['nom'])];
+            }
+        } catch (Exception $e) {}
+    }
+    if (in_array('codes', $active, true)) {
+        try {
+            $stmt = $db->prepare("SELECT code, fonction FROM codes_utiles WHERE approved = 1 AND (code LIKE ? OR fonction LIKE ?) ORDER BY code LIMIT 10");
+            $stmt->execute([$like, $like]);
+            foreach ($stmt->fetchAll() as $r) $results[] = ['type' => 'Code utile', 'titre' => $r['code'], 'detail' => mb_substr((string)$r['fonction'], 0, 120), 'url' => 'codes.php?q=' . urlencode($r['code'])];
+        } catch (Exception $e) {}
+    }
+    if (in_array('contacts', $active, true)) {
+        try {
+            $stmt = $db->prepare("SELECT service, a_contacter_pour FROM contacts_utiles WHERE approved = 1 AND (service LIKE ? OR a_contacter_pour LIKE ? OR mail LIKE ? OR telephone LIKE ?) ORDER BY service LIMIT 10");
+            $stmt->execute([$like, $like, $like, $like]);
+            foreach ($stmt->fetchAll() as $r) $results[] = ['type' => 'Contact utile', 'titre' => $r['service'], 'detail' => mb_substr((string)$r['a_contacter_pour'], 0, 120), 'url' => 'contacts.php?q=' . urlencode($r['service'])];
+        } catch (Exception $e) {}
+    }
+    if (in_array('courrier', $active, true)) {
+        foreach (getPublicCourrierTemplates() as $t) {
+            if (mb_strpos(mb_strtolower($t['nom_modele'] . ' ' . $t['objet']), $needle) !== false) {
+                $results[] = ['type' => 'Modèle de courrier', 'titre' => $t['nom_modele'], 'detail' => $t['objet'], 'url' => 'courrier.php?modele=' . (int)$t['id']];
+            }
+        }
+    }
+    // Raccourci : vérifier la recherche dans l'outil RGE
+    if (in_array('rge', $active, true)) {
+        $results[] = ['type' => 'Vérification RGE', 'titre' => 'Vérifier « ' . $query . ' » (RGE)', 'detail' => 'Rechercher une entreprise par nom, SIREN ou SIRET', 'url' => 'rge.php?q=' . $enc];
+    }
+    return $results;
 }

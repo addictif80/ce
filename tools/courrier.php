@@ -153,10 +153,7 @@ toolsHeader('Générateur de courrier', 'courrier', '<style>
     // Modèles mis à disposition par l'admin : chargés tels quels dans le navigateur, sans rien enregistrer
     const templates = <?= json_encode($templates, JSON_UNESCAPED_UNICODE) ?>;
     const BUILTIN = ['civilite', 'nom_dest', 'prenom_dest'];
-    if ($('tpl-load')) $('tpl-load').onclick = () => {
-        const t = templates.find(x => x.id == $('tpl-pick').value);
-        if (!t) return;
-        if (editor.innerText.trim() && !confirm('Remplacer le contenu actuel par ce modèle ?')) return;
+    function loadTemplate(t) {
         $('c-objet').value = t.objet || '';
         editor.innerHTML = t.corps || '';
         $('vars').innerHTML = '';
@@ -164,6 +161,15 @@ toolsHeader('Générateur de courrier', 'courrier', '<style>
         try { names = JSON.parse(t.variables || '[]'); } catch (e) {}
         if (!names.length) names = [...new Set(((t.corps || '').match(/\{\{([^}]+)\}\}/g) || []).map(m => m.slice(2, -2)))].filter(n => !BUILTIN.includes(n));
         names.forEach(n => addVar(n, ''));
+    }
+    const wanted = new URLSearchParams(location.search).get('modele'); // ouverture depuis la recherche globale
+    const wantedTpl = wanted && templates.find(x => x.id == wanted);
+    if (wantedTpl) { if ($('tpl-pick')) $('tpl-pick').value = wantedTpl.id; loadTemplate(wantedTpl); }
+    if ($('tpl-load')) $('tpl-load').onclick = () => {
+        const t = templates.find(x => x.id == $('tpl-pick').value);
+        if (!t) return;
+        if (editor.innerText.trim() && !confirm('Remplacer le contenu actuel par ce modèle ?')) return;
+        loadTemplate(t);
     };
 
     function variables() {

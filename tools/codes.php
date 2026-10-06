@@ -43,6 +43,10 @@ $codes = $db->query("SELECT id, code, fonction FROM codes_utiles WHERE approved 
 </div>
 <?php toolsProposalModal('code'); ?>
 <script>
+(function() { // pré-filtre depuis la recherche globale (?q=)
+    const q = new URLSearchParams(location.search).get('q'), el = document.getElementById('search');
+    if (q && el) { el.value = q; setTimeout(() => el.dispatchEvent(new Event('input')), 0); }
+})();
 document.getElementById('search')?.addEventListener('input', function() {
     const f = this.value.toLowerCase();
     document.querySelectorAll('#table tbody tr').forEach(r => r.style.display = r.textContent.toLowerCase().includes(f) ? '' : 'none');
