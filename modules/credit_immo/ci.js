@@ -77,23 +77,41 @@ function scheduleLine(montant,taux,duree){
 }
 
 function getAssurances(d){return parseArr(d.ade_json);}
-// Coût d'une ligne d'assurance (un emprunteur sur une ligne de crédit) : cotisation mensuelle (1re échéance) et coût total
-function assuranceCost(a,lignes){
-  const li=lignes[a.ligne??0]||lignes[0];
-  if(!li) return {monthly:0,total:0};
-  const taux=num(a.taux), quot=num(a.quotite)>0?num(a.quotite)/100:1;
-  const cap=num(li.montant), n=parseInt(li.duree)||0;
-  if(taux>0){
-    if(a.base==='CRD'){
-      const s=scheduleLine(cap,num(li.taux),n);
-      return {monthly:cap*quot*taux/100/12,total:s.rows.reduce((t,r)=>t+r.crd*quot*taux/100/12,0)};
-    }
-    const m=cap*quot*taux/100/12;
-    return {monthly:m,total:m*n};
-  }
-  if(num(a.cout_total)>0) return {monthly:n>0?num(a.cout_total)/n:0,total:num(a.cout_total)}; // ancien dossier : coût total saisi
-  return {monthly:0,total:0};
+// Assurance emprunteur : une ligne d'assurance = un emprunteur sur une ligne de crédit.
+//  - Capital initial : cotisation constante = capital × quotité × taux / 12.
+//  - Capital restant dû (méthode du logiciel de crédit, mensualité lissée) : la mensualité tout inclus est celle d'un prêt au taux
+//    nominal + taux d'assurance cumulés des emprunteurs ; la part « assurance » est l'écart avec la mensualité du prêt seul (constante).
+function computeAssurances(lignes,rows){
+  const out=rows.map(()=>({monthly:0,total:0}));
+  lignes.forEach((l,li)=>{
+    const cap=num(l.montant), n=parseInt(l.duree)||0, t=num(l.taux);
+    const mine=rows.map((a,k)=>({a,k})).filter(x=>(x.a.ligne??0)===li);
+    const quotOf=a=>num(a.quotite)>0?num(a.quotite)/100:1;
+    const crd=mine.filter(x=>x.a.base==='CRD'&&num(x.a.taux)>0);
+    const R=crd.reduce((sum,x)=>sum+num(x.a.taux)*quotOf(x.a),0);
+    const M=(R>0&&n>0)?calcMensualite(cap,t+R,n)-calcMensualite(cap,t,n):0;
+    mine.forEach(({a,k})=>{
+      const taux=num(a.taux); let m=0;
+      if(taux>0&&a.base==='CRD') m=R>0?M*(taux*quotOf(a)/R):0;
+      else if(taux>0) m=cap*quotOf(a)*taux/1200;
+      else if(num(a.cout_total)>0&&n>0) m=num(a.cout_total)/n; // ancien dossier : coût total saisi
+      out[k]={monthly:m,total:m*n};
+    });
+  });
+  return out;
 }
+// TAEG : taux actuariel annuel effectif (1+i)^12−1 du flux « montant net reçu / mensualités », i = taux mensuel d'équilibre.
+// « prop » = taux proportionnel annualisé (12 × i), utile pour rapprocher d'un logiciel qui affiche ce taux.
+function calcTaeg(montantNet,paiements){
+  if(!(montantNet>0)||!paiements.length) return null;
+  const pv=i=>paiements.reduce((t,p,k)=>t+p/Math.pow(1+i,k+1),0);
+  if(pv(0)<montantNet) return null;
+  let lo=0,hi=0.05;
+  for(let it=0;it<200;it++){const mid=(lo+hi)/2; if(pv(mid)>montantNet) lo=mid; else hi=mid;}
+  const i=(lo+hi)/2;
+  return {taeg:(Math.pow(1+i,12)-1)*100,prop:i*1200};
+}
+function taegTxt(t){return t?parseFloat(t.taeg).toFixed(2).replace('.',',')+' %':'N/A';}
 
 // Tous les indicateurs d'un dossier (ou de l'état courant du formulaire)
 function computeAll(d){
@@ -103,7 +121,7 @@ function computeAll(d){
   const mensPTZ=getMensPTZ(d), mensEco=getMensEcoPTZ(d);
   const mensHorsAssur=mensLignes+mensPTZ+mensEco;
   const assRaw=getAssurances(d);
-  const ass=assRaw.map(a=>assuranceCost(a,lignes));
+  const ass=computeAssurances(lignes,assRaw);
   const mensAssur=ass.reduce((t,a)=>t+a.monthly,0), totAssur=ass.reduce((t,a)=>t+a.total,0);
   const mensTout=mensHorsAssur+mensAssur;
   const revenus=emps.reduce((t,e)=>t+sumRevenus(e.revenus),0);
@@ -113,7 +131,17 @@ function computeAll(d){
   const nbPers=parseInt(d.nb_personnes_foyer)||(emps.length+(parseInt(d.nb_enfants)||0)+(parseInt(d.nb_personnes_charge_supp)||0));
   const interets=sch.reduce((t,s)=>t+s.interets,0);
   const fraisDossier=getFraisDossier(d), garantie=num(d.garantie_montant);
-  return {lignes,sch,emps,ass,assRaw,mensLignes,mensPTZ,mensEco,mensHorsAssur,mensAssur,mensTout,totAssur,
+  // TAEG par ligne (assurance de la ligne + frais de dossier de la ligne) et global (toutes lignes, PTZ/EcoPTZ, frais de dossier et garantie)
+  const lineIns=lignes.map((l,i)=>ass.reduce((t,a,k)=>t+(((assRaw[k].ligne)??0)===i?a.monthly:0),0));
+  const taegLignes=lignes.map((l,i)=>{const n=parseInt(l.duree)||0; return n>0?calcTaeg(num(l.montant)-num(l.frais_dossier),Array(n).fill(sch[i].mens+lineIns[i])):null;});
+  const nPtz=d.ptz_actif==1?(parseInt(d.ptz_duree)||0):0, nEco=d.ecoptz_actif==1?(parseInt(d.ecoptz_duree)||0):0;
+  const N=Math.max(0,nPtz,nEco,...lignes.map(l=>parseInt(l.duree)||0));
+  const flows=Array(N).fill(0);
+  lignes.forEach((l,i)=>{const n=parseInt(l.duree)||0; for(let k=0;k<n;k++) flows[k]+=sch[i].mens+lineIns[i];});
+  for(let k=0;k<nPtz;k++) flows[k]+=mensPTZ;
+  for(let k=0;k<nEco;k++) flows[k]+=mensEco;
+  const taegGlobal=calcTaeg(lignes.reduce((t,l)=>t+num(l.montant),0)+ptzMontant(d)+ecoMontant(d)-fraisDossier-garantie,flows);
+  return {lignes,sch,emps,ass,assRaw,taegLignes,taegGlobal,lineIns,mensLignes,mensPTZ,mensEco,mensHorsAssur,mensAssur,mensTout,totAssur,
     revenus,charges,te,reste,restePers:nbPers>0?reste/nbPers:null,nbPers,interets,fraisDossier,garantie,
     coutCredit:interets+totAssur+fraisDossier+garantie,totalFin:getTotalFinancement(d),
     capital:lignes.reduce((t,l)=>t+num(l.montant),0),rfr:emps.reduce((t,e)=>t+num(e.rfr),0),resteAFin:getResteAFinancer(d)};
@@ -394,7 +422,7 @@ function buildAssuranceRow(px,a,ei,li,empLabel,ligneLabel){
     <div class="row g-2">
       <div class="col-12"><div class="d-flex gap-3 flex-wrap">${['DC','PTIA','ITT','Invalidité'].map(c=>`<div class="form-check"><input class="form-check-input" type="checkbox" value="${c}" ${couv.includes(c)?'checked':''} data-af="couverture" onchange="onFormChange('${px}')"><label class="form-check-label small">${c}</label></div>`).join('')}</div></div>
       <div class="col-md-2"><label class="form-label small mb-0">Taux assurance (%/an)</label><input type="number" step="0.001" min="0" class="form-control form-control-sm" data-af="taux" value="${a.taux??''}" oninput="onFormChange('${px}')"></div>
-      <div class="col-md-2"><label class="form-label small mb-0">Base du taux</label><select class="form-select form-select-sm" data-af="base" onchange="onFormChange('${px}')"><option value="CI" ${a.base!=='CRD'?'selected':''}>Capital initial</option><option value="CRD" ${a.base==='CRD'?'selected':''}>Capital restant dû</option></select></div>
+      <div class="col-md-2"><label class="form-label small mb-0">Base du taux</label><select class="form-select form-select-sm" data-af="base" onchange="onFormChange('${px}')"><option value="CRD" ${a.base!=='CI'?'selected':''}>Capital restant dû (mensualité lissée)</option><option value="CI" ${a.base==='CI'?'selected':''}>Capital initial</option></select></div>
       <div class="col-md-2"><label class="form-label small mb-0">Quotité %</label><input type="number" step="1" min="0" max="100" class="form-control form-control-sm" data-af="quotite" value="${a.quotite??100}" oninput="onFormChange('${px}')"></div>
       <div class="col-md-2"><label class="form-label small mb-0">Type</label>${sel('type',['INDEMNITAIRE','FORFAITAIRE'],a.type)}</div>
       <div class="col-md-2"><label class="form-label small mb-0">Franchise</label>${sel('franchise',['30J','90J'],a.franchise)}</div>
@@ -406,7 +434,7 @@ function readAssurances(px){
     const g=f=>row.querySelector(`[data-af="${f}"]`);
     return {emp:parseInt(row.dataset.emp),ligne:parseInt(row.dataset.ligne),
       couverture:Array.from(row.querySelectorAll('[data-af="couverture"]:checked')).map(c=>c.value),
-      taux:g('taux')?.value===''?'':num(g('taux')?.value),base:g('base')?.value||'CI',quotite:num(g('quotite')?.value),
+      taux:g('taux')?.value===''?'':num(g('taux')?.value),base:g('base')?.value||'CRD',quotite:num(g('quotite')?.value),
       type:g('type')?.value||'',franchise:g('franchise')?.value||'',ipp:g('ipp')?.value||'',cout_total:num(g('cout_total')?.value)};
   });
 }
@@ -463,7 +491,7 @@ function onFormChange(px){
   document.querySelectorAll(`#${px}_lignes_list .ci-ligne`).forEach((row,i)=>{
     const s=c.sch[i], el=row.querySelector('.ci-ligne-mens'); if(!el||!s) return;
     const ass=ligneAssuranceMensuelle(c,i);
-    el.innerHTML=fmt(s.mens)+' € <span class="text-muted">hors ass.</span>'+(ass>0?'<br><strong>'+fmt(s.mens+ass)+' € avec ass.</strong>':'');
+    el.innerHTML=fmt(s.mens)+' € <span class="text-muted">hors ass.</span>'+(ass>0?'<br><strong>'+fmt(s.mens+ass)+' € avec ass.</strong>':'')+(c.taegLignes[i]?'<br><span class="text-muted">TAEG '+taegTxt(c.taegLignes[i])+'</span>':'');
   });
   document.querySelectorAll(`#${px}_ade_list .ci-ass`).forEach((row,i)=>{
     const a=c.ass[i], el=row.querySelector('.ci-ass-cout'); if(el&&a) el.textContent=a.total>0?fmt(a.monthly)+' €/mois — total '+fmt(a.total)+' €':'';
@@ -488,6 +516,7 @@ function resultPanelHtml(d,c){
       ${k('Charges conservées',fmt(c.charges)+' €')}
       ${k('Reste à vivre cumulé',`<span class="${c.reste>=0?'text-success':'text-danger'}">${fmt(c.reste)} €</span>`)}
       ${k('Reste à vivre / personne ('+c.nbPers+')',c.restePers===null?'N/A':`<span class="${c.restePers>=0?'text-success':'text-danger'}">${fmt(c.restePers)} €</span>`)}
+      ${k('TAEG global (assurance, frais de dossier et garantie inclus)',c.taegGlobal?`<span class="fs-5">${taegTxt(c.taegGlobal)}</span><div class="small text-muted">annualisé simple ${parseFloat(c.taegGlobal.prop).toFixed(2).replace('.',',')} %</div>`:'N/A','border border-info')}
       ${k('Intérêts',fmt(c.interets)+' €')}
       ${k('Assurances (total)',fmt(c.totAssur)+' €')}
       ${k('Frais de dossier + garantie',fmt(c.fraisDossier+c.garantie)+' €')}
@@ -1080,7 +1109,7 @@ function showDetail(id){
   </tbody></table></div></div></div>`;
 
   // Tab Financement
-  const lignesRows=c.lignes.map((l,i)=>`<tr><td>${escapeHtml(l.libelle||('Ligne '+(i+1)))}${l.doublissimo?' <span class="badge bg-info">Doublissimo</span>':''}</td><td>${money(num(l.montant))}</td><td>${parseInt(l.duree)||0} mois</td><td>${num(l.taux).toFixed(3).replace('.',',')} %</td><td>${money(num(l.frais_dossier))}</td><td><strong>${money(c.sch[i].mens)}</strong></td><td><strong>${money(c.sch[i].mens+ligneAssuranceMensuelle(c,i))}</strong></td><td>${money(c.sch[i].interets)}</td></tr>`).join('');
+  const lignesRows=c.lignes.map((l,i)=>`<tr><td>${escapeHtml(l.libelle||('Ligne '+(i+1)))}${l.doublissimo?' <span class="badge bg-info">Doublissimo</span>':''}</td><td>${money(num(l.montant))}</td><td>${parseInt(l.duree)||0} mois</td><td>${num(l.taux).toFixed(3).replace('.',',')} %</td><td>${money(num(l.frais_dossier))}</td><td><strong>${money(c.sch[i].mens)}</strong></td><td><strong>${money(c.sch[i].mens+ligneAssuranceMensuelle(c,i))}</strong></td><td>${taegTxt(c.taegLignes[i])}${c.taegLignes[i]?`<div class="small text-muted">simple ${parseFloat(c.taegLignes[i].prop).toFixed(2).replace('.',',')} %</div>`:''}</td><td>${money(c.sch[i].interets)}</td></tr>`).join('');
   const assRows=getAssurances(d).map((a,i)=>{
     const cost=c.ass[i]||{monthly:0,total:0};
     return `<tr><td>${escapeHtml((c.emps[a.emp??0]?.nom)||('Emprunteur '+((a.emp??0)+1)))} — ${escapeHtml((c.lignes[a.ligne??0]?.libelle)||('Ligne '+((a.ligne??0)+1)))}</td>
@@ -1093,6 +1122,7 @@ function showDetail(id){
       <div class="col-md-3"><div class="stat-card"><div class="stat-number">${money(c.mensHorsAssur)}</div><div class="stat-label">Mensualité hors assurance</div></div></div>
       <div class="col-md-3"><div class="stat-card"><div class="stat-number">${money(c.mensTout)}</div><div class="stat-label">Mensualité tout inclus (assurance ${money(c.mensAssur)})</div></div></div>
       <div class="col-md-3"><div class="stat-card"><div class="stat-number">${badgeEndett(c.te)}</div><div class="stat-label">Taux d'endettement (assurance incluse)</div></div></div>
+      <div class="col-md-3"><div class="stat-card"><div class="stat-number">${taegTxt(c.taegGlobal)}</div><div class="stat-label">TAEG global (assurance, frais de dossier et garantie inclus)</div></div></div>
       <div class="col-md-3"><div class="stat-card"><div class="stat-number">${money(c.reste)}</div><div class="stat-label">Reste à vivre cumulé</div></div></div>
       <div class="col-md-3"><div class="stat-card"><div class="stat-number">${c.restePers===null?'N/A':money(c.restePers)}</div><div class="stat-label">Reste à vivre / personne (${c.nbPers})</div></div></div>
       <div class="col-md-6"><div class="stat-card" style="border-left-color:#1B6234"><div class="stat-number">${money(c.coutCredit)}</div><div class="stat-label">Coût total du crédit (intérêts ${money(c.interets)} + assurances ${money(c.totAssur)} + frais de dossier ${money(c.fraisDossier)} + garantie ${money(c.garantie)})</div></div></div>
@@ -1109,7 +1139,7 @@ function showDetail(id){
     ${d.ecoptz_actif==1?`<div class="alert alert-info py-1">EcoPTZ : ${money(num(d.ecoptz_montant))} / ${d.ecoptz_duree} mois → mensualité : ${money(c.mensEco)}</div>`:''}
     </div><div class="col-md-7">
       <h6>Lignes de crédit</h6>
-      <table class="table table-sm table-striped"><thead><tr><th>Ligne</th><th>Montant</th><th>Durée</th><th>Taux</th><th>Frais dossier</th><th>Mensualité hors ass.</th><th>Mensualité avec ass.</th><th>Intérêts</th></tr></thead><tbody>${lignesRows}</tbody></table>
+      <table class="table table-sm table-striped"><thead><tr><th>Ligne</th><th>Montant</th><th>Durée</th><th>Taux</th><th>Frais dossier</th><th>Mensualité hors ass.</th><th>Mensualité avec ass.</th><th>TAEG</th><th>Intérêts</th></tr></thead><tbody>${lignesRows}</tbody></table>
     </div></div>
     <h6>Assurance emprunteur</h6>
     ${assRows?`<div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Assuré — ligne</th><th>Taux</th><th>Quotité</th><th>Garanties</th><th>Détail</th><th>Mensualité</th><th>Coût total</th></tr></thead><tbody>${assRows}</tbody></table></div>`:'<p class="text-muted small">Aucune assurance renseignée</p>'}
@@ -1265,17 +1295,9 @@ function allScheduleLines(d){
   if(d.ecoptz_actif==1&&num(d.ecoptz_duree)>0) lines.push({label:'EcoPTZ',s:scheduleLine(num(d.ecoptz_montant),0,d.ecoptz_duree),ligneIdx:null,montant:num(d.ecoptz_montant)});
   return {c,lines};
 }
-function assuranceByMonth(d,c,ligneIdx,m){ // cotisation d'assurance du mois m (1..n) pour une ligne
-  return getAssurances(d).reduce((t,a)=>{
-    if((a.ligne??0)!==ligneIdx) return t;
-    const li=c.lignes[ligneIdx], taux=num(a.taux), quot=num(a.quotite)>0?num(a.quotite)/100:1;
-    if(taux>0){
-      if(a.base==='CRD') return t+(c.sch[ligneIdx].rows[m-1]?.crd||0)*quot*taux/100/12;
-      return t+num(li.montant)*quot*taux/100/12;
-    }
-    if(num(a.cout_total)>0&&parseInt(li.duree)>0) return t+num(a.cout_total)/parseInt(li.duree);
-    return t;
-  },0);
+function assuranceByMonth(d,c,ligneIdx,m){ // cotisation d'assurance du mois m pour une ligne (constante sur la durée de la ligne)
+  if(m>(parseInt(c.lignes[ligneIdx]?.duree)||0)) return 0;
+  return c.ass.reduce((t,a,k)=>t+(((c.assRaw[k].ligne)??0)===ligneIdx?a.monthly:0),0);
 }
 function showAmortissement(id){
   const d=dossiersData.find(x=>x.id==id);
@@ -1397,6 +1419,7 @@ function runComparison(){
         ${row('Total intérêts',cs.map(c=>c.interets),'min')}
         ${row('Coût total du crédit',cs.map(c=>c.coutCredit),'min')}
         ${row('Reste à vivre cumulé',cs.map(c=>c.reste),'max')}
+        <tr><td><strong>TAEG global</strong></td>${cs.map(c=>`<td>${taegTxt(c.taegGlobal)}</td>`).join('')}</tr>
         <tr><td><strong>Endettement</strong></td>${cs.map(c=>`<td>${badgeEndett(c.te)}</td>`).join('')}</tr>
       </tbody>
     </table>`;
@@ -1474,7 +1497,7 @@ function printDossier(id){
       <div class="pr-kpi pr-kpi-green"><div class="pr-kpi-val">${m(c.capital)}</div><div class="pr-kpi-lbl">Capital emprunté</div></div>
     </div></div></div>
     <div class="pr-col"><div class="pr-section"><div class="pr-section-title">CONDITIONS CRÉDIT</div><table><tbody>
-      ${c.lignes.map((l,i)=>p(escapeHtml(l.libelle||('Ligne '+(i+1)))+(l.doublissimo?' (Doublissimo)':''),m(num(l.montant))+' · '+(parseInt(l.duree)||0)+' m · '+num(l.taux).toFixed(3).replace('.',',')+' % → '+m(c.sch[i].mens)+'/mois')).join('')}
+      ${c.lignes.map((l,i)=>p(escapeHtml(l.libelle||('Ligne '+(i+1)))+(l.doublissimo?' (Doublissimo)':''),m(num(l.montant))+' · '+(parseInt(l.duree)||0)+' m · '+num(l.taux).toFixed(3).replace('.',',')+' % → '+m(c.sch[i].mens)+'/mois · TAEG '+taegTxt(c.taegLignes[i]))).join('')}
       ${d.ptz_actif==1?p('PTZ',m(num(d.ptz_montant))+' / '+d.ptz_duree+' mois → '+m(c.mensPTZ)+'/mois'):''}
       ${d.ecoptz_actif==1?p('EcoPTZ',m(num(d.ecoptz_montant))+' / '+d.ecoptz_duree+' mois → '+m(c.mensEco)+'/mois'):''}
       ${getAssurances(d).map((a,i)=>p('Assurance '+escapeHtml((c.emps[a.emp??0]?.nom)||('Empr. '+((a.emp??0)+1)))+' / L'+((a.ligne??0)+1)+' ('+escapeHtml((a.couverture||[]).join('+')||'—')+' '+(num(a.quotite)||100)+'%)',(a.taux!==''&&a.taux!=null?num(a.taux).toFixed(3).replace('.',',')+' % → ':'')+m(c.ass[i].monthly)+'/mois')).join('')}
@@ -1485,6 +1508,7 @@ function printDossier(id){
       <div class="pr-kpi pr-kpi-primary"><div class="pr-kpi-val">${m(c.mensTout)}</div><div class="pr-kpi-lbl">Mensualité tout inclus</div></div>
     </div>
     <div class="pr-kpi-row">
+      <div class="pr-kpi pr-kpi-primary"><div class="pr-kpi-val">${taegTxt(c.taegGlobal)}</div><div class="pr-kpi-lbl">TAEG global</div></div>
       <div class="pr-kpi pr-kpi-green"><div class="pr-kpi-val">${m(c.coutCredit)}</div><div class="pr-kpi-lbl">Coût total du crédit (intérêts ${m(c.interets)}, assurances ${m(c.totAssur)}, frais ${m(c.fraisDossier+c.garantie)})</div></div>
     </div></div></div>
   </div>
