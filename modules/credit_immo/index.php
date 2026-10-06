@@ -91,6 +91,31 @@ $migrations = [
     "ALTER TABLE credit_immobilier ADD COLUMN suivi_conformite_reponse VARCHAR(20) DEFAULT NULL",
     "ALTER TABLE credit_immobilier ADD COLUMN suivi_date_signature_definitive DATE DEFAULT NULL",
     "ALTER TABLE credit_immobilier ADD COLUMN suivi_date_versement_notaire DATE DEFAULT NULL",
+    // refonte : emprunteurs, projet, lignes de crédit, MRH
+    "ALTER TABLE credit_immobilier ADD COLUMN adresse_bien TEXT DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN emprunteurs_json TEXT DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN primo_accedant_statut VARCHAR(30) DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN nb_personnes_charge_supp INT DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN enfants_ages_json TEXT DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN type_projet VARCHAR(30) DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN type_acquisition VARCHAR(20) DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN type_propriete VARCHAR(20) DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN type_logement VARCHAR(10) DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN nb_logements INT DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN date_fin_construction DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN surface_habitable DECIMAL(8,2) DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN bien_lat DECIMAL(10,7) DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN bien_lon DECIMAL(10,7) DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN dpe_etiquette VARCHAR(1) DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN dpe_ges VARCHAR(1) DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN dpe_numero VARCHAR(30) DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN dpe_date DATE DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN dpe_conso DECIMAL(8,2) DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN lignes_credit_json TEXT DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN doublissimo TINYINT(1) DEFAULT 0",
+    "ALTER TABLE credit_immobilier ADD COLUMN mrh_montant_devis DECIMAL(10,2) DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN mrh_formule VARCHAR(100) DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN mrh_options_json TEXT DEFAULT NULL",
 ];
 foreach ($migrations as $sql) { try { $db->exec($sql); } catch (Exception $e) {} }
 
@@ -168,189 +193,125 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_action'])) {
     echo json_encode(['success'=>false]); exit;
 }
 
-// ── POST ADD ─────────────────────────────────────────────────────────────────
-if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='add') {
-    $p = $_POST;
+// ── ENREGISTREMENT (ajout / modification) ───────────────────────────────────
+// Liste JSON saisie côté navigateur : on la revalide (tableau, taille bornée) avant de la stocker
+function ciJsonList($raw, $max = 50) {
+    $a = json_decode((string)$raw, true);
+    return json_encode(is_array($a) ? array_slice(array_values($a), 0, $max) : [], JSON_UNESCAPED_UNICODE);
+}
+
+// Toutes les colonnes écrites à partir du formulaire : [colonne => valeur]
+function ciCollect($p) {
+    $flag  = fn($k) => isset($p[$k]) ? 1 : 0;
+    $date  = fn($k) => nullIfEmpty($p[$k] ?? null);
+    $intn  = fn($k) => (($p[$k] ?? '') !== '') ? (int)$p[$k] : null;
+    $decn  = fn($k) => (($p[$k] ?? '') !== '') ? (float)$p[$k] : null;
+    $enum  = fn($k, $allowed) => in_array($p[$k] ?? '', $allowed, true) ? $p[$k] : null;
+    $text  = fn($k, $max = 255) => mb_substr(trim((string)($p[$k] ?? '')), 0, $max);
+
+    $emps = json_decode($p['emprunteurs_json'] ?? '[]', true);
+    $emps = is_array($emps) ? array_slice(array_values($emps), 0, 2) : [];
+    $e1 = $emps[0] ?? [];
+    $okko = fn($v) => in_array($v ?? '', ['OK', 'KO'], true) ? $v : null;
+
+    $lignes = json_decode($p['lignes_credit_json'] ?? '[]', true);
+    $lignes = is_array($lignes) ? array_slice(array_values($lignes), 0, 20) : [];
+    $l1 = $lignes[0] ?? [];
+    $fraisDossier = array_sum(array_map(fn($l) => (float)($l['frais_dossier'] ?? 0), $lignes));
+
+    // Usage : principal / secondaire / locatif principal / locatif secondaire
+    $usage = $p['usage_choice'] ?? '';
+    $usageBien = in_array($usage, ['RP', 'RS'], true) ? $usage : (in_array($usage, ['RL_PRINCIPALE', 'RL_SECONDAIRE'], true) ? 'RL' : null);
+    $usageRl = $usageBien === 'RL' ? $usage : null;
+
+    $primo = $enum('primo_accedant_statut', ['NON', 'OUI', 'OUI_AAH', 'OUI_CARTE_INVALIDITE', 'OUI_CATASTROPHE']);
+
+    $c = [
+        'numero_personne' => $text('numero_personne', 100),
+        'type_client' => $enum('type_client', ['Particulier', 'Pro', 'Asso']) ?? 'Particulier',
+        // Client
+        'emprunteurs_json' => json_encode($emps, JSON_UNESCAPED_UNICODE),
+        'banque_de_france' => $okko($e1['bdf'] ?? null), 'drc' => $okko($e1['drc'] ?? null), 'topcc' => $okko($e1['topcc'] ?? null), // colonnes historiques = emprunteur 1
+        'revenus_json' => ciJsonList($p['revenus_json'] ?? '[]'), 'charges_json' => ciJsonList($p['charges_json'] ?? '[]'), 'epargne_json' => ciJsonList($p['epargne_json'] ?? '[]'),
+        'primo_accedant_statut' => $primo, 'primo_accedant' => $primo === null ? null : ($primo === 'NON' ? 0 : 1),
+        'statut_occupation' => $enum('statut_occupation', ['LOCATAIRE_HLM', 'AUTRE_LOCATAIRE', 'LOGE_GRATUIT', 'AUTRE']),
+        'nb_personnes_foyer' => $intn('nb_personnes_foyer'), 'nb_enfants' => $intn('nb_enfants'),
+        'enfants_ages_json' => ciJsonList($p['enfants_ages_json'] ?? '[]', 20), 'nb_personnes_charge_supp' => $intn('nb_personnes_charge_supp'),
+        // Projet
+        'type_projet' => $enum('type_projet', ['ANCIEN_SANS_TRAVAUX', 'ANCIEN_AVEC_TRAVAUX', 'CONSTRUCTION_CCMI', 'CONSTRUCTION_SANS_CCMI', 'NEUF_VEFA']),
+        'usage_bien' => $usageBien, 'usage_rl_type' => $usageRl,
+        'mode_occupation' => $enum('mode_occupation', ['EMPRUNTEUR', 'ASCENDANT', 'DESCENDANT']),
+        'montant_acquisition' => d2n($p['montant_acquisition'] ?? 0), 'dont_mobilier_financable' => d2n($p['dont_mobilier_financable'] ?? 0),
+        'frais_notaire' => d2n($p['frais_notaire'] ?? 0), 'frais_negociation' => d2n($p['frais_negociation'] ?? 0),
+        'frais_agence' => 0, // regroupés avec les frais de négociation
+        'frais_divers' => d2n($p['frais_divers'] ?? 0),
+        'adresse_bien' => $text('adresse_bien', 500), 'bien_lat' => $decn('bien_lat'), 'bien_lon' => $decn('bien_lon'),
+        'type_acquisition' => $enum('type_acquisition', ['MAISON', 'APPARTEMENT']),
+        'type_propriete' => $enum('type_propriete', ['NU_PROPRIETAIRE', 'USUFRUITIER', 'PLEINE_PROPRIETE', 'NON_PROPRIETAIRE']),
+        'type_logement' => $enum('type_logement', ['T1', 'T1 bis', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12']),
+        'nb_logements' => $intn('nb_logements'), 'date_fin_construction' => $date('date_fin_construction'), 'surface_habitable' => $decn('surface_habitable'),
+        'dpe_etiquette' => $enum('dpe_etiquette', ['A', 'B', 'C', 'D', 'E', 'F', 'G']), 'dpe_ges' => $enum('dpe_ges', ['A', 'B', 'C', 'D', 'E', 'F', 'G']),
+        'dpe_numero' => preg_replace('/[^0-9A-Za-z]/', '', $text('dpe_numero', 30)) ?: null, 'dpe_date' => $date('dpe_date'), 'dpe_conso' => $decn('dpe_conso'),
+        // Financement
+        'apport' => d2n($p['apport'] ?? 0),
+        'garantie_type' => $enum('garantie_type', ['CEGC', 'SACCEF', 'HYPOTHEQUE']), 'garantie_montant' => d2n($p['garantie_montant'] ?? 0),
+        'tva_financee' => d2n($p['tva_financee'] ?? 0),
+        'frais_midi_epargne' => $flag('frais_midi_epargne'), 'montant_midi_epargne' => d2n($p['montant_midi_epargne'] ?? 0),
+        'lignes_credit_json' => json_encode($lignes, JSON_UNESCAPED_UNICODE), 'doublissimo' => $flag('doublissimo'),
+        // colonnes historiques = première ligne de crédit et total des frais de dossier
+        'taux_emprunt' => min(99.999, (float)($l1['taux'] ?? 0)), 'duree_emprunt' => (int)($l1['duree'] ?? 0), 'frais_dossier' => $fraisDossier,
+        'ade_json' => ciJsonList($p['ade_json'] ?? '[]'),
+        'ptz_actif' => $flag('ptz_actif'), 'ptz_montant' => d2n($p['ptz_montant'] ?? 0), 'ptz_duree' => (int)($p['ptz_duree'] ?? 0),
+        'ecoptz_actif' => $flag('ecoptz_actif'), 'ecoptz_montant' => d2n($p['ecoptz_montant'] ?? 0), 'ecoptz_duree' => (int)($p['ecoptz_duree'] ?? 0),
+        'ecoptz_bouquets' => $flag('ecoptz_bouquets'), 'ecoptz_nb_bouquets' => (int)($p['ecoptz_nb_bouquets'] ?? 0),
+        'ecoptz_performance_globale' => $flag('ecoptz_performance_globale'),
+        // Gestion admin
+        'ade_envoyee_le' => $date('ade_envoyee_le'), 'ade_retour_le' => $date('ade_retour_le'), 'ade_reponse' => $enum('ade_reponse', ['ACCORD', 'REFUS']),
+        'suivi_date_demande_cegc' => $date('suivi_date_demande_cegc'), 'suivi_date_retour_cegc' => $date('suivi_date_retour_cegc'),
+        'suivi_cegc_accord' => $flag('suivi_cegc_accord') && ($p['suivi_cegc_accord'] ?? 0) == 1 ? 1 : 0,
+        'suivi_cegc_refus' => $flag('suivi_cegc_refus') && ($p['suivi_cegc_refus'] ?? 0) == 1 ? 1 : 0,
+        'date_prelevement' => $date('date_prelevement'), 'notaire_nom' => $text('notaire_nom'), 'notaire_adresse' => $text('notaire_adresse', 1000),
+        'date_signature_notaire_prev' => $date('date_signature_notaire_prev'),
+        // Suivi
+        'suivi_date_edition_liasse' => $date('suivi_date_edition_liasse'),
+        'suivi_date_envoi_conformite' => $date('suivi_date_envoi_conformite'), 'suivi_date_retour_conformite' => $date('suivi_date_retour_conformite'),
+        'suivi_conformite_reponse' => $enum('suivi_conformite_reponse', ['CONFORME', 'NON_CONFORME']), 'suivi_conformite_motif' => $text('suivi_conformite_motif', 1000),
+        'suivi_date_edition_offres_dt' => $date('suivi_date_edition_offres_dt'), 'suivi_date_accuse_reception' => $date('suivi_date_accuse_reception'),
+        'suivi_date_j11' => $date('suivi_date_j11'),
+        'suivi_date_signature_definitive' => $date('suivi_date_signature_definitive'), 'suivi_date_versement_notaire' => $date('suivi_date_versement_notaire'),
+        'workflow_status' => $enum('workflow_status', ['etude', 'dossier_complet', 'synthese_envoyee', 'controle', 'edition_offres', 'envoi_signature', 'offre_signee', 'deblocage', 'termine', 'refuse']) ?? 'etude',
+        // MRH
+        'mrh_montant_devis' => $decn('mrh_montant_devis'), 'mrh_formule' => $text('mrh_formule', 100), 'mrh_options_json' => ciJsonList($p['mrh_options_json'] ?? '[]', 30),
+    ];
+    // Pièces reçues (case + date)
+    foreach (['doc_ji', 'doc_jd', 'doc_ir', 'doc_contrat_travail', 'doc_bulletins_salaire', 'doc_justif_propriete', 'doc_releves_externes', 'doc_epargnes_externes', 'doc_devis',
+              'eco_formulaire_emprunteur', 'eco_formulaire_entreprises', 'eco_ademe_emprunteur', 'eco_ademe_entreprises', 'eco_dpe', 'eco_audit', 'eco_devis_travaux'] as $k) {
+        $c[$k] = $flag($k);
+        $c[$k . '_date'] = $date($k . '_date');
+    }
+    return $c;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add') {
+    $newId = 0;
     try {
-        $s = $db->prepare("INSERT INTO credit_immobilier (
-            user_id,numero_personne,type_client,
-            banque_de_france,drc,topcc,primo_accedant,statut_occupation,
-            nb_personnes_foyer,nb_enfants,revenus_json,charges_json,epargne_json,
-            usage_bien,usage_rl_type,mode_occupation,
-            taux_emprunt,duree_emprunt,montant_acquisition,dont_mobilier_financable,
-            frais_notaire,frais_dossier,frais_midi_epargne,montant_midi_epargne,
-            frais_negociation,frais_divers,frais_agence,tva_financee,apport,
-            garantie_type,garantie_montant,ade_json,
-            ptz_actif,ptz_montant,ptz_duree,
-            ecoptz_actif,ecoptz_montant,ecoptz_duree,ecoptz_bouquets,ecoptz_nb_bouquets,ecoptz_performance_globale,
-            ade_envoyee_le,ade_retour_le,ade_reponse,
-            date_prelevement,notaire_nom,notaire_adresse,date_signature_notaire_prev,
-            doc_ji,doc_ji_date,doc_jd,doc_jd_date,doc_ir,doc_ir_date,
-            doc_contrat_travail,doc_contrat_travail_date,doc_bulletins_salaire,doc_bulletins_salaire_date,
-            doc_justif_propriete,doc_justif_propriete_date,
-            doc_releves_externes,doc_releves_externes_date,
-            doc_epargnes_externes,doc_epargnes_externes_date,
-            doc_devis,doc_devis_date,
-            eco_formulaire_emprunteur,eco_formulaire_emprunteur_date,
-            eco_formulaire_entreprises,eco_formulaire_entreprises_date,
-            eco_ademe_emprunteur,eco_ademe_emprunteur_date,
-            eco_ademe_entreprises,eco_ademe_entreprises_date,
-            eco_dpe,eco_dpe_date,eco_audit,eco_audit_date,
-            eco_devis_travaux,eco_devis_travaux_date,
-            suivi_date_edition_liasse,
-            suivi_date_envoi_conformite,suivi_date_retour_conformite,
-            suivi_conformite_reponse,suivi_conformite_motif,
-            suivi_date_edition_offres_dt,suivi_date_accuse_reception,suivi_date_j11,
-            suivi_date_signature_definitive,suivi_date_versement_notaire,
-            workflow_status,date_ajout
-        ) VALUES (
-            ?,?,?, ?,?,?,?,?, ?,?,?,?,?, ?,?,?,
-            ?,?,?,?, ?,?,?,?, ?,?,?,?,?, ?,?,?,
-            ?,?,?, ?,?,?,?,?,?,
-            ?,?,?, ?,?,?,?,
-            ?,?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,
-            ?,?,?,?, ?,?,?,?, ?,?,?,?,
-            ?, ?,?,?,?, ?,?,?, ?,?,
-            ?,CURDATE()
-        )");
-        $nb = fn($f) => ($p[$f]??''!=='')?((int)$p[$f]):null;
-        $s->execute([
-            $userId,$p['numero_personne']??'',$p['type_client']??'Particulier',
-            nullIfEmpty($p['banque_de_france']??null),nullIfEmpty($p['drc']??null),nullIfEmpty($p['topcc']??null),
-            ($p['primo_accedant']??''!=='')?((int)$p['primo_accedant']):null,
-            nullIfEmpty($p['statut_occupation']??null),
-            $nb('nb_personnes_foyer'),$nb('nb_enfants'),
-            $p['revenus_json']??'[]',$p['charges_json']??'[]',$p['epargne_json']??'[]',
-            nullIfEmpty($p['usage_bien']??null),nullIfEmpty($p['usage_rl_type']??null),nullIfEmpty($p['mode_occupation']??null),
-            d2n($p['taux_emprunt']??0),(int)($p['duree_emprunt']??0),
-            d2n($p['montant_acquisition']??0),d2n($p['dont_mobilier_financable']??0),
-            d2n($p['frais_notaire']??0),d2n($p['frais_dossier']??0),
-            isset($p['frais_midi_epargne'])?1:0,d2n($p['montant_midi_epargne']??0),
-            d2n($p['frais_negociation']??0),d2n($p['frais_divers']??0),
-            d2n($p['frais_agence']??0),d2n($p['tva_financee']??0),d2n($p['apport']??0),
-            nullIfEmpty($p['garantie_type']??null),d2n($p['garantie_montant']??0),$p['ade_json']??'[]',
-            isset($p['ptz_actif'])?1:0,d2n($p['ptz_montant']??0),(int)($p['ptz_duree']??0),
-            isset($p['ecoptz_actif'])?1:0,d2n($p['ecoptz_montant']??0),(int)($p['ecoptz_duree']??0),
-            isset($p['ecoptz_bouquets'])?1:0,(int)($p['ecoptz_nb_bouquets']??0),isset($p['ecoptz_performance_globale'])?1:0,
-            nullIfEmpty($p['ade_envoyee_le']??null),nullIfEmpty($p['ade_retour_le']??null),nullIfEmpty($p['ade_reponse']??null),
-            nullIfEmpty($p['date_prelevement']??null),$p['notaire_nom']??'',$p['notaire_adresse']??'',
-            nullIfEmpty($p['date_signature_notaire_prev']??null),
-            isset($p['doc_ji'])?1:0,nullIfEmpty($p['doc_ji_date']??null),
-            isset($p['doc_jd'])?1:0,nullIfEmpty($p['doc_jd_date']??null),
-            isset($p['doc_ir'])?1:0,nullIfEmpty($p['doc_ir_date']??null),
-            isset($p['doc_contrat_travail'])?1:0,nullIfEmpty($p['doc_contrat_travail_date']??null),
-            isset($p['doc_bulletins_salaire'])?1:0,nullIfEmpty($p['doc_bulletins_salaire_date']??null),
-            isset($p['doc_justif_propriete'])?1:0,nullIfEmpty($p['doc_justif_propriete_date']??null),
-            isset($p['doc_releves_externes'])?1:0,nullIfEmpty($p['doc_releves_externes_date']??null),
-            isset($p['doc_epargnes_externes'])?1:0,nullIfEmpty($p['doc_epargnes_externes_date']??null),
-            isset($p['doc_devis'])?1:0,nullIfEmpty($p['doc_devis_date']??null),
-            isset($p['eco_formulaire_emprunteur'])?1:0,nullIfEmpty($p['eco_formulaire_emprunteur_date']??null),
-            isset($p['eco_formulaire_entreprises'])?1:0,nullIfEmpty($p['eco_formulaire_entreprises_date']??null),
-            isset($p['eco_ademe_emprunteur'])?1:0,nullIfEmpty($p['eco_ademe_emprunteur_date']??null),
-            isset($p['eco_ademe_entreprises'])?1:0,nullIfEmpty($p['eco_ademe_entreprises_date']??null),
-            isset($p['eco_dpe'])?1:0,nullIfEmpty($p['eco_dpe_date']??null),
-            isset($p['eco_audit'])?1:0,nullIfEmpty($p['eco_audit_date']??null),
-            isset($p['eco_devis_travaux'])?1:0,nullIfEmpty($p['eco_devis_travaux_date']??null),
-            nullIfEmpty($p['suivi_date_edition_liasse']??null),
-            nullIfEmpty($p['suivi_date_envoi_conformite']??null),nullIfEmpty($p['suivi_date_retour_conformite']??null),
-            nullIfEmpty($p['suivi_conformite_reponse']??null),$p['suivi_conformite_motif']??'',
-            nullIfEmpty($p['suivi_date_edition_offres_dt']??null),nullIfEmpty($p['suivi_date_accuse_reception']??null),
-            nullIfEmpty($p['suivi_date_j11']??null),
-            nullIfEmpty($p['suivi_date_signature_definitive']??null),nullIfEmpty($p['suivi_date_versement_notaire']??null),
-            $p['workflow_status']??'etude',
-        ]);
+        $cols = ciCollect($_POST);
+        $sql = 'INSERT INTO credit_immobilier (user_id, date_ajout, ' . implode(', ', array_keys($cols)) . ') VALUES (?, CURDATE(), ' . implode(', ', array_fill(0, count($cols), '?')) . ')';
+        $db->prepare($sql)->execute(array_merge([$userId], array_values($cols)));
         $newId = $db->lastInsertId();
-    } catch (Exception $e) { error_log('[ci] INSERT:'.$e->getMessage()); $newId=0; }
-    header('Location: index.php'.($newId?'?open='.$newId:''));
+    } catch (Exception $e) { error_log('[ci] INSERT:' . $e->getMessage()); }
+    header('Location: index.php' . ($newId ? '?open=' . $newId : ''));
     exit;
 }
 
-// ── POST EDIT ────────────────────────────────────────────────────────────────
-if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='edit') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'edit') {
     $id = (int)$_POST['id'];
-    $p  = $_POST;
     try {
-        $s = $db->prepare("UPDATE credit_immobilier SET
-            numero_personne=?,type_client=?,
-            banque_de_france=?,drc=?,topcc=?,primo_accedant=?,statut_occupation=?,
-            nb_personnes_foyer=?,nb_enfants=?,revenus_json=?,charges_json=?,epargne_json=?,
-            usage_bien=?,usage_rl_type=?,mode_occupation=?,
-            taux_emprunt=?,duree_emprunt=?,montant_acquisition=?,dont_mobilier_financable=?,
-            frais_notaire=?,frais_dossier=?,frais_midi_epargne=?,montant_midi_epargne=?,
-            frais_negociation=?,frais_divers=?,frais_agence=?,tva_financee=?,apport=?,
-            garantie_type=?,garantie_montant=?,ade_json=?,
-            ptz_actif=?,ptz_montant=?,ptz_duree=?,
-            ecoptz_actif=?,ecoptz_montant=?,ecoptz_duree=?,ecoptz_bouquets=?,ecoptz_nb_bouquets=?,ecoptz_performance_globale=?,
-            ade_envoyee_le=?,ade_retour_le=?,ade_reponse=?,
-            date_prelevement=?,notaire_nom=?,notaire_adresse=?,date_signature_notaire_prev=?,
-            doc_ji=?,doc_ji_date=?,doc_jd=?,doc_jd_date=?,doc_ir=?,doc_ir_date=?,
-            doc_contrat_travail=?,doc_contrat_travail_date=?,doc_bulletins_salaire=?,doc_bulletins_salaire_date=?,
-            doc_justif_propriete=?,doc_justif_propriete_date=?,
-            doc_releves_externes=?,doc_releves_externes_date=?,
-            doc_epargnes_externes=?,doc_epargnes_externes_date=?,
-            doc_devis=?,doc_devis_date=?,
-            eco_formulaire_emprunteur=?,eco_formulaire_emprunteur_date=?,
-            eco_formulaire_entreprises=?,eco_formulaire_entreprises_date=?,
-            eco_ademe_emprunteur=?,eco_ademe_emprunteur_date=?,
-            eco_ademe_entreprises=?,eco_ademe_entreprises_date=?,
-            eco_dpe=?,eco_dpe_date=?,eco_audit=?,eco_audit_date=?,
-            eco_devis_travaux=?,eco_devis_travaux_date=?,
-            suivi_date_edition_liasse=?,
-            suivi_date_envoi_conformite=?,suivi_date_retour_conformite=?,
-            suivi_conformite_reponse=?,suivi_conformite_motif=?,
-            suivi_date_edition_offres_dt=?,suivi_date_accuse_reception=?,suivi_date_j11=?,
-            suivi_date_signature_definitive=?,suivi_date_versement_notaire=?,
-            workflow_status=?,updated_at=NOW()
-            WHERE id=? AND user_id=?");
-        $nb = fn($f) => ($p[$f]??''!=='')?((int)$p[$f]):null;
-        $s->execute([
-            $p['numero_personne']??'',$p['type_client']??'Particulier',
-            nullIfEmpty($p['banque_de_france']??null),nullIfEmpty($p['drc']??null),nullIfEmpty($p['topcc']??null),
-            ($p['primo_accedant']??''!=='')?((int)$p['primo_accedant']):null,
-            nullIfEmpty($p['statut_occupation']??null),
-            $nb('nb_personnes_foyer'),$nb('nb_enfants'),
-            $p['revenus_json']??'[]',$p['charges_json']??'[]',$p['epargne_json']??'[]',
-            nullIfEmpty($p['usage_bien']??null),nullIfEmpty($p['usage_rl_type']??null),nullIfEmpty($p['mode_occupation']??null),
-            d2n($p['taux_emprunt']??0),(int)($p['duree_emprunt']??0),
-            d2n($p['montant_acquisition']??0),d2n($p['dont_mobilier_financable']??0),
-            d2n($p['frais_notaire']??0),d2n($p['frais_dossier']??0),
-            isset($p['frais_midi_epargne'])?1:0,d2n($p['montant_midi_epargne']??0),
-            d2n($p['frais_negociation']??0),d2n($p['frais_divers']??0),
-            d2n($p['frais_agence']??0),d2n($p['tva_financee']??0),d2n($p['apport']??0),
-            nullIfEmpty($p['garantie_type']??null),d2n($p['garantie_montant']??0),$p['ade_json']??'[]',
-            isset($p['ptz_actif'])?1:0,d2n($p['ptz_montant']??0),(int)($p['ptz_duree']??0),
-            isset($p['ecoptz_actif'])?1:0,d2n($p['ecoptz_montant']??0),(int)($p['ecoptz_duree']??0),
-            isset($p['ecoptz_bouquets'])?1:0,(int)($p['ecoptz_nb_bouquets']??0),isset($p['ecoptz_performance_globale'])?1:0,
-            nullIfEmpty($p['ade_envoyee_le']??null),nullIfEmpty($p['ade_retour_le']??null),nullIfEmpty($p['ade_reponse']??null),
-            nullIfEmpty($p['date_prelevement']??null),$p['notaire_nom']??'',$p['notaire_adresse']??'',
-            nullIfEmpty($p['date_signature_notaire_prev']??null),
-            isset($p['doc_ji'])?1:0,nullIfEmpty($p['doc_ji_date']??null),
-            isset($p['doc_jd'])?1:0,nullIfEmpty($p['doc_jd_date']??null),
-            isset($p['doc_ir'])?1:0,nullIfEmpty($p['doc_ir_date']??null),
-            isset($p['doc_contrat_travail'])?1:0,nullIfEmpty($p['doc_contrat_travail_date']??null),
-            isset($p['doc_bulletins_salaire'])?1:0,nullIfEmpty($p['doc_bulletins_salaire_date']??null),
-            isset($p['doc_justif_propriete'])?1:0,nullIfEmpty($p['doc_justif_propriete_date']??null),
-            isset($p['doc_releves_externes'])?1:0,nullIfEmpty($p['doc_releves_externes_date']??null),
-            isset($p['doc_epargnes_externes'])?1:0,nullIfEmpty($p['doc_epargnes_externes_date']??null),
-            isset($p['doc_devis'])?1:0,nullIfEmpty($p['doc_devis_date']??null),
-            isset($p['eco_formulaire_emprunteur'])?1:0,nullIfEmpty($p['eco_formulaire_emprunteur_date']??null),
-            isset($p['eco_formulaire_entreprises'])?1:0,nullIfEmpty($p['eco_formulaire_entreprises_date']??null),
-            isset($p['eco_ademe_emprunteur'])?1:0,nullIfEmpty($p['eco_ademe_emprunteur_date']??null),
-            isset($p['eco_ademe_entreprises'])?1:0,nullIfEmpty($p['eco_ademe_entreprises_date']??null),
-            isset($p['eco_dpe'])?1:0,nullIfEmpty($p['eco_dpe_date']??null),
-            isset($p['eco_audit'])?1:0,nullIfEmpty($p['eco_audit_date']??null),
-            isset($p['eco_devis_travaux'])?1:0,nullIfEmpty($p['eco_devis_travaux_date']??null),
-            nullIfEmpty($p['suivi_date_edition_liasse']??null),
-            nullIfEmpty($p['suivi_date_envoi_conformite']??null),nullIfEmpty($p['suivi_date_retour_conformite']??null),
-            nullIfEmpty($p['suivi_conformite_reponse']??null),$p['suivi_conformite_motif']??'',
-            nullIfEmpty($p['suivi_date_edition_offres_dt']??null),nullIfEmpty($p['suivi_date_accuse_reception']??null),
-            nullIfEmpty($p['suivi_date_j11']??null),
-            nullIfEmpty($p['suivi_date_signature_definitive']??null),nullIfEmpty($p['suivi_date_versement_notaire']??null),
-            $p['workflow_status']??'etude',
-            $id,$userId,
-        ]);
-    } catch (Exception $e) { error_log('[ci] UPDATE:'.$e->getMessage()); }
-    header('Location: index.php?open='.$id);
+        $cols = ciCollect($_POST);
+        $sql = 'UPDATE credit_immobilier SET ' . implode(', ', array_map(fn($k) => "$k = ?", array_keys($cols))) . ', updated_at = NOW() WHERE id = ? AND user_id = ?';
+        $db->prepare($sql)->execute(array_merge(array_values($cols), [$id, $userId]));
+    } catch (Exception $e) { error_log('[ci] UPDATE:' . $e->getMessage()); }
+    header('Location: index.php?open=' . $id);
     exit;
 }
 
@@ -404,8 +365,8 @@ $cRefusees = count(array_filter($dossiers, fn($d) => ($d['workflow_status']??'')
     </div>
     <table class="data-table" id="tableDossiers">
         <thead><tr>
-            <th>Date</th><th>N° personne</th><th>Usage</th><th>Taux</th><th>Durée</th>
-            <th>Mensualité glob.</th><th>Endettement</th><th>Statut</th><th>Actions</th>
+            <th>Date</th><th>N° personne</th><th>Usage</th><th>Capital emprunté</th><th>Lignes</th>
+            <th>Mensualité tout inclus</th><th>Endettement</th><th>Statut</th><th>Actions</th>
         </tr></thead>
         <tbody>
         <?php foreach ($dossiers as $d):
@@ -413,9 +374,9 @@ $cRefusees = count(array_filter($dossiers, fn($d) => ($d['workflow_status']??'')
             <tr>
                 <td><?= formatDate($d['date_ajout']) ?></td>
                 <td><?= e($d['numero_personne']) ?></td>
-                <td><?= e($d['usage_bien']?:($d['type_residence']?:'—')) ?></td>
-                <td><?= $d['taux_emprunt'] ?> %</td>
-                <td><?= $d['duree_emprunt'] ?> mois</td>
+                <td id="usg_<?= $d['id'] ?>">—</td>
+                <td id="cap_<?= $d['id'] ?>">—</td>
+                <td id="nl_<?= $d['id'] ?>">—</td>
                 <td id="mens_<?= $d['id'] ?>">—</td>
                 <td id="tend_<?= $d['id'] ?>">—</td>
                 <td><span class="badge bg-<?= $wfI[1] ?>"><?= $wfI[0] ?></span></td>

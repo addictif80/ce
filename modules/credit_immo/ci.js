@@ -7,311 +7,517 @@ function ck(v){return v==1?'<span class="ck-ok">✓</span>':'<span class="ck-no"
 function parseJ(s){try{return JSON.parse(s||'[]');}catch(e){return[];}}
 function addJ11(dateStr){if(!dateStr)return '';const d=new Date(dateStr);d.setDate(d.getDate()+11);return d.toISOString().split('T')[0];}
 
+
 // ── CALCULS ──────────────────────────────────────────────────────────────────
+// Modèle : 1 à 2 emprunteurs, 1..n lignes de crédit (+ PTZ / EcoPTZ à 0 %), assurance en taux par emprunteur ET par ligne.
+// Les dossiers créés avant cette refonte (un seul crédit, revenus non répartis) sont lus via des valeurs de repli.
+const num=v=>{const x=parseFloat(v);return isNaN(x)?0:x;};
+function parseArr(s){const a=parseJ(s);return Array.isArray(a)?a:[];}
+
 function calcMensualite(capital,tauxAnnuel,duree){
   const tm=tauxAnnuel/100/12;
   if(tm>0&&duree>0) return capital*tm/(1-Math.pow(1+tm,-duree));
   if(duree>0) return capital/duree;
   return 0;
 }
-function getTotalFinancement(d){
-  return parseFloat(d.montant_acquisition||0)
-    +parseFloat(d.frais_notaire||0)
-    +parseFloat(d.frais_dossier||0)
-    +(d.frais_midi_epargne==1?parseFloat(d.montant_midi_epargne||0):0)
-    +parseFloat(d.frais_negociation||0)
-    +parseFloat(d.frais_divers||0)
-    +parseFloat(d.frais_agence||0)
-    +parseFloat(d.tva_financee||0)
-    +parseFloat(d.garantie_montant||0);
+
+function getEmprunteurs(d){
+  const e=parseArr(d.emprunteurs_json);
+  if(e.length) return e.slice(0,2);
+  return [{nom:'',bdf:d.banque_de_france||'',drc:d.drc||'',topcc:d.topcc||'',rfr:'',
+    revenus:parseArr(d.revenus_json),charges:parseArr(d.charges_json),epargne:parseArr(d.epargne_json)}];
 }
-function getCapitalPH(d){
-  return getTotalFinancement(d)
-    -parseFloat(d.apport||0)
-    -(d.ptz_actif==1?parseFloat(d.ptz_montant||0):0)
-    -(d.ecoptz_actif==1?parseFloat(d.ecoptz_montant||0):0);
-}
-function getMensPTZ(d){return d.ptz_actif==1&&d.ptz_duree>0?parseFloat(d.ptz_montant||0)/parseInt(d.ptz_duree):0;}
-function getMensEcoPTZ(d){return d.ecoptz_actif==1&&d.ecoptz_duree>0?parseFloat(d.ecoptz_montant||0)/parseInt(d.ecoptz_duree):0;}
-function getMensGlobale(d){
-  return calcMensualite(getCapitalPH(d),parseFloat(d.taux_emprunt||0),parseInt(d.duree_emprunt||0))
-    +getMensPTZ(d)+getMensEcoPTZ(d);
-}
-function calcRevenus(json){
-  return parseJ(json).reduce((t,r)=>{
-    let m=parseFloat(r.montant||0);
+function sumRevenus(arr){
+  return (arr||[]).reduce((t,r)=>{
+    let m=num(r.montant);
     if(r.revenu_futur) m*=(parseFloat(r.ponderation||100)/100);
     if(r.periodicite==='annuelle') m/=12;
     return t+m;
   },0);
 }
-function calcChargesConservees(json){
-  return parseJ(json).reduce((t,c)=>t+(c.non_conserve?0:parseFloat(c.montant||0)),0);
+function sumCharges(arr){return (arr||[]).reduce((t,c)=>t+(c.non_conserve?0:num(c.montant)),0);}
+
+// Coût du projet (hors frais de dossier, portés par les lignes de crédit)
+function totalHorsDossier(d){
+  return num(d.montant_acquisition)+num(d.frais_notaire)+num(d.frais_negociation)+num(d.frais_divers)+num(d.frais_agence)
+    +(d.frais_midi_epargne==1?num(d.montant_midi_epargne):0)+num(d.tva_financee)+num(d.garantie_montant);
 }
-function calcTauxEndett(d){
-  const rev=calcRevenus(d.revenus_json);
-  if(rev<=0) return null;
-  const charges=calcChargesConservees(d.charges_json);
-  return (getMensGlobale(d)+charges)/rev*100;
+function ptzMontant(d){return d.ptz_actif==1?num(d.ptz_montant):0;}
+function ecoMontant(d){return d.ecoptz_actif==1?num(d.ecoptz_montant):0;}
+function getMensPTZ(d){return d.ptz_actif==1&&num(d.ptz_duree)>0?num(d.ptz_montant)/parseInt(d.ptz_duree):0;}
+function getMensEcoPTZ(d){return d.ecoptz_actif==1&&num(d.ecoptz_duree)>0?num(d.ecoptz_montant)/parseInt(d.ecoptz_duree):0;}
+
+function getLignes(d){
+  const l=parseArr(d.lignes_credit_json);
+  if(l.length) return l;
+  // Ancien dossier : un seul crédit dont le capital était déduit du plan de financement
+  const cap=totalHorsDossier(d)+num(d.frais_dossier)-num(d.apport)-ptzMontant(d)-ecoMontant(d);
+  return [{libelle:'Prêt principal',montant:Math.max(0,cap),duree:parseInt(d.duree_emprunt||0)||0,taux:num(d.taux_emprunt),frais_dossier:num(d.frais_dossier)}];
 }
-function badgeEndett(t){
-  if(t===null) return '<span class="badge bg-secondary">N/A</span>';
-  const v=parseFloat(t).toFixed(1);
-  if(t<=25) return `<span class="badge bg-success">${v}%</span>`;
-  if(t<=33) return `<span class="badge bg-warning text-dark">${v}%</span>`;
-  if(t<=35) return `<span class="badge bg-orange text-white">${v}% <i class="fas fa-exclamation-triangle"></i></span>`;
-  return `<span class="badge bg-danger">${v}% <i class="fas fa-exclamation-circle"></i></span>`;
+function getFraisDossier(d){return getLignes(d).reduce((t,l)=>t+num(l.frais_dossier),0);}
+function getTotalFinancement(d){return totalHorsDossier(d)+getFraisDossier(d);}
+function getCoutProjet(d){return totalHorsDossier(d);}
+function getResteAFinancer(d){
+  return getTotalFinancement(d)-num(d.apport)-ptzMontant(d)-ecoMontant(d)-getLignes(d).reduce((t,l)=>t+num(l.montant),0);
 }
-function alertEndett(t){
-  if(t===null||t<=33) return '';
-  if(t<=35) return '<div class="alert alert-warning mt-2 py-1"><i class="fas fa-exclamation-triangle"></i> Taux proche du seuil HCSF 35%</div>';
-  return '<div class="alert alert-danger mt-2 py-1"><i class="fas fa-exclamation-circle"></i> <strong>ALERTE</strong> : Taux supérieur au seuil HCSF de 35%</div>';
+function doublissimoMontant(d){return Math.max(0,0.2*(getCoutProjet(d)-num(d.apport)));}
+
+// Échéancier d'une ligne : mensualité, capital restant dû avant chaque échéance, intérêts
+function scheduleLine(montant,taux,duree){
+  const n=parseInt(duree)||0, tm=taux/100/12;
+  const mens=calcMensualite(montant,taux,n);
+  const rows=[]; let solde=montant;
+  for(let m=1;m<=n;m++){
+    const i=solde*tm, c=mens-i;
+    rows.push({crd:solde,interet:i,capital:c});
+    solde=Math.max(0,solde-c);
+  }
+  return {mens,rows,interets:rows.reduce((t,r)=>t+r.interet,0)};
 }
 
-// Remplir tableau ligne de résumé au chargement
+function getAssurances(d){return parseArr(d.ade_json);}
+// Coût d'une ligne d'assurance (un emprunteur sur une ligne de crédit) : cotisation mensuelle (1re échéance) et coût total
+function assuranceCost(a,lignes){
+  const li=lignes[a.ligne??0]||lignes[0];
+  if(!li) return {monthly:0,total:0};
+  const taux=num(a.taux), quot=num(a.quotite)>0?num(a.quotite)/100:1;
+  const cap=num(li.montant), n=parseInt(li.duree)||0;
+  if(taux>0){
+    if(a.base==='CRD'){
+      const s=scheduleLine(cap,num(li.taux),n);
+      return {monthly:cap*quot*taux/100/12,total:s.rows.reduce((t,r)=>t+r.crd*quot*taux/100/12,0)};
+    }
+    const m=cap*quot*taux/100/12;
+    return {monthly:m,total:m*n};
+  }
+  if(num(a.cout_total)>0) return {monthly:n>0?num(a.cout_total)/n:0,total:num(a.cout_total)}; // ancien dossier : coût total saisi
+  return {monthly:0,total:0};
+}
+
+// Tous les indicateurs d'un dossier (ou de l'état courant du formulaire)
+function computeAll(d){
+  const lignes=getLignes(d), emps=getEmprunteurs(d);
+  const sch=lignes.map(l=>scheduleLine(num(l.montant),num(l.taux),l.duree));
+  const mensLignes=sch.reduce((t,s)=>t+s.mens,0);
+  const mensPTZ=getMensPTZ(d), mensEco=getMensEcoPTZ(d);
+  const mensHorsAssur=mensLignes+mensPTZ+mensEco;
+  const ass=getAssurances(d).map(a=>assuranceCost(a,lignes));
+  const mensAssur=ass.reduce((t,a)=>t+a.monthly,0), totAssur=ass.reduce((t,a)=>t+a.total,0);
+  const mensTout=mensHorsAssur+mensAssur;
+  const revenus=emps.reduce((t,e)=>t+sumRevenus(e.revenus),0);
+  const charges=emps.reduce((t,e)=>t+sumCharges(e.charges),0);
+  const te=revenus>0?(mensTout+charges)/revenus*100:null;
+  const reste=revenus-charges-mensTout;
+  const nbPers=parseInt(d.nb_personnes_foyer)||(emps.length+(parseInt(d.nb_enfants)||0)+(parseInt(d.nb_personnes_charge_supp)||0));
+  const interets=sch.reduce((t,s)=>t+s.interets,0);
+  const fraisDossier=getFraisDossier(d), garantie=num(d.garantie_montant);
+  return {lignes,sch,emps,ass,mensLignes,mensPTZ,mensEco,mensHorsAssur,mensAssur,mensTout,totAssur,
+    revenus,charges,te,reste,restePers:nbPers>0?reste/nbPers:null,nbPers,interets,fraisDossier,garantie,
+    coutCredit:interets+totAssur+fraisDossier+garantie,totalFin:getTotalFinancement(d),
+    capital:lignes.reduce((t,l)=>t+num(l.montant),0),rfr:emps.reduce((t,e)=>t+num(e.rfr),0),resteAFin:getResteAFinancer(d)};
+}
+
+function badgeEndett(t){
+  if(t===null||t===undefined) return '<span class="badge bg-secondary">N/A</span>';
+  const v=parseFloat(t).toFixed(2).replace('.',',');
+  if(t<=25) return `<span class="badge bg-success">${v} %</span>`;
+  if(t<=33) return `<span class="badge bg-warning text-dark">${v} %</span>`;
+  if(t<=35) return `<span class="badge bg-orange text-white">${v} % <i class="fas fa-exclamation-triangle"></i></span>`;
+  return `<span class="badge bg-danger">${v} % <i class="fas fa-exclamation-circle"></i></span>`;
+}
+function alertEndett(t){
+  if(t===null||t===undefined||t<=33) return '';
+  if(t<=35) return '<div class="alert alert-warning mt-2 py-1"><i class="fas fa-exclamation-triangle"></i> Taux proche du seuil HCSF de 35 %</div>';
+  return '<div class="alert alert-danger mt-2 py-1"><i class="fas fa-exclamation-circle"></i> <strong>ALERTE</strong> : taux supérieur au seuil HCSF de 35 %</div>';
+}
+function pct2(t){return t===null||t===undefined?'N/A':parseFloat(t).toFixed(2).replace('.',',')+' %';}
+
+// Libellés
+const OCC_LABELS={LOCATAIRE_HLM:'Locataire HLM',AUTRE_LOCATAIRE:'Autre locataire',LOGE_GRATUIT:'Logé à titre gratuit',AUTRE:'Autre',PROPRIETAIRE:'Autre'};
+const PRIMO_LABELS={NON:'Non',OUI:'Oui',OUI_AAH:'Oui – allocation personne handicapée',OUI_CARTE_INVALIDITE:'Oui – carte invalidité',OUI_CATASTROPHE:'Oui – victime de catastrophe'};
+const TYPE_PROJET_LABELS={ANCIEN_SANS_TRAVAUX:'Ancien sans travaux',ANCIEN_AVEC_TRAVAUX:'Ancien avec travaux',CONSTRUCTION_CCMI:'Construction avec CCMI',CONSTRUCTION_SANS_CCMI:'Construction sans CCMI',NEUF_VEFA:'Neuf VEFA'};
+const USAGE_LABELS={RP:'Principal',RS:'Secondaire',RL_PRINCIPALE:'Locatif principal',RL_SECONDAIRE:'Locatif secondaire'};
+const MODE_OCC_LABELS={EMPRUNTEUR:'Emprunteur',ASCENDANT:'Ascendant',DESCENDANT:'Descendant'};
+const TYPE_ACQ_LABELS={MAISON:'Maison',APPARTEMENT:'Appartement'};
+const TYPE_PROP_LABELS={NU_PROPRIETAIRE:'Nu-propriétaire',USUFRUITIER:'Usufruitier',PLEINE_PROPRIETE:'Pleine propriété',NON_PROPRIETAIRE:'Non propriétaire'};
+const TYPES_LOGEMENT=['T1','T1 bis','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
+function usageChoice(d){
+  if(d.usage_bien==='RL') return d.usage_rl_type==='RL_SECONDAIRE'?'RL_SECONDAIRE':'RL_PRINCIPALE';
+  return d.usage_bien||'';
+}
+function primoStatut(d){
+  if(d.primo_accedant_statut) return d.primo_accedant_statut;
+  if(d.primo_accedant==1) return 'OUI';
+  if(d.primo_accedant===0||d.primo_accedant==='0') return 'NON';
+  return '';
+}
+function modeOcc(d){return d.mode_occupation==='RP'?'EMPRUNTEUR':(MODE_OCC_LABELS[d.mode_occupation]?d.mode_occupation:'');}
+
+// Remplir le tableau (mensualité tout inclus + endettement) au chargement
 document.addEventListener('DOMContentLoaded',()=>{
   filterTable('searchDossiers','tableDossiers');
   dossiersData.forEach(d=>{
-    const mg=getMensGlobale(d);
-    const te=calcTauxEndett(d);
-    const em=document.getElementById('mens_'+d.id);
-    const et=document.getElementById('tend_'+d.id);
-    if(em) em.textContent=fmt(mg)+' €';
-    if(et) et.innerHTML=badgeEndett(te);
+    const c=computeAll(d);
+    const em=document.getElementById('mens_'+d.id), et=document.getElementById('tend_'+d.id);
+    const set=(k,v)=>{const el=document.getElementById(k+'_'+d.id); if(el) el.textContent=v;};
+    set('usg',USAGE_LABELS[usageChoice(d)]||'—'); set('cap',fmt(c.capital)+' €'); set('nl',c.lignes.length);
+    if(em) em.textContent=fmt(c.mensTout)+' €';
+    if(et) et.innerHTML=badgeEndett(c.te);
   });
   const op=new URLSearchParams(location.search).get('open');
   if(op){showDetail(parseInt(op));history.replaceState(null,'','index.php');}
 });
 
-// ── DYNAMIC JSON ROWS ─────────────────────────────────────────────────────────
-function buildRevenuRow(r,px,idx){
-  r=r||{};
+// ── LIGNES DYNAMIQUES (revenus / charges / épargne par emprunteur) ───────────
+let _uid=0;
+function buildRevenuRow(r,px){
+  r=r||{}; const u=++_uid;
   const isFutur=r.revenu_futur?'checked':'';
   const mensChecked=(r.periodicite==='mensuelle'||!r.periodicite)?'checked':'';
   const annChecked=r.periodicite==='annuelle'?'checked':'';
   return `<div class="ci-json-row d-flex flex-wrap gap-2 align-items-start" data-type="revenu">
-    <input type="text" class="form-control form-control-sm" style="flex:2;min-width:140px" placeholder="Intitulé" value="${escapeHtml(r.intitule||'')}" data-field="intitule" oninput="serializeJson('${px}','revenus')">
-    <input type="number" step="0.01" class="form-control form-control-sm" style="width:110px" placeholder="Montant €" value="${r.montant||''}" data-field="montant" oninput="serializeJson('${px}','revenus');liveEndett('${px}')">
-    <div class="form-check mt-1"><input class="form-check-input" type="checkbox" ${isFutur} data-field="revenu_futur" onchange="toggleFutur(this,'${px}',${idx});serializeJson('${px}','revenus');liveEndett('${px}')"><label class="form-check-label small">Revenu futur</label></div>
+    <input type="text" class="form-control form-control-sm" style="flex:2;min-width:140px" placeholder="Intitulé" value="${escapeHtml(r.intitule||'')}" data-field="intitule" oninput="onFormChange('${px}')">
+    <input type="number" step="0.01" class="form-control form-control-sm" style="width:110px" placeholder="Montant €" value="${r.montant||''}" data-field="montant" oninput="onFormChange('${px}')">
+    <div class="form-check mt-1"><input class="form-check-input" type="checkbox" ${isFutur} data-field="revenu_futur" onchange="toggleFutur(this);onFormChange('${px}')"><label class="form-check-label small">Revenu futur</label></div>
     <div class="ci-futur-opts ms-2" style="${r.revenu_futur?'':'display:none'}">
       <div class="d-flex gap-2 align-items-center flex-wrap">
-        <div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="${px}_per_${idx}" value="mensuelle" ${mensChecked} data-field="periodicite" onchange="serializeJson('${px}','revenus');liveEndett('${px}')"><label class="form-check-label small">Mensuelle</label></div>
-        <div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="${px}_per_${idx}" value="annuelle" ${annChecked} data-field="periodicite" onchange="serializeJson('${px}','revenus');liveEndett('${px}')"><label class="form-check-label small">Annuelle</label></div>
-        <div class="d-flex align-items-center gap-1"><input type="number" step="1" min="0" max="100" class="form-control form-control-sm" style="width:70px" placeholder="%" value="${r.ponderation||100}" data-field="ponderation" oninput="serializeJson('${px}','revenus');liveEndett('${px}')"><span class="small">%</span></div>
+        <div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="per_${u}" value="mensuelle" ${mensChecked} data-field="periodicite" onchange="onFormChange('${px}')"><label class="form-check-label small">Mensuelle</label></div>
+        <div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="per_${u}" value="annuelle" ${annChecked} data-field="periodicite" onchange="onFormChange('${px}')"><label class="form-check-label small">Annuelle</label></div>
+        <div class="d-flex align-items-center gap-1"><input type="number" step="1" min="0" max="100" class="form-control form-control-sm" style="width:70px" placeholder="%" value="${r.ponderation||100}" data-field="ponderation" oninput="onFormChange('${px}')"><span class="small">%</span></div>
       </div>
     </div>
-    <button type="button" class="btn btn-sm btn-outline-danger btn-rm ms-auto" onclick="removeRow(this,'${px}','revenus')"><i class="fas fa-times"></i></button>
+    <button type="button" class="btn btn-sm btn-outline-danger btn-rm ms-auto" onclick="removeRow(this,'${px}')"><i class="fas fa-times"></i></button>
   </div>`;
 }
-
 function buildChargeRow(c,px){
   c=c||{};
   return `<div class="ci-json-row d-flex flex-wrap gap-2 align-items-center" data-type="charge">
-    <input type="text" class="form-control form-control-sm" style="flex:2;min-width:140px" placeholder="Intitulé" value="${escapeHtml(c.intitule||'')}" data-field="intitule" oninput="serializeJson('${px}','charges')">
-    <input type="number" step="0.01" class="form-control form-control-sm" style="width:110px" placeholder="Montant €" value="${c.montant||''}" data-field="montant" oninput="serializeJson('${px}','charges');liveEndett('${px}')">
-    <div class="form-check"><input class="form-check-input" type="checkbox" ${c.non_conserve?'checked':''} data-field="non_conserve" onchange="serializeJson('${px}','charges');liveEndett('${px}')"><label class="form-check-label small text-muted">Non conservé</label></div>
-    <button type="button" class="btn btn-sm btn-outline-danger btn-rm ms-auto" onclick="removeRow(this,'${px}','charges')"><i class="fas fa-times"></i></button>
+    <input type="text" class="form-control form-control-sm" style="flex:2;min-width:140px" placeholder="Intitulé" value="${escapeHtml(c.intitule||'')}" data-field="intitule" oninput="onFormChange('${px}')">
+    <input type="number" step="0.01" class="form-control form-control-sm" style="width:110px" placeholder="Montant €" value="${c.montant||''}" data-field="montant" oninput="onFormChange('${px}')">
+    <div class="form-check"><input class="form-check-input" type="checkbox" ${c.non_conserve?'checked':''} data-field="non_conserve" onchange="onFormChange('${px}')"><label class="form-check-label small text-muted">Non conservé</label></div>
+    <button type="button" class="btn btn-sm btn-outline-danger btn-rm ms-auto" onclick="removeRow(this,'${px}')"><i class="fas fa-times"></i></button>
   </div>`;
 }
-
 function buildEpargneRow(e,px){
   e=e||{};
   return `<div class="ci-json-row d-flex flex-wrap gap-2 align-items-center" data-type="epargne">
-    <input type="text" class="form-control form-control-sm" style="flex:2;min-width:140px" placeholder="Intitulé" value="${escapeHtml(e.intitule||'')}" data-field="intitule" oninput="serializeJson('${px}','epargne')">
-    <input type="number" step="0.01" class="form-control form-control-sm" style="width:110px" placeholder="Montant €" value="${e.montant||''}" data-field="montant" oninput="serializeJson('${px}','epargne')">
-    <div class="form-check"><input class="form-check-input" type="checkbox" ${e.hors_cemp?'checked':''} data-field="hors_cemp" onchange="toggleCemp(this,'${px}');serializeJson('${px}','epargne')"><label class="form-check-label small">Hors CEMP</label></div>
-    <div class="ci-cemp-banque" style="${e.hors_cemp?'':'display:none'}"><input type="text" class="form-control form-control-sm" style="width:140px" placeholder="Nom de la banque" value="${escapeHtml(e.nom_banque||'')}" data-field="nom_banque" oninput="serializeJson('${px}','epargne')"></div>
-    <button type="button" class="btn btn-sm btn-outline-danger btn-rm ms-auto" onclick="removeRow(this,'${px}','epargne')"><i class="fas fa-times"></i></button>
+    <input type="text" class="form-control form-control-sm" style="flex:2;min-width:140px" placeholder="Intitulé" value="${escapeHtml(e.intitule||'')}" data-field="intitule" oninput="onFormChange('${px}')">
+    <input type="number" step="0.01" class="form-control form-control-sm" style="width:110px" placeholder="Montant €" value="${e.montant||''}" data-field="montant" oninput="onFormChange('${px}')">
+    <div class="form-check"><input class="form-check-input" type="checkbox" ${e.hors_cemp?'checked':''} data-field="hors_cemp" onchange="toggleCemp(this);onFormChange('${px}')"><label class="form-check-label small">Hors CEMP</label></div>
+    <div class="ci-cemp-banque" style="${e.hors_cemp?'':'display:none'}"><input type="text" class="form-control form-control-sm" style="width:140px" placeholder="Nom de la banque" value="${escapeHtml(e.nom_banque||'')}" data-field="nom_banque" oninput="onFormChange('${px}')"></div>
+    <button type="button" class="btn btn-sm btn-outline-danger btn-rm ms-auto" onclick="removeRow(this,'${px}')"><i class="fas fa-times"></i></button>
   </div>`;
 }
+function toggleFutur(cb){const o=cb.closest('.ci-json-row').querySelector('.ci-futur-opts');if(o)o.style.display=cb.checked?'':'none';}
+function toggleCemp(cb){const b=cb.closest('.ci-json-row').querySelector('.ci-cemp-banque');if(b)b.style.display=cb.checked?'':'none';}
 
-function buildAdeBlock(a,px,idx){
-  a=a||{};
-  const couv=a.couverture||[];
-  return `<div class="ci-json-row" data-type="ade">
-    <div class="d-flex justify-content-between align-items-center mb-2">
-      <strong class="small">Assuré ${idx+1}</strong>
-      <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this,'${px}','ade')"><i class="fas fa-times"></i></button>
-    </div>
-    <div class="row g-2">
-      <div class="col-12">
-        <label class="form-label small mb-1">Couverture</label>
-        <div class="d-flex gap-3 flex-wrap">
-          ${['DC','PTIA','ITT','Invalidité'].map(c=>`<div class="form-check"><input class="form-check-input" type="checkbox" value="${c}" ${couv.includes(c)?'checked':''} data-field="couverture" onchange="serializeJson('${px}','ade')"><label class="form-check-label small">${c}</label></div>`).join('')}
-        </div>
-      </div>
-      <div class="col-md-2"><label class="form-label small">Quotité %</label><input type="number" step="1" min="0" max="100" class="form-control form-control-sm" value="${a.quotite||''}" data-field="quotite" oninput="serializeJson('${px}','ade')"></div>
-      <div class="col-md-3"><label class="form-label small">Type</label><select class="form-select form-select-sm" data-field="type" onchange="serializeJson('${px}','ade')">
-        <option value="">--</option>
-        <option value="INDEMNITAIRE" ${a.type==='INDEMNITAIRE'?'selected':''}>INDEMNITAIRE</option>
-        <option value="FORFAITAIRE" ${a.type==='FORFAITAIRE'?'selected':''}>FORFAITAIRE</option>
-      </select></div>
-      <div class="col-md-2"><label class="form-label small">Franchise</label><select class="form-select form-select-sm" data-field="franchise" onchange="serializeJson('${px}','ade')">
-        <option value="">--</option>
-        <option value="30J" ${a.franchise==='30J'?'selected':''}>30J</option>
-        <option value="90J" ${a.franchise==='90J'?'selected':''}>90J</option>
-      </select></div>
-      <div class="col-md-2"><label class="form-label small">IPP</label><select class="form-select form-select-sm" data-field="ipp" onchange="serializeJson('${px}','ade')">
-        <option value="">--</option>
-        <option value="33%" ${a.ipp==='33%'?'selected':''}>33%</option>
-        <option value="66%" ${a.ipp==='66%'?'selected':''}>66%</option>
-      </select></div>
-      <div class="col-md-3"><label class="form-label small">Coût total € <span class="text-muted">(hors endettement)</span></label><input type="number" step="0.01" class="form-control form-control-sm" value="${a.cout_total||''}" data-field="cout_total" oninput="serializeJson('${px}','ade')"></div>
-    </div>
-  </div>`;
-}
-
-function toggleFutur(cb,px,idx){
-  const row=cb.closest('.ci-json-row');
-  const opts=row.querySelector('.ci-futur-opts');
-  if(opts) opts.style.display=cb.checked?'':'none';
-}
-function toggleCemp(cb,px){
-  const row=cb.closest('.ci-json-row');
-  const banq=row.querySelector('.ci-cemp-banque');
-  if(banq) banq.style.display=cb.checked?'':'none';
-}
-
-function serializeJson(px,type){
-  const map={revenus:'revenu',charges:'charge',epargne:'epargne',ade:'ade'};
-  const container=document.getElementById(px+'_'+type+'_list');
-  if(!container) return;
-  const rows=container.querySelectorAll('.ci-json-row');
-  const result=[];
-  rows.forEach(row=>{
-    const obj={};
+function readRows(container,type){
+  const out=[];
+  if(!container) return out;
+  container.querySelectorAll('.ci-json-row').forEach(row=>{
+    const g=f=>row.querySelector(`[data-field="${f}"]`);
+    const o={intitule:g('intitule')?.value||'',montant:parseFloat(g('montant')?.value||0)||0};
     if(type==='revenus'){
-      obj.intitule=row.querySelector('[data-field="intitule"]')?.value||'';
-      obj.montant=parseFloat(row.querySelector('[data-field="montant"]')?.value||0);
-      obj.revenu_futur=row.querySelector('[data-field="revenu_futur"]')?.checked||false;
-      if(obj.revenu_futur){
-        const radios=row.querySelectorAll('[data-field="periodicite"]');
-        obj.periodicite=Array.from(radios).find(r=>r.checked)?.value||'mensuelle';
-        obj.ponderation=parseFloat(row.querySelector('[data-field="ponderation"]')?.value||100);
+      o.revenu_futur=g('revenu_futur')?.checked||false;
+      if(o.revenu_futur){
+        o.periodicite=Array.from(row.querySelectorAll('[data-field="periodicite"]')).find(r=>r.checked)?.value||'mensuelle';
+        o.ponderation=parseFloat(g('ponderation')?.value||100)||100;
       }
     } else if(type==='charges'){
-      obj.intitule=row.querySelector('[data-field="intitule"]')?.value||'';
-      obj.montant=parseFloat(row.querySelector('[data-field="montant"]')?.value||0);
-      obj.non_conserve=row.querySelector('[data-field="non_conserve"]')?.checked||false;
-    } else if(type==='epargne'){
-      obj.intitule=row.querySelector('[data-field="intitule"]')?.value||'';
-      obj.montant=parseFloat(row.querySelector('[data-field="montant"]')?.value||0);
-      obj.hors_cemp=row.querySelector('[data-field="hors_cemp"]')?.checked||false;
-      obj.nom_banque=row.querySelector('[data-field="nom_banque"]')?.value||'';
-    } else if(type==='ade'){
-      const covCbs=row.querySelectorAll('[data-field="couverture"]:checked');
-      obj.couverture=Array.from(covCbs).map(c=>c.value);
-      obj.quotite=parseFloat(row.querySelector('[data-field="quotite"]')?.value||0);
-      obj.type=row.querySelector('[data-field="type"]')?.value||'';
-      obj.franchise=row.querySelector('[data-field="franchise"]')?.value||'';
-      obj.ipp=row.querySelector('[data-field="ipp"]')?.value||'';
-      obj.cout_total=parseFloat(row.querySelector('[data-field="cout_total"]')?.value||0);
+      o.non_conserve=g('non_conserve')?.checked||false;
+    } else {
+      o.hors_cemp=g('hors_cemp')?.checked||false;
+      o.nom_banque=g('nom_banque')?.value||'';
     }
-    result.push(obj);
+    out.push(o);
   });
-  const hidden=document.getElementById(px+'_'+type+'_json');
-  if(hidden) hidden.value=JSON.stringify(result);
+  return out;
 }
-
-function addRow(px,type){
-  const container=document.getElementById(px+'_'+type+'_list');
-  if(!container) return;
-  const idx=container.querySelectorAll('.ci-json-row').length;
-  let html='';
-  if(type==='revenus') html=buildRevenuRow(null,px,idx);
-  else if(type==='charges') html=buildChargeRow(null,px);
-  else if(type==='epargne') html=buildEpargneRow(null,px);
-  else if(type==='ade') html=buildAdeBlock(null,px,idx);
-  container.insertAdjacentHTML('beforeend',html);
-  serializeJson(px,type);
+function addRow(px,ei,type){
+  const c=document.getElementById(`${px}_e${ei}_${type}_list`);
+  if(!c) return;
+  const b=type==='revenus'?buildRevenuRow:type==='charges'?buildChargeRow:buildEpargneRow;
+  c.insertAdjacentHTML('beforeend',b(null,px));
+  onFormChange(px);
 }
+function removeRow(btn,px){btn.closest('.ci-json-row').remove();onFormChange(px);}
 
-function removeRow(btn,px,type){
-  btn.closest('.ci-json-row').remove();
-  serializeJson(px,type);
-  if(type==='revenus'||type==='charges') liveEndett(px);
+// ── EMPRUNTEURS ──────────────────────────────────────────────────────────────
+function buildEmprunteurPanel(px,i,e){
+  e=e||{};
+  const st=(field,label,val)=>`<div class="col-md-2"><label class="form-label small mb-0">${label}</label><select class="form-select form-select-sm" data-ef="${field}" onchange="onFormChange('${px}')">
+    <option value="">Non interrogé</option><option value="OK" ${val==='OK'?'selected':''}>OK</option><option value="KO" ${val==='KO'?'selected':''}>KO</option></select></div>`;
+  return `<div class="card mb-3 ci-emp"><div class="card-header d-flex justify-content-between align-items-center">
+      <strong><i class="fas fa-user"></i> Emprunteur ${i+1}</strong>
+      ${i>0?`<button type="button" class="btn btn-sm btn-outline-danger" onclick="removeEmprunteur('${px}')"><i class="fas fa-user-minus"></i> Retirer</button>`:''}
+    </div><div class="card-body">
+    <div class="row g-2 mb-3">
+      <div class="col-md-3"><label class="form-label small mb-0">Nom / prénom</label><input type="text" class="form-control form-control-sm" data-ef="nom" value="${escapeHtml(e.nom||'')}" oninput="onFormChange('${px}')"></div>
+      ${st('bdf','Interro. Banque de France',e.bdf)}${st('drc','Interro. DRC',e.drc)}${st('topcc','TopCC',e.topcc)}
+      <div class="col-md-3"><label class="form-label small mb-0">Revenu fiscal de référence (€)</label><input type="number" step="0.01" min="0" class="form-control form-control-sm" data-ef="rfr" value="${e.rfr??''}" oninput="onFormChange('${px}')"></div>
+    </div>
+    <h6>Revenus</h6><div id="${px}_e${i}_revenus_list" class="ci-json-list mb-2"></div>
+    <button type="button" class="btn btn-sm btn-outline-primary mb-3" onclick="addRow('${px}',${i},'revenus')"><i class="fas fa-plus"></i> Ajouter un revenu</button>
+    <h6>Charges</h6><div id="${px}_e${i}_charges_list" class="ci-json-list mb-2"></div>
+    <button type="button" class="btn btn-sm btn-outline-primary mb-3" onclick="addRow('${px}',${i},'charges')"><i class="fas fa-plus"></i> Ajouter une charge</button>
+    <h6>Épargne</h6><div id="${px}_e${i}_epargne_list" class="ci-json-list mb-2"></div>
+    <button type="button" class="btn btn-sm btn-outline-primary" onclick="addRow('${px}',${i},'epargne')"><i class="fas fa-plus"></i> Ajouter une épargne</button>
+  </div></div>`;
 }
-
-function loadJsonRows(px,d){
-  ['revenus','charges','epargne'].forEach(type=>{
-    const container=document.getElementById(px+'_'+type+'_list');
-    if(!container) return;
-    container.innerHTML='';
-    const data=parseJ(d[type+'_json']);
-    data.forEach((r,i)=>{
-      if(type==='revenus') container.insertAdjacentHTML('beforeend',buildRevenuRow(r,px,i));
-      else if(type==='charges') container.insertAdjacentHTML('beforeend',buildChargeRow(r,px));
-      else container.insertAdjacentHTML('beforeend',buildEpargneRow(r,px));
-    });
-    serializeJson(px,type);
+function fillEmprunteurRows(px,i,e){
+  [['revenus',buildRevenuRow],['charges',buildChargeRow],['epargne',buildEpargneRow]].forEach(([t,b])=>{
+    const c=document.getElementById(`${px}_e${i}_${t}_list`);
+    if(c) c.innerHTML=(e[t]||[]).map(r=>b(r,px)).join('');
   });
-  // ADE
-  const adeC=document.getElementById(px+'_ade_list');
-  if(adeC){
-    adeC.innerHTML='';
-    parseJ(d.ade_json).forEach((a,i)=>adeC.insertAdjacentHTML('beforeend',buildAdeBlock(a,px,i)));
-    serializeJson(px,'ade');
+}
+function renderEmprunteurs(px,list){
+  const box=document.getElementById(px+'_emps');
+  box.innerHTML=list.map((e,i)=>buildEmprunteurPanel(px,i,e)).join('');
+  list.forEach((e,i)=>fillEmprunteurRows(px,i,e));
+  const add=document.getElementById(px+'_add_emp');
+  if(add) add.style.display=list.length>=2?'none':'';
+}
+function collectEmprunteurs(px){
+  return Array.from(document.querySelectorAll(`#${px}_emps .ci-emp`)).map((card,i)=>{
+    const o={};
+    card.querySelectorAll('[data-ef]').forEach(el=>{o[el.dataset.ef]=el.value;});
+    o.revenus=readRows(document.getElementById(`${px}_e${i}_revenus_list`),'revenus');
+    o.charges=readRows(document.getElementById(`${px}_e${i}_charges_list`),'charges');
+    o.epargne=readRows(document.getElementById(`${px}_e${i}_epargne_list`),'epargne');
+    return o;
+  });
+}
+function addEmprunteur(px){
+  const list=collectEmprunteurs(px);
+  if(list.length>=2) return;
+  list.push({nom:'',revenus:[],charges:[],epargne:[]});
+  renderEmprunteurs(px,list);
+  renderAssurances(px);
+  onFormChange(px);
+}
+function removeEmprunteur(px){
+  const list=collectEmprunteurs(px);
+  if(list.length<=1) return;
+  if(!confirm('Retirer le 2ème emprunteur et ses données ?')) return;
+  list.pop();
+  renderEmprunteurs(px,list);
+  renderAssurances(px);
+  onFormChange(px);
+}
+
+// ── ENFANTS ──────────────────────────────────────────────────────────────────
+function renderEnfants(px,ages){
+  const n=Math.max(0,Math.min(20,parseInt(document.getElementById(px+'_nb_enfants')?.value)||0));
+  const box=document.getElementById(px+'_enfants_ages');
+  if(!box) return;
+  const cur=ages||Array.from(box.querySelectorAll('[data-age]')).map(i=>i.value);
+  box.innerHTML=Array.from({length:n},(_,i)=>`<div class="col-auto"><label class="form-label small mb-0">Enfant ${i+1} (âge)</label>
+    <input type="number" min="0" max="99" class="form-control form-control-sm" style="width:90px" data-age value="${cur[i]??''}" oninput="onFormChange('${px}')"></div>`).join('');
+  onFormChange(px);
+}
+
+// ── LIGNES DE CRÉDIT ─────────────────────────────────────────────────────────
+function buildLigneRow(px,l,idx){
+  l=l||{};
+  const dbl=l.doublissimo;
+  const f=(label,field,val,attrs,col)=>`<div class="${col}"><label class="form-label small mb-0">${label}</label><input type="number" ${attrs} class="form-control form-control-sm" data-lf="${field}" value="${val??''}" oninput="onFormChange('${px}')" ${dbl&&field==='montant'?'readonly style="background:#eef"':''}></div>`;
+  return `<div class="ci-json-row ci-ligne" data-dbl="${dbl?1:0}">
+    <div class="row g-2 align-items-end">
+      <div class="col-md-3"><label class="form-label small mb-0">Libellé${dbl?' <span class="badge bg-info">Doublissimo</span>':''}</label><input type="text" class="form-control form-control-sm" data-lf="libelle" value="${escapeHtml(l.libelle||('Ligne '+(idx+1)))}" oninput="onFormChange('${px}')"></div>
+      ${f('Montant (€)','montant',l.montant,'step="0.01" min="0"','col-md-2')}
+      ${f('Durée (mois)','duree',l.duree,'min="0"','col-md-2')}
+      ${f('Taux (%)','taux',l.taux,'step="0.001" min="0"','col-md-1')}
+      ${f('Frais de dossier (€)','frais_dossier',l.frais_dossier,'step="0.01" min="0"','col-md-2')}
+      <div class="col-md-2 d-flex justify-content-between align-items-end"><span class="small text-muted ci-ligne-mens"></span>
+        <button type="button" class="btn btn-sm btn-outline-danger" title="Supprimer la ligne" onclick="removeLigne(this,'${px}')"><i class="fas fa-times"></i></button></div>
+    </div></div>`;
+}
+function readLignes(px){
+  return Array.from(document.querySelectorAll(`#${px}_lignes_list .ci-ligne`)).map(row=>{
+    const g=f=>row.querySelector(`[data-lf="${f}"]`)?.value||'';
+    return {libelle:g('libelle'),montant:num(g('montant')),duree:parseInt(g('duree'))||0,taux:num(g('taux')),frais_dossier:num(g('frais_dossier')),doublissimo:row.dataset.dbl==='1'};
+  });
+}
+function renderLignes(px,lignes){
+  document.getElementById(px+'_lignes_list').innerHTML=lignes.map((l,i)=>buildLigneRow(px,l,i)).join('');
+}
+function addLigne(px,l){
+  const list=readLignes(px); list.push(l||{libelle:'Ligne '+(list.length+1),montant:'',duree:'',taux:'',frais_dossier:0});
+  renderLignes(px,list); renderAssurances(px); onFormChange(px);
+}
+function removeLigne(btn,px){
+  const list=readLignes(px);
+  if(list.length<=1){alert('Il faut conserver au moins une ligne de crédit.');return;}
+  const row=btn.closest('.ci-ligne');
+  const idx=Array.from(row.parentNode.children).indexOf(row);
+  const wasDbl=list[idx].doublissimo;
+  list.splice(idx,1);
+  renderLignes(px,list);
+  if(wasDbl){const cb=document.getElementById(px+'_dbl_cb'); if(cb) cb.checked=false;}
+  renderAssurances(px); onFormChange(px);
+}
+function onDoublissimo(px){
+  const on=document.getElementById(px+'_dbl_cb').checked;
+  let list=readLignes(px);
+  if(on&&!list.some(l=>l.doublissimo)) list.push({libelle:'Doublissimo',montant:0,duree:'',taux:'',frais_dossier:0,doublissimo:true});
+  if(!on) list=list.filter(l=>!l.doublissimo);
+  if(!list.length) list.push({libelle:'Ligne 1',montant:'',duree:'',taux:'',frais_dossier:0});
+  renderLignes(px,list); renderAssurances(px); onFormChange(px);
+}
+// Doublissimo = 20 % de (coût du projet − apport), recalculé tant que la case est cochée
+function syncDoublissimo(px){
+  if(!document.getElementById(px+'_dbl_cb')?.checked) return;
+  const row=document.querySelector(`#${px}_lignes_list .ci-ligne[data-dbl="1"] [data-lf="montant"]`);
+  if(row) row.value=doublissimoMontant(readFormRaw(px)).toFixed(2);
+}
+function equilibrerLignes(px){
+  const raw=readFormRaw(px); raw.lignes_credit_json=JSON.stringify(readLignes(px));
+  const reste=getResteAFinancer(raw);
+  const rows=document.querySelectorAll(`#${px}_lignes_list .ci-ligne`);
+  for(let i=rows.length-1;i>=0;i--){
+    if(rows[i].dataset.dbl==='1') continue;
+    const inp=rows[i].querySelector('[data-lf="montant"]');
+    inp.value=Math.max(0,num(inp.value)+reste).toFixed(2); break;
   }
+  onFormChange(px);
 }
 
-function liveEndett(px){
-  const el=document.getElementById(px+'_endett_live');
-  if(!el) return;
-  // Collect inline data from form
-  const fakeD={
-    taux_emprunt:document.getElementById(px+'_taux')?.value||0,
-    duree_emprunt:document.getElementById(px+'_duree')?.value||0,
-    montant_acquisition:document.getElementById(px+'_mont_acq')?.value||0,
-    frais_notaire:document.getElementById(px+'_frais_notaire')?.value||0,
-    frais_dossier:document.getElementById(px+'_frais_dossier')?.value||0,
-    frais_midi_epargne:document.getElementById(px+'_fme_cb')?.checked?1:0,
-    montant_midi_epargne:document.getElementById(px+'_fme_mt')?.value||0,
-    frais_negociation:document.getElementById(px+'_frais_neg')?.value||0,
-    frais_divers:document.getElementById(px+'_frais_div')?.value||0,
-    frais_agence:document.getElementById(px+'_frais_age')?.value||0,
-    tva_financee:document.getElementById(px+'_tva')?.value||0,
-    apport:document.getElementById(px+'_apport')?.value||0,
-    garantie_montant:document.getElementById(px+'_gar_mt')?.value||0,
-    ptz_actif:document.getElementById(px+'_ptz_cb')?.checked?1:0,
-    ptz_montant:document.getElementById(px+'_ptz_mt')?.value||0,
-    ptz_duree:document.getElementById(px+'_ptz_dur')?.value||0,
-    ecoptz_actif:document.getElementById(px+'_ecoptz_cb')?.checked?1:0,
-    ecoptz_montant:document.getElementById(px+'_ecoptz_mt')?.value||0,
-    ecoptz_duree:document.getElementById(px+'_ecoptz_dur')?.value||0,
-    revenus_json:document.getElementById(px+'_revenus_json')?.value||'[]',
-    charges_json:document.getElementById(px+'_charges_json')?.value||'[]',
-  };
-  const te=calcTauxEndett(fakeD);
-  const mg=getMensGlobale(fakeD);
-  const rev=calcRevenus(fakeD.revenus_json);
-  const charges=calcChargesConservees(fakeD.charges_json);
-  el.innerHTML=`
-    <div class="row g-2 mt-1">
-      <div class="col-md-3"><div class="card border-0 bg-light text-center p-2"><div class="fw-bold">${fmt(mg)} €</div><div class="small text-muted">Mensualité globale</div></div></div>
-      <div class="col-md-3"><div class="card border-0 bg-light text-center p-2"><div class="fw-bold">${fmt(rev)} €</div><div class="small text-muted">Revenus effectifs/mois</div></div></div>
-      <div class="col-md-3"><div class="card border-0 bg-light text-center p-2"><div class="fw-bold">${fmt(charges)} €</div><div class="small text-muted">Charges conservées</div></div></div>
-      <div class="col-md-3"><div class="card border-0 bg-light text-center p-2"><div class="fw-bold">${badgeEndett(te)}</div><div class="small text-muted">Taux d'endettement</div></div></div>
-    </div>${alertEndett(te)}`;
+// ── ASSURANCES (une ligne par emprunteur ET par ligne de crédit) ─────────────
+function buildAssuranceRow(px,a,ei,li,empLabel,ligneLabel){
+  a=a||{}; const couv=a.couverture||[];
+  const sel=(field,opts,val)=>`<select class="form-select form-select-sm" data-af="${field}" onchange="onFormChange('${px}')"><option value="">--</option>${opts.map(o=>`<option value="${o}" ${val===o?'selected':''}>${o}</option>`).join('')}</select>`;
+  return `<div class="ci-json-row ci-ass" data-emp="${ei}" data-ligne="${li}">
+    <div class="d-flex justify-content-between align-items-center mb-2"><strong class="small">${escapeHtml(empLabel)} — ${escapeHtml(ligneLabel)}</strong><span class="small text-muted ci-ass-cout"></span></div>
+    <input type="hidden" data-af="cout_total" value="${a.cout_total||''}">
+    <div class="row g-2">
+      <div class="col-12"><div class="d-flex gap-3 flex-wrap">${['DC','PTIA','ITT','Invalidité'].map(c=>`<div class="form-check"><input class="form-check-input" type="checkbox" value="${c}" ${couv.includes(c)?'checked':''} data-af="couverture" onchange="onFormChange('${px}')"><label class="form-check-label small">${c}</label></div>`).join('')}</div></div>
+      <div class="col-md-2"><label class="form-label small mb-0">Taux assurance (%/an)</label><input type="number" step="0.001" min="0" class="form-control form-control-sm" data-af="taux" value="${a.taux??''}" oninput="onFormChange('${px}')"></div>
+      <div class="col-md-2"><label class="form-label small mb-0">Base du taux</label><select class="form-select form-select-sm" data-af="base" onchange="onFormChange('${px}')"><option value="CI" ${a.base!=='CRD'?'selected':''}>Capital initial</option><option value="CRD" ${a.base==='CRD'?'selected':''}>Capital restant dû</option></select></div>
+      <div class="col-md-2"><label class="form-label small mb-0">Quotité %</label><input type="number" step="1" min="0" max="100" class="form-control form-control-sm" data-af="quotite" value="${a.quotite??100}" oninput="onFormChange('${px}')"></div>
+      <div class="col-md-2"><label class="form-label small mb-0">Type</label>${sel('type',['INDEMNITAIRE','FORFAITAIRE'],a.type)}</div>
+      <div class="col-md-2"><label class="form-label small mb-0">Franchise</label>${sel('franchise',['30J','90J'],a.franchise)}</div>
+      <div class="col-md-2"><label class="form-label small mb-0">IPP</label>${sel('ipp',['33%','66%'],a.ipp)}</div>
+    </div></div>`;
+}
+function readAssurances(px){
+  return Array.from(document.querySelectorAll(`#${px}_ade_list .ci-ass`)).map(row=>{
+    const g=f=>row.querySelector(`[data-af="${f}"]`);
+    return {emp:parseInt(row.dataset.emp),ligne:parseInt(row.dataset.ligne),
+      couverture:Array.from(row.querySelectorAll('[data-af="couverture"]:checked')).map(c=>c.value),
+      taux:g('taux')?.value===''?'':num(g('taux')?.value),base:g('base')?.value||'CI',quotite:num(g('quotite')?.value),
+      type:g('type')?.value||'',franchise:g('franchise')?.value||'',ipp:g('ipp')?.value||'',cout_total:num(g('cout_total')?.value)};
+  });
+}
+// Régénère la grille emprunteur × ligne en conservant les valeurs déjà saisies
+function renderAssurances(px,initial){
+  const prev=initial||readAssurances(px);
+  const emps=collectEmprunteurs(px), lignes=readLignes(px);
+  const byKey={}; prev.forEach(a=>{byKey[(a.emp??0)+'_'+(a.ligne??0)]=a;});
+  let html='';
+  emps.forEach((e,ei)=>lignes.forEach((l,li)=>{
+    html+=buildAssuranceRow(px,byKey[ei+'_'+li],ei,li,e.nom||('Emprunteur '+(ei+1)),l.libelle||('Ligne '+(li+1)));
+  }));
+  document.getElementById(px+'_ade_list').innerHTML=html;
+}
+
+// ── MRH ──────────────────────────────────────────────────────────────────────
+function buildMrhOption(px,txt){
+  return `<div class="ci-json-row d-flex gap-2 align-items-center"><input type="text" class="form-control form-control-sm" data-mo value="${escapeHtml(txt||'')}" placeholder="Option choisie" oninput="onFormChange('${px}')">
+    <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.ci-json-row').remove();onFormChange('${px}')"><i class="fas fa-times"></i></button></div>`;
+}
+function addMrhOption(px){document.getElementById(px+'_mrh_list').insertAdjacentHTML('beforeend',buildMrhOption(px,''));}
+function readMrhOptions(px){return Array.from(document.querySelectorAll(`#${px}_mrh_list [data-mo]`)).map(i=>i.value.trim()).filter(Boolean);}
+
+// ── ÉTAT DU FORMULAIRE ───────────────────────────────────────────────────────
+function readFormRaw(px){
+  const f=document.getElementById(px+'_form'); const o={};
+  new FormData(f).forEach((v,k)=>{o[k]=v;});
+  ['ptz_actif','ecoptz_actif','frais_midi_epargne','doublissimo'].forEach(k=>{o[k]=f.querySelector(`[name="${k}"]`)?.checked?1:0;});
+  return o;
+}
+// Écrit dans les champs cachés les listes (JSON) envoyées au serveur
+function serializeAll(px){
+  const set=(n,v)=>{const el=document.getElementById(px+'_'+n); if(el) el.value=JSON.stringify(v);};
+  const emps=collectEmprunteurs(px);
+  set('emprunteurs_json',emps);
+  // Colonnes historiques : cumul des deux emprunteurs (lecture par d'anciens écrans)
+  set('revenus_json',emps.flatMap(e=>e.revenus));
+  set('charges_json',emps.flatMap(e=>e.charges));
+  set('epargne_json',emps.flatMap(e=>e.epargne));
+  set('lignes_credit_json',readLignes(px));
+  set('ade_json',readAssurances(px));
+  set('enfants_ages_json',Array.from(document.querySelectorAll(`#${px}_enfants_ages [data-age]`)).map(i=>i.value===''?null:parseInt(i.value)));
+  set('mrh_options_json',readMrhOptions(px));
+}
+function readForm(px){serializeAll(px);return readFormRaw(px);}
+
+function onFormChange(px){
+  if(!document.getElementById(px+'_form')) return;
+  syncDoublissimo(px);
+  const d=readForm(px), c=computeAll(d);
+  // Cumul des revenus fiscaux de référence
+  const rfr=document.getElementById(px+'_rfr_total'); if(rfr) rfr.textContent=fmt(c.rfr)+' €';
+  // Mensualité et coût par ligne / par assurance
+  document.querySelectorAll(`#${px}_lignes_list .ci-ligne`).forEach((row,i)=>{
+    const s=c.sch[i], el=row.querySelector('.ci-ligne-mens'); if(el) el.textContent=s?fmt(s.mens)+' €/mois':'';
+  });
+  document.querySelectorAll(`#${px}_ade_list .ci-ass`).forEach((row,i)=>{
+    const a=c.ass[i], el=row.querySelector('.ci-ass-cout'); if(el&&a) el.textContent=a.total>0?fmt(a.monthly)+' €/mois — total '+fmt(a.total)+' €':'';
+  });
+  renderResultPanel(px,d,c);
+}
+function resultPanelHtml(d,c){
+  const rest=c.resteAFin;
+  const k=(label,val,cls)=>`<div class="col-md-3 col-6"><div class="card border-0 bg-light text-center p-2 ${cls||''}"><div class="fw-bold">${val}</div><div class="small text-muted">${label}</div></div></div>`;
+  return `<div class="row g-2 mt-1">
+      ${k('Total à financer',fmt(c.totalFin)+' €')}
+      ${k('Reste à financer',fmt(rest)+' €',Math.abs(rest)>0.5?'border border-warning':'')}
+      ${k('Mensualité hors assurance',fmt(c.mensHorsAssur)+' €')}
+      ${k('Assurance / mois',fmt(c.mensAssur)+' €')}
+      ${k('Mensualité tout inclus',`<span class="fs-5">${fmt(c.mensTout)} €</span>`,'border border-primary')}
+      ${k("Taux d'endettement (assurance incluse)",badgeEndett(c.te))}
+      ${k('Revenus cumulés / mois',fmt(c.revenus)+' €')}
+      ${k('Charges conservées',fmt(c.charges)+' €')}
+      ${k('Reste à vivre cumulé',`<span class="${c.reste>=0?'text-success':'text-danger'}">${fmt(c.reste)} €</span>`)}
+      ${k('Reste à vivre / personne ('+c.nbPers+')',c.restePers===null?'N/A':`<span class="${c.restePers>=0?'text-success':'text-danger'}">${fmt(c.restePers)} €</span>`)}
+      ${k('Intérêts',fmt(c.interets)+' €')}
+      ${k('Assurances (total)',fmt(c.totAssur)+' €')}
+      ${k('Frais de dossier + garantie',fmt(c.fraisDossier+c.garantie)+' €')}
+      <div class="col-md-3 col-6"><div class="card border-0 text-center p-2" style="background:#e8f5ee"><div class="fw-bold fs-5">${fmt(c.coutCredit)} €</div><div class="small">Coût total du crédit pour le client</div></div></div>
+    </div>${alertEndett(c.te)}`;
+}
+function renderResultPanel(px,d,c){
+  const html=resultPanelHtml(d,c);
+  ['_endett_live','_endett_client'].forEach(s=>{const el=document.getElementById(px+s); if(el) el.innerHTML=html;});
 }
 
 // ── FORM TABS BUILDER ─────────────────────────────────────────────────────────
+function opt(map,val,placeholder){
+  return `<option value="">${placeholder||'--'}</option>`+Object.entries(map).map(([k,l])=>`<option value="${k}" ${val===k?'selected':''}>${l}</option>`).join('');
+}
 function buildFormTabs(px,d){
   d=d||{};
-  const isRL=(d.usage_bien||'')==='RL';
   const hasPTZ=d.ptz_actif==1;
   const hasEcoPTZ=d.ecoptz_actif==1;
   const hasPTZorEco=hasPTZ||hasEcoPTZ;
   const hasCEGC=(d.garantie_type||'')==='CEGC';
   const action=d.id?'edit':'add';
+  const occ=d.statut_occupation==='PROPRIETAIRE'?'AUTRE':(d.statut_occupation||'');
+  const fn=f=>`${d[f]??''}`;
+  const money=(name,id,label,val,extra)=>`<div class="col-md-3"><label class="form-label">${label}</label><input type="number" step="0.01" min="0" name="${name}" ${id?`id="${px}_${id}"`:''} class="form-control" value="${val||0}" oninput="onFormChange('${px}')" ${extra||''}></div>`;
+  const nego=num(d.frais_negociation)+num(d.frais_agence); // anciens « frais d'agence » regroupés avec la négociation
 
-  return `<form method="POST" onsubmit="beforeSubmit('${px}')">
+  return `<form method="POST" id="${px}_form" onsubmit="beforeSubmit('${px}')">
     <input type="hidden" name="action" value="${action}">
     ${d.id?`<input type="hidden" name="id" value="${d.id}">`:''}
-    <!-- Hidden JSON fields -->
-    <input type="hidden" id="${px}_revenus_json" name="revenus_json" value="${escapeHtml(d.revenus_json||'[]')}">
-    <input type="hidden" id="${px}_charges_json" name="charges_json" value="${escapeHtml(d.charges_json||'[]')}">
-    <input type="hidden" id="${px}_epargne_json" name="epargne_json" value="${escapeHtml(d.epargne_json||'[]')}">
-    <input type="hidden" id="${px}_ade_json" name="ade_json" value="${escapeHtml(d.ade_json||'[]')}">
+    <!-- Champs cachés (listes JSON) -->
+    ${['emprunteurs_json','revenus_json','charges_json','epargne_json','lignes_credit_json','ade_json','enfants_ages_json','mrh_options_json'].map(n=>`<input type="hidden" id="${px}_${n}" name="${n}" value="">`).join('')}
+    <input type="hidden" name="bien_lat" id="${px}_bien_lat" value="${fn('bien_lat')}">
+    <input type="hidden" name="bien_lon" id="${px}_bien_lon" value="${fn('bien_lon')}">
+    <input type="hidden" name="dpe_ges" id="${px}_dpe_ges" value="${fn('dpe_ges')}">
+    <input type="hidden" name="dpe_numero" id="${px}_dpe_numero" value="${escapeHtml(fn('dpe_numero'))}">
+    <input type="hidden" name="dpe_date" id="${px}_dpe_date" value="${fn('dpe_date')}">
+    <input type="hidden" name="dpe_conso" id="${px}_dpe_conso" value="${fn('dpe_conso')}">
 
     <ul class="nav nav-tabs mb-3" role="tablist">
       <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#${px}T1">Client</a></li>
@@ -320,6 +526,7 @@ function buildFormTabs(px,d){
       <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#${px}T4">Gestion admin.</a></li>
       <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#${px}T5">Pièces</a></li>
       <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#${px}T6">Suivi & Signature</a></li>
+      <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#${px}T8">MRH</a></li>
       <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#${px}T7" ${d.id?`onclick="loadNotes(${d.id},'${px}')"`:''}>${d.id?'Notes':''}</a></li>
     </ul>
     <div class="tab-content">
@@ -331,134 +538,113 @@ function buildFormTabs(px,d){
           <div class="col-md-4"><label class="form-label">Type client</label><select name="type_client" class="form-select">
             ${['Particulier','Pro','Asso'].map(v=>`<option value="${v}" ${(d.type_client||'Particulier')===v?'selected':''}>${v==='Pro'?'Professionnel':v==='Asso'?'Association':v}</option>`).join('')}
           </select></div>
-          <div class="col-md-4"></div>
-          <div class="col-md-2"><label class="form-label">Banque de France</label>
-            <div class="d-flex gap-3 mt-1">
-              <div class="form-check"><input class="form-check-input" type="radio" name="banque_de_france" value="OK" ${d.banque_de_france==='OK'?'checked':''}><label class="form-check-label">OK</label></div>
-              <div class="form-check"><input class="form-check-input" type="radio" name="banque_de_france" value="KO" ${d.banque_de_france==='KO'?'checked':''}><label class="form-check-label">KO</label></div>
-            </div>
-          </div>
-          <div class="col-md-2"><label class="form-label">DRC</label>
-            <div class="d-flex gap-3 mt-1">
-              <div class="form-check"><input class="form-check-input" type="radio" name="drc" value="OK" ${d.drc==='OK'?'checked':''}><label class="form-check-label">OK</label></div>
-              <div class="form-check"><input class="form-check-input" type="radio" name="drc" value="KO" ${d.drc==='KO'?'checked':''}><label class="form-check-label">KO</label></div>
-            </div>
-          </div>
-          <div class="col-md-2"><label class="form-label">TopCC</label>
-            <div class="d-flex gap-3 mt-1">
-              <div class="form-check"><input class="form-check-input" type="radio" name="topcc" value="OK" ${d.topcc==='OK'?'checked':''}><label class="form-check-label">OK</label></div>
-              <div class="form-check"><input class="form-check-input" type="radio" name="topcc" value="KO" ${d.topcc==='KO'?'checked':''}><label class="form-check-label">KO</label></div>
-            </div>
-          </div>
-          <div class="col-md-2"><label class="form-label">Primo accédant</label>
-            <div class="d-flex gap-3 mt-1">
-              <div class="form-check"><input class="form-check-input" type="radio" name="primo_accedant" value="1" ${d.primo_accedant==1?'checked':''}><label class="form-check-label">OUI</label></div>
-              <div class="form-check"><input class="form-check-input" type="radio" name="primo_accedant" value="0" ${d.primo_accedant===0||d.primo_accedant==='0'?'checked':''}><label class="form-check-label">NON</label></div>
-            </div>
-          </div>
-          <div class="col-md-4"><label class="form-label">Statut d'occupation actuel</label>
-            <select name="statut_occupation" class="form-select">
-              <option value="">--</option>
-              ${[['PROPRIETAIRE','Propriétaire'],['LOCATAIRE_HLM','Locataire HLM'],['AUTRE_LOCATAIRE','Autre locataire'],['LOGE_GRATUIT','Logé à titre gratuit']].map(([v,l])=>`<option value="${v}" ${d.statut_occupation===v?'selected':''}>${l}</option>`).join('')}
-            </select>
-          </div>
-          <div class="col-md-2"><label class="form-label">Nb personnes foyer</label><input type="number" min="0" name="nb_personnes_foyer" class="form-control" value="${d.nb_personnes_foyer??''}"></div>
-          <div class="col-md-2"><label class="form-label">Nb enfants</label><input type="number" min="0" name="nb_enfants" class="form-control" value="${d.nb_enfants??''}"></div>
         </div>
 
-        <h6 class="mt-2">Revenus</h6>
-        <div id="${px}_revenus_list" class="ci-json-list mb-2"></div>
-        <button type="button" class="btn btn-sm btn-outline-primary mb-3" onclick="addRow('${px}','revenus')"><i class="fas fa-plus"></i> Ajouter un revenu</button>
+        <div id="${px}_emps"></div>
+        <div class="d-flex align-items-center gap-3 mb-3">
+          <button type="button" class="btn btn-sm btn-outline-primary" id="${px}_add_emp" onclick="addEmprunteur('${px}')"><i class="fas fa-user-plus"></i> Ajouter un 2ème emprunteur</button>
+          <span class="ms-auto">Revenu fiscal de référence cumulé : <strong id="${px}_rfr_total">0,00 €</strong></span>
+        </div>
 
-        <h6>Charges</h6>
-        <div id="${px}_charges_list" class="ci-json-list mb-2"></div>
-        <button type="button" class="btn btn-sm btn-outline-primary mb-3" onclick="addRow('${px}','charges')"><i class="fas fa-plus"></i> Ajouter une charge</button>
+        <div class="card mb-3"><div class="card-header"><strong>Foyer et situation</strong></div><div class="card-body"><div class="row g-3">
+          <div class="col-md-4"><label class="form-label">Primo accédant</label>
+            <select name="primo_accedant_statut" class="form-select">${opt(PRIMO_LABELS,primoStatut(d))}</select></div>
+          <div class="col-md-4"><label class="form-label">Statut d'occupation actuel</label>
+            <select name="statut_occupation" class="form-select">${opt({LOCATAIRE_HLM:'Locataire HLM',AUTRE_LOCATAIRE:'Autre locataire',LOGE_GRATUIT:'Logé à titre gratuit',AUTRE:'Autre'},occ)}</select></div>
+          <div class="col-md-4"></div>
+          <div class="col-md-3"><label class="form-label">Nombre de personnes dans le foyer</label><input type="number" min="0" name="nb_personnes_foyer" class="form-control" value="${d.nb_personnes_foyer??''}" oninput="onFormChange('${px}')"></div>
+          <div class="col-md-3"><label class="form-label">Nombre d'enfants</label><input type="number" min="0" max="20" name="nb_enfants" id="${px}_nb_enfants" class="form-control" value="${d.nb_enfants??''}" oninput="renderEnfants('${px}')"></div>
+          <div class="col-md-3"><label class="form-label">Personnes supplémentaires à charge</label><input type="number" min="0" name="nb_personnes_charge_supp" class="form-control" value="${d.nb_personnes_charge_supp??''}" oninput="onFormChange('${px}')"></div>
+          <div class="col-12"><div class="row g-2" id="${px}_enfants_ages"></div></div>
+        </div></div></div>
 
-        <h6>Épargne</h6>
-        <div id="${px}_epargne_list" class="ci-json-list mb-2"></div>
-        <button type="button" class="btn btn-sm btn-outline-primary mb-3" onclick="addRow('${px}','epargne')"><i class="fas fa-plus"></i> Ajouter une épargne</button>
-
-        <div id="${px}_endett_live"></div>
+        <div id="${px}_endett_client"></div>
       </div>
 
       <!-- ── TAB 2 PROJET ── -->
       <div class="tab-pane fade" id="${px}T2">
-        <div class="row g-3">
-          <div class="col-md-6">
-            <label class="form-label">Usage du bien</label>
-            <div class="d-flex gap-4 mt-1">
-              ${['RP','RS','RL'].map(v=>`<div class="form-check"><input class="form-check-input" type="radio" name="usage_bien" value="${v}" id="${px}_ub_${v}" ${(d.usage_bien||'')==v?'checked':''} onchange="toggleRL('${px}')"><label class="form-check-label" for="${px}_ub_${v}">${v}</label></div>`).join('')}
-            </div>
-            <div id="${px}_rl_opts" class="mt-2 ms-3" style="${isRL?'':'display:none'}">
-              <div class="d-flex gap-4">
-                <div class="form-check"><input class="form-check-input" type="radio" name="usage_rl_type" value="RL_PRINCIPALE" ${d.usage_rl_type==='RL_PRINCIPALE'?'checked':''}><label class="form-check-label">RL Principale</label></div>
-                <div class="form-check"><input class="form-check-input" type="radio" name="usage_rl_type" value="RL_SECONDAIRE" ${d.usage_rl_type==='RL_SECONDAIRE'?'checked':''}><label class="form-check-label">RL Secondaire</label></div>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">Mode d'occupation</label>
-            <div class="d-flex gap-4 mt-1">
-              <div class="form-check"><input class="form-check-input" type="radio" name="mode_occupation" value="RP" ${d.mode_occupation==='RP'?'checked':''}><label class="form-check-label">RP</label></div>
-              <div class="form-check"><input class="form-check-input" type="radio" name="mode_occupation" value="LOCATAIRE" ${d.mode_occupation==='LOCATAIRE'?'checked':''}><label class="form-check-label">Locataire</label></div>
-            </div>
-          </div>
+        <div class="row g-3 mb-3">
+          <div class="col-md-4"><label class="form-label">Type de projet</label><select name="type_projet" class="form-select">${opt(TYPE_PROJET_LABELS,d.type_projet)}</select></div>
+          <div class="col-md-4"><label class="form-label">Usage</label><select name="usage_choice" class="form-select">${opt(USAGE_LABELS,usageChoice(d))}</select></div>
+          <div class="col-md-4"><label class="form-label">Mode d'occupation</label><select name="mode_occupation" class="form-select">${opt(MODE_OCC_LABELS,modeOcc(d))}</select></div>
         </div>
+
+        <div class="card mb-3"><div class="card-header"><strong>Montants</strong></div><div class="card-body"><div class="row g-3">
+          ${money('montant_acquisition','mont_acq',"Acquisition (€)",d.montant_acquisition)}
+          ${money('dont_mobilier_financable','mob',"Dont mobilier financable (€)",d.dont_mobilier_financable)}
+          ${money('frais_notaire','frais_notaire',"Frais de notaire (€)",d.frais_notaire)}
+          ${money('frais_negociation','frais_neg',"Frais de négociation – agence immo (€)",nego)}
+          ${money('frais_divers','frais_div',"Frais divers (€)",d.frais_divers)}
+        </div></div></div>
+
+        <div class="card mb-3"><div class="card-header"><strong>Le bien</strong></div><div class="card-body"><div class="row g-3">
+          <div class="col-md-12 position-relative"><label class="form-label">Localisation du bien <small class="text-muted">(saisissez l'adresse puis choisissez une suggestion)</small></label>
+            <input type="text" name="adresse_bien" id="${px}_adresse" class="form-control" value="${escapeHtml(d.adresse_bien||'')}" autocomplete="off" placeholder="Ex. : 5 avenue Charles de Gaulle 12700 Capdenac-Gare">
+            <div id="${px}_adr_sugg" class="list-group shadow position-absolute w-100" style="z-index:2000;max-height:240px;overflow:auto;display:none"></div></div>
+          <div class="col-md-3"><label class="form-label">Type d'acquisition</label><select name="type_acquisition" class="form-select">${opt(TYPE_ACQ_LABELS,d.type_acquisition)}</select></div>
+          <div class="col-md-3"><label class="form-label">Type de propriété</label><select name="type_propriete" class="form-select">${opt(TYPE_PROP_LABELS,d.type_propriete)}</select></div>
+          <div class="col-md-2"><label class="form-label">Type de logement</label><select name="type_logement" class="form-select"><option value="">--</option>${TYPES_LOGEMENT.map(t=>`<option value="${t}" ${d.type_logement===t?'selected':''}>${t}</option>`).join('')}</select></div>
+          <div class="col-md-2"><label class="form-label">Nombre de logements</label><input type="number" min="0" name="nb_logements" class="form-control" value="${d.nb_logements??''}"></div>
+          <div class="col-md-2"><label class="form-label">Surface habitable (m²)</label><input type="number" step="0.01" min="0" name="surface_habitable" id="${px}_surface" class="form-control" value="${d.surface_habitable??''}"></div>
+          <div class="col-md-3"><label class="form-label">Date de fin de construction</label><input type="date" name="date_fin_construction" class="form-control" value="${d.date_fin_construction||''}"></div>
+          <div class="col-md-3"><label class="form-label">DPE (étiquette)</label>
+            <div class="input-group"><select name="dpe_etiquette" id="${px}_dpe_etiquette" class="form-select"><option value="">--</option>${['A','B','C','D','E','F','G'].map(l=>`<option value="${l}" ${d.dpe_etiquette===l?'selected':''}>${l}</option>`).join('')}</select>
+              <button type="button" class="btn btn-outline-secondary" onclick="dpeSearch('${px}')" title="Rechercher le DPE à partir de l'adresse"><i class="fas fa-leaf"></i> Rechercher</button></div></div>
+          <div class="col-md-6"><div id="${px}_dpe_box" class="small">${d.dpe_numero?dpeSummary(d):''}</div></div>
+        </div></div></div>
       </div>
 
       <!-- ── TAB 3 FINANCEMENT ── -->
       <div class="tab-pane fade" id="${px}T3">
-        <div class="row g-3">
-          <div class="col-md-3"><label class="form-label">Taux d'emprunt (%)</label><input type="number" step="0.001" name="taux_emprunt" id="${px}_taux" class="form-control" value="${d.taux_emprunt||0}" oninput="liveEndett('${px}')"></div>
-          <div class="col-md-3"><label class="form-label">Durée (mois)</label><input type="number" name="duree_emprunt" id="${px}_duree" class="form-control" value="${d.duree_emprunt||0}" oninput="liveEndett('${px}')"></div>
-          <div class="col-md-3"><label class="form-label">Montant de l'acquisition (€)</label><input type="number" step="0.01" name="montant_acquisition" id="${px}_mont_acq" class="form-control" value="${d.montant_acquisition||0}" oninput="liveEndett('${px}')"></div>
-          <div class="col-md-3"><label class="form-label">Dont mobilier financable (€)</label><input type="number" step="0.01" name="dont_mobilier_financable" class="form-control" value="${d.dont_mobilier_financable||0}"></div>
-          <div class="col-md-3"><label class="form-label">Frais de notaire (€)</label><input type="number" step="0.01" name="frais_notaire" id="${px}_frais_notaire" class="form-control" value="${d.frais_notaire||0}" oninput="liveEndett('${px}')"></div>
-          <div class="col-md-3"><label class="form-label">Frais de dossier (€)</label><input type="number" step="0.01" name="frais_dossier" id="${px}_frais_dossier" class="form-control" value="${d.frais_dossier||0}" oninput="liveEndett('${px}')"></div>
-          <div class="col-md-3">
-            <label class="form-label">
-              <input type="checkbox" name="frais_midi_epargne" id="${px}_fme_cb" ${d.frais_midi_epargne==1?'checked':''} onchange="toggleFME('${px}');liveEndett('${px}')"> Frais Midi Épargne
-            </label>
-            <div id="${px}_fme_wrap" style="${d.frais_midi_epargne==1?'':'display:none'}">
-              <input type="number" step="0.01" name="montant_midi_epargne" id="${px}_fme_mt" class="form-control" value="${d.montant_midi_epargne||0}" oninput="liveEndett('${px}')">
-            </div>
-          </div>
-          <div class="col-md-3"><label class="form-label">Frais de négociation (€)</label><input type="number" step="0.01" name="frais_negociation" id="${px}_frais_neg" class="form-control" value="${d.frais_negociation||0}" oninput="liveEndett('${px}')"></div>
-          <div class="col-md-3"><label class="form-label">Frais divers (€)</label><input type="number" step="0.01" name="frais_divers" id="${px}_frais_div" class="form-control" value="${d.frais_divers||0}" oninput="liveEndett('${px}')"></div>
-          <div class="col-md-3"><label class="form-label">Frais d'agence (€)</label><input type="number" step="0.01" name="frais_agence" id="${px}_frais_age" class="form-control" value="${d.frais_agence||0}" oninput="liveEndett('${px}')"></div>
-          <div class="col-md-3"><label class="form-label">TVA financée à rembourser (€)</label><input type="number" step="0.01" name="tva_financee" id="${px}_tva" class="form-control" value="${d.tva_financee||0}" oninput="liveEndett('${px}')"></div>
-          <div class="col-md-3"><label class="form-label">Apport (€)</label><input type="number" step="0.01" name="apport" id="${px}_apport" class="form-control" value="${d.apport||0}" oninput="liveEndett('${px}')"></div>
+        <div class="row g-3 mb-3">
+          ${money('apport','apport',"Apport (€)",d.apport)}
           <div class="col-md-3">
             <label class="form-label">Garantie</label>
             <select name="garantie_type" id="${px}_gar_type" class="form-select" onchange="onGarantieChange('${px}')">
               <option value="">--</option>
-              <option value="CEGC" ${d.garantie_type==='CEGC'?'selected':''}>CEGC</option>
-              <option value="HYPOTHEQUE" ${d.garantie_type==='HYPOTHEQUE'?'selected':''}>HYPOTHÈQUE</option>
+              ${[['CEGC','CEGC'],['SACCEF','SACCEF'],['HYPOTHEQUE','HYPOTHÈQUE']].map(([v,l])=>`<option value="${v}" ${d.garantie_type===v?'selected':''}>${l}</option>`).join('')}
             </select>
           </div>
-          <div class="col-md-3"><label class="form-label">Montant garantie (€)</label><input type="number" step="0.01" name="garantie_montant" id="${px}_gar_mt" class="form-control" value="${d.garantie_montant||0}" oninput="liveEndett('${px}')"></div>
+          ${money('garantie_montant','gar_mt',"Montant des frais de garantie (€)",d.garantie_montant)}
+          ${money('tva_financee','tva',"TVA financée à rembourser (€)",d.tva_financee)}
+          <div class="col-md-3">
+            <label class="form-label"><input type="checkbox" name="frais_midi_epargne" value="1" id="${px}_fme_cb" ${d.frais_midi_epargne==1?'checked':''} onchange="toggleFME('${px}');onFormChange('${px}')"> Frais Midi Épargne</label>
+            <div id="${px}_fme_wrap" style="${d.frais_midi_epargne==1?'':'display:none'}">
+              <input type="number" step="0.01" name="montant_midi_epargne" id="${px}_fme_mt" class="form-control" value="${d.montant_midi_epargne||0}" oninput="onFormChange('${px}')">
+            </div>
+          </div>
         </div>
 
         <hr>
-        <h6>ADE <span class="text-muted small">(coût total non inclus dans l'endettement)</span></h6>
-        <div id="${px}_ade_list" class="ci-json-list mb-2"></div>
-        <button type="button" class="btn btn-sm btn-outline-primary mb-3" onclick="addRow('${px}','ade')"><i class="fas fa-plus"></i> Ajouter un assuré</button>
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+          <h6 class="mb-0">Lignes de crédit</h6>
+          <div class="d-flex align-items-center gap-3">
+            <div class="form-check mb-0"><input class="form-check-input" type="checkbox" name="doublissimo" value="1" id="${px}_dbl_cb" ${d.doublissimo==1?'checked':''} onchange="onDoublissimo('${px}')"><label class="form-check-label" for="${px}_dbl_cb" title="Ajoute une ligne égale à 20 % de (coût du projet − apport)">Doublissimo</label></div>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="equilibrerLignes('${px}')" title="Ajuste la dernière ligne pour couvrir exactement le besoin"><i class="fas fa-equals"></i> Affecter le reste à la dernière ligne</button>
+          </div>
+        </div>
+        <div id="${px}_lignes_list" class="ci-json-list mb-2"></div>
+        <button type="button" class="btn btn-sm btn-outline-primary mb-3" onclick="addLigne('${px}')"><i class="fas fa-plus"></i> Ajouter une ligne de crédit</button>
+
+        <hr>
+        <h6>Assurance emprunteur <span class="text-muted small">(une ligne par emprunteur et par ligne de crédit)</span></h6>
+        <div id="${px}_ade_list" class="ci-json-list mb-3"></div>
 
         <hr>
         <div class="row g-3">
           <div class="col-12">
-            <div class="form-check"><input class="form-check-input" type="checkbox" name="ptz_actif" id="${px}_ptz_cb" ${d.ptz_actif==1?'checked':''} onchange="togglePTZ('${px}');liveEndett('${px}')"><label class="form-check-label fw-semibold">PTZ</label></div>
+            <div class="form-check"><input class="form-check-input" type="checkbox" name="ptz_actif" value="1" id="${px}_ptz_cb" ${d.ptz_actif==1?'checked':''} onchange="togglePTZ('${px}');onFormChange('${px}')"><label class="form-check-label fw-semibold">PTZ</label></div>
             <div id="${px}_ptz_wrap" class="row g-2 mt-1 ms-3" style="${d.ptz_actif==1?'':'display:none'}">
-              <div class="col-md-3"><label class="form-label small">Montant PTZ (€)</label><input type="number" step="0.01" name="ptz_montant" id="${px}_ptz_mt" class="form-control form-control-sm" value="${d.ptz_montant||0}" oninput="liveEndett('${px}')"></div>
-              <div class="col-md-3"><label class="form-label small">Durée PTZ (mois)</label><input type="number" name="ptz_duree" id="${px}_ptz_dur" class="form-control form-control-sm" value="${d.ptz_duree||0}" oninput="liveEndett('${px}')"></div>
+              <div class="col-md-3"><label class="form-label small">Montant PTZ (€)</label><input type="number" step="0.01" name="ptz_montant" id="${px}_ptz_mt" class="form-control form-control-sm" value="${d.ptz_montant||0}" oninput="onFormChange('${px}')"></div>
+              <div class="col-md-3"><label class="form-label small">Durée PTZ (mois)</label><input type="number" name="ptz_duree" id="${px}_ptz_dur" class="form-control form-control-sm" value="${d.ptz_duree||0}" oninput="onFormChange('${px}')"></div>
             </div>
           </div>
           <div class="col-12">
-            <div class="form-check"><input class="form-check-input" type="checkbox" name="ecoptz_actif" id="${px}_ecoptz_cb" ${d.ecoptz_actif==1?'checked':''} onchange="toggleEcoPTZ('${px}');liveEndett('${px}');updatePiecesEco('${px}')"><label class="form-check-label fw-semibold">EcoPTZ</label></div>
+            <div class="form-check"><input class="form-check-input" type="checkbox" name="ecoptz_actif" value="1" id="${px}_ecoptz_cb" ${d.ecoptz_actif==1?'checked':''} onchange="toggleEcoPTZ('${px}');onFormChange('${px}');updatePiecesEco('${px}')"><label class="form-check-label fw-semibold">EcoPTZ</label></div>
             <div id="${px}_ecoptz_wrap" class="ms-3 mt-1" style="${d.ecoptz_actif==1?'':'display:none'}">
               <div class="row g-2">
-                <div class="col-md-3"><label class="form-label small">Montant EcoPTZ (€)</label><input type="number" step="0.01" name="ecoptz_montant" id="${px}_ecoptz_mt" class="form-control form-control-sm" value="${d.ecoptz_montant||0}" oninput="liveEndett('${px}')"></div>
-                <div class="col-md-3"><label class="form-label small">Durée EcoPTZ (mois)</label><input type="number" name="ecoptz_duree" id="${px}_ecoptz_dur" class="form-control form-control-sm" value="${d.ecoptz_duree||0}" oninput="liveEndett('${px}')"></div>
+                <div class="col-md-3"><label class="form-label small">Montant EcoPTZ (€)</label><input type="number" step="0.01" name="ecoptz_montant" id="${px}_ecoptz_mt" class="form-control form-control-sm" value="${d.ecoptz_montant||0}" oninput="onFormChange('${px}')"></div>
+                <div class="col-md-3"><label class="form-label small">Durée EcoPTZ (mois)</label><input type="number" name="ecoptz_duree" id="${px}_ecoptz_dur" class="form-control form-control-sm" value="${d.ecoptz_duree||0}" oninput="onFormChange('${px}')"></div>
                 <div class="col-12">
                   <div class="form-check form-check-inline">
                     <input class="form-check-input" type="checkbox" name="ecoptz_bouquets" id="${px}_eco_bq" ${d.ecoptz_bouquets==1?'checked':''} onchange="onEcoBouquet('${px}');updatePiecesEco('${px}')">
@@ -587,6 +773,18 @@ function buildFormTabs(px,d){
         </div>
       </div>
 
+      <!-- ── TAB 8 MRH ── -->
+      <div class="tab-pane fade" id="${px}T8">
+        <div class="row g-3 mb-3">
+          <div class="col-md-4"><label class="form-label">Montant du devis (€)</label><input type="number" step="0.01" min="0" name="mrh_montant_devis" class="form-control" value="${d.mrh_montant_devis||''}"></div>
+          <div class="col-md-4"><label class="form-label">Formule choisie</label><input type="text" name="mrh_formule" class="form-control" maxlength="100" value="${escapeHtml(d.mrh_formule||'')}"></div>
+        </div>
+        <h6>Options choisies <span class="text-muted small">(une par ligne)</span></h6>
+        <div id="${px}_mrh_list" class="ci-json-list mb-2"></div>
+        <button type="button" class="btn btn-sm btn-outline-primary" onclick="addMrhOption('${px}')"><i class="fas fa-plus"></i> Ajouter une option</button>
+      </div>
+
+
       <!-- ── TAB 7 NOTES ── -->
       <div class="tab-pane fade" id="${px}T7">
         ${d.id?`
@@ -615,26 +813,100 @@ function docRow(px,field,label,d){
   </tr>`;
 }
 
-// ── FORM TOGGLES ──────────────────────────────────────────────────────────────
-function toggleRL(px){
-  const v=document.querySelector(`[name="usage_bien"]:checked`)?.value;
-  const el=document.getElementById(px+'_rl_opts');
-  if(el) el.style.display=(v==='RL')?'':'none';
+// ── ADRESSE (autocomplétion BAN) ET DPE ──────────────────────────────────────
+function dpeSummary(d){
+  const l=d.dpe_etiquette||'–', g=d.dpe_ges||'–';
+  return `<i class="fas fa-leaf text-success"></i> DPE <strong>${escapeHtml(l)}</strong> · GES ${escapeHtml(g)}${d.dpe_conso?' · '+escapeHtml(String(d.dpe_conso))+' kWh/m²/an':''}${d.dpe_date?' · établi le '+fmtD(d.dpe_date):''}<div class="text-muted">N° ${escapeHtml(d.dpe_numero||'')}</div>`;
 }
+let _dpeCache={};
+function setupAddress(px){
+  const input=document.getElementById(px+'_adresse'), box=document.getElementById(px+'_adr_sugg');
+  if(!input||!box) return;
+  let timer=null;
+  input.addEventListener('input',()=>{
+    clearTimeout(timer);
+    const v=input.value.trim();
+    if(v.length<4){box.style.display='none';return;}
+    timer=setTimeout(async()=>{
+      try{
+        const r=await fetch('https://api-adresse.data.gouv.fr/search/?type=housenumber&limit=6&q='+encodeURIComponent(v));
+        const j=await r.json();
+        box.innerHTML='';
+        (j.features||[]).forEach(f=>{
+          const b=document.createElement('button');
+          b.type='button'; b.className='list-group-item list-group-item-action'; b.textContent=f.properties.label;
+          b.onclick=()=>{
+            input.value=f.properties.label; box.style.display='none';
+            document.getElementById(px+'_bien_lon').value=f.geometry.coordinates[0];
+            document.getElementById(px+'_bien_lat').value=f.geometry.coordinates[1];
+            dpeSearch(px);
+          };
+          box.appendChild(b);
+        });
+        box.style.display=box.children.length?'block':'none';
+      }catch(e){box.style.display='none';}
+    },250);
+  });
+  document.addEventListener('click',e=>{if(!box.contains(e.target)&&e.target!==input) box.style.display='none';});
+}
+// Récupération du DPE à partir de l'adresse (module DPE : base ADEME avant/après juillet 2021)
+async function dpeSearch(px){
+  const adr=document.getElementById(px+'_adresse').value.trim();
+  const box=document.getElementById(px+'_dpe_box');
+  if(adr.length<5){box.innerHTML='<span class="text-muted">Saisissez d\'abord l\'adresse du bien.</span>';return;}
+  box.innerHTML='<span class="text-muted"><i class="fas fa-spinner fa-spin"></i> Recherche du DPE…</span>';
+  try{
+    const r=await fetch('../dpe/api.php?mode=address&sources=new,old&q='+encodeURIComponent(adr));
+    const j=await r.json();
+    if(j.error){box.innerHTML=`<span class="text-danger">${escapeHtml(j.error)}</span>`;return;}
+    const list=j.exact||[];
+    if(!list.length){box.innerHTML='<span class="text-muted">Aucun DPE trouvé à cette adresse exacte : renseignez l\'étiquette à la main.</span>';return;}
+    _dpeCache[px]=list;
+    const surf=num(document.getElementById(px+'_surface').value);
+    let pick=null;
+    if(list.length===1) pick=0;
+    else if(surf>0){
+      let bd=1e9; list.forEach((x,i)=>{if(x.surface){const dd=Math.abs(x.surface-surf); if(dd<bd){bd=dd;pick=i;}}});
+      if(bd>1.5) pick=null; // surface trop différente : on laisse choisir
+    }
+    renderDpeChoices(px,pick);
+    if(pick!==null) applyDpe(px,pick);
+  }catch(e){box.innerHTML='<span class="text-danger">Erreur lors de la recherche du DPE.</span>';}
+}
+function renderDpeChoices(px,sel){
+  const list=_dpeCache[px]||[], box=document.getElementById(px+'_dpe_box');
+  const col={A:'#319834',B:'#33cc31',C:'#9ccf1f',D:'#d9d900',E:'#fccc05',F:'#fc9935',G:'#fc0205'};
+  box.innerHTML=`<div class="mb-1 text-muted">${list.length} DPE à cette adresse — cliquez sur le bon logement :</div>
+    <div style="max-height:170px;overflow:auto"><table class="table table-sm table-hover mb-0"><tbody>${list.map((x,i)=>`
+      <tr style="cursor:pointer" class="${i===sel?'table-success':''}" onclick="applyDpe('${px}',${i})">
+        <td>${fmtD(x.date)}</td><td><span class="badge" style="background:${col[x.etiquette_dpe]||'#999'};color:#fff">${escapeHtml(x.etiquette_dpe||'–')}</span></td>
+        <td>${x.surface!=null?Math.round(x.surface*10)/10+' m²':''}</td><td>${escapeHtml(x.complement||x.type||'')}${x.source==='old'?' <span class="badge bg-secondary">avant 07/2021</span>':''}</td></tr>`).join('')}
+    </tbody></table></div>`;
+}
+function applyDpe(px,i){
+  const x=(_dpeCache[px]||[])[i]; if(!x) return;
+  const set=(id,v)=>{const el=document.getElementById(px+'_'+id); if(el) el.value=v??'';};
+  set('dpe_etiquette',x.etiquette_dpe||''); set('dpe_ges',x.etiquette_ges||''); set('dpe_numero',x.numero_dpe||'');
+  set('dpe_date',x.date||''); set('dpe_conso',x.conso??'');
+  const s=document.getElementById(px+'_surface');
+  if(s&&!s.value&&x.surface) s.value=x.surface;
+  renderDpeChoices(px,i);
+  const box=document.getElementById(px+'_dpe_box');
+  box.insertAdjacentHTML('afterbegin','<div class="mb-1">'+dpeSummary({dpe_etiquette:x.etiquette_dpe,dpe_ges:x.etiquette_ges,dpe_conso:x.conso,dpe_date:x.date,dpe_numero:x.numero_dpe})+'</div>');
+}
+
+// ── FORM TOGGLES ──────────────────────────────────────────────────────────────
 function toggleFME(px){
-  const cb=document.getElementById(px+'_fme_cb');
-  const w=document.getElementById(px+'_fme_wrap');
+  const cb=document.getElementById(px+'_fme_cb'), w=document.getElementById(px+'_fme_wrap');
   if(w) w.style.display=cb?.checked?'':'none';
 }
 function togglePTZ(px){
-  const cb=document.getElementById(px+'_ptz_cb');
-  const w=document.getElementById(px+'_ptz_wrap');
+  const cb=document.getElementById(px+'_ptz_cb'), w=document.getElementById(px+'_ptz_wrap');
   if(w) w.style.display=cb?.checked?'':'none';
   updatePiecesEco(px);
 }
 function toggleEcoPTZ(px){
-  const cb=document.getElementById(px+'_ecoptz_cb');
-  const w=document.getElementById(px+'_ecoptz_wrap');
+  const cb=document.getElementById(px+'_ecoptz_cb'), w=document.getElementById(px+'_ecoptz_wrap');
   if(w) w.style.display=cb?.checked?'':'none';
   updatePiecesEco(px);
 }
@@ -642,30 +914,25 @@ function onGarantieChange(px){
   const v=document.getElementById(px+'_gar_type')?.value;
   const w=document.getElementById(px+'_cegc_admin_wrap');
   if(w) w.style.display=(v==='CEGC')?'':'none';
+  onFormChange(px);
 }
 function onEcoBouquet(px){
-  const cb=document.getElementById(px+'_eco_bq');
-  const pg=document.getElementById(px+'_eco_pg');
-  const wrap=document.getElementById(px+'_eco_bq_wrap');
-  if(cb?.checked){if(pg)pg.checked=false;if(pg)pg.disabled=true;}
+  const cb=document.getElementById(px+'_eco_bq'), pg=document.getElementById(px+'_eco_pg'), wrap=document.getElementById(px+'_eco_bq_wrap');
+  if(cb?.checked){if(pg){pg.checked=false;pg.disabled=true;}}
   else{if(pg)pg.disabled=false;}
   if(wrap) wrap.style.display=cb?.checked?'inline-block':'none';
 }
 function onEcoPerfGlobale(px){
-  const pg=document.getElementById(px+'_eco_pg');
-  const bq=document.getElementById(px+'_eco_bq');
-  const wrap=document.getElementById(px+'_eco_bq_wrap');
-  if(pg?.checked){if(bq)bq.checked=false;if(bq)bq.disabled=true;if(wrap)wrap.style.display='none';}
+  const pg=document.getElementById(px+'_eco_pg'), bq=document.getElementById(px+'_eco_bq'), wrap=document.getElementById(px+'_eco_bq_wrap');
+  if(pg?.checked){if(bq){bq.checked=false;bq.disabled=true;}if(wrap)wrap.style.display='none';}
   else{if(bq)bq.disabled=false;}
 }
 function toggleMotif(px){
-  const ko=document.getElementById(px+'_conf_ko');
-  const w=document.getElementById(px+'_motif_wrap');
+  const ko=document.getElementById(px+'_conf_ko'), w=document.getElementById(px+'_motif_wrap');
   if(w) w.style.display=ko?.checked?'':'none';
 }
 function updatePiecesEco(px){
-  const ptz=document.getElementById(px+'_ptz_cb')?.checked;
-  const eco=document.getElementById(px+'_ecoptz_cb')?.checked;
+  const ptz=document.getElementById(px+'_ptz_cb')?.checked, eco=document.getElementById(px+'_ecoptz_cb')?.checked;
   const w=document.getElementById(px+'_pieces_eco');
   if(w) w.style.display=(ptz||eco)?'':'none';
   const nb=parseInt(document.getElementById(px+'_eco_nb_bq')?.value||0);
@@ -673,43 +940,46 @@ function updatePiecesEco(px){
   if(lbl) lbl.textContent='Formulaire entreprises'+(nb>0?' ('+nb+')':'');
 }
 function calcJ11live(px){
-  const v=document.getElementById(px+'_accuse')?.value;
-  const j11=addJ11(v);
-  const disp=document.getElementById(px+'_j11_display');
-  const hid=document.getElementById(px+'_j11_hidden');
+  const j11=addJ11(document.getElementById(px+'_accuse')?.value);
+  const disp=document.getElementById(px+'_j11_display'), hid=document.getElementById(px+'_j11_hidden');
   if(disp) disp.value=j11;
   if(hid) hid.value=j11;
 }
 function beforeSubmit(px){
-  ['revenus','charges','epargne','ade'].forEach(t=>serializeJson(px,t));
-  // Map cegc_reponse_admin → suivi_cegc_accord/refus hidden fields if needed
-  const form=document.querySelector(`[name="id"][value="${document.querySelector('[name=id]')?.value}"]`)?.closest('form')
-    || document.getElementById(px+'T4')?.closest('form');
-  if(!form) return;
+  serializeAll(px);
+  const form=document.getElementById(px+'_form'); if(!form) return;
   const r=form.querySelector('[name="cegc_reponse_admin"]:checked');
   if(r){
-    let acc=form.querySelector('[name="suivi_cegc_accord_h"]');
-    let ref=form.querySelector('[name="suivi_cegc_refus_h"]');
-    if(!acc){acc=document.createElement('input');acc.type='hidden';acc.name='suivi_cegc_accord';form.appendChild(acc);}
-    if(!ref){ref=document.createElement('input');ref.type='hidden';ref.name='suivi_cegc_refus';form.appendChild(ref);}
-    acc.value=r.value==='ACCORD'?1:0;
-    ref.value=r.value==='REFUS'?1:0;
+    ['suivi_cegc_accord','suivi_cegc_refus'].forEach(n=>{
+      let h=form.querySelector(`input[type=hidden][name="${n}"]`);
+      if(!h){h=document.createElement('input');h.type='hidden';h.name=n;form.appendChild(h);}
+      h.value=(n==='suivi_cegc_accord'?r.value==='ACCORD':r.value==='REFUS')?1:0;
+    });
   }
 }
 
 // ── OPEN ADD / EDIT ───────────────────────────────────────────────────────────
+function initForm(px,d){
+  const emps=getEmprunteurs(d);
+  renderEmprunteurs(px,emps);
+  // Lignes : nouveau dossier = une ligne vide ; ancien dossier = ligne reconstituée depuis l'ancien crédit unique
+  renderLignes(px,d.id?getLignes(d):[{libelle:'Ligne 1',montant:'',duree:'',taux:'',frais_dossier:''}]);
+  const ades=getAssurances(d).map((a,i)=>('emp' in a)?a:{...a,emp:Math.min(i,emps.length-1),ligne:0});
+  renderAssurances(px,ades);
+  document.getElementById(px+'_mrh_list').innerHTML=parseArr(d.mrh_options_json).map(o=>buildMrhOption(px,o)).join('');
+  setupAddress(px);
+  renderEnfants(px,parseArr(d.enfants_ages_json));
+}
 function openAddModal(){
   document.getElementById('addContent').innerHTML=buildFormTabs('add',{});
-  loadJsonRows('add',{});
-  liveEndett('add');
+  initForm('add',{});
   new bootstrap.Modal(document.getElementById('addModal')).show();
 }
 function editDossier(id){
   const d=dossiersData.find(x=>x.id==id);
   if(!d) return;
   document.getElementById('editContent').innerHTML=buildFormTabs('edit',d);
-  loadJsonRows('edit',d);
-  liveEndett('edit');
+  initForm('edit',d);
   new bootstrap.Modal(document.getElementById('editModal')).show();
   loadNotes(id,'edit');
 }
@@ -731,107 +1001,111 @@ function buildWorkflowProgress(status){
   return h+'</div>';
 }
 
+
 // ── SHOW DETAIL ───────────────────────────────────────────────────────────────
 function showDetail(id){
   const d=dossiersData.find(x=>x.id==id);
   if(!d) return;
-  const totalF=getTotalFinancement(d);
-  const capPH=getCapitalPH(d);
-  const mensPH=calcMensualite(capPH,parseFloat(d.taux_emprunt||0),parseInt(d.duree_emprunt||0));
-  const mensPTZ=getMensPTZ(d);
-  const mensEco=getMensEcoPTZ(d);
-  const mensG=mensPH+mensPTZ+mensEco;
-  const te=calcTauxEndett(d);
-  const rev=calcRevenus(d.revenus_json);
-  const charges=calcChargesConservees(d.charges_json);
-  const revenus=parseJ(d.revenus_json);
-  const chargesArr=parseJ(d.charges_json);
-  const epargne=parseJ(d.epargne_json);
-  const ade=parseJ(d.ade_json);
+  const c=computeAll(d);
   const wf=d.workflow_status||'etude';
-  const occMap={PROPRIETAIRE:'Propriétaire',LOCATAIRE_HLM:'Locataire HLM',AUTRE_LOCATAIRE:'Autre locataire',LOGE_GRATUIT:'Logé à titre gratuit'};
+  const money=v=>fmt(v)+' €';
+  const bdge=v=>v?`<span class="badge ${v==='OK'?'bg-success':'bg-danger'}">${v}</span>`:'<span class="text-muted">Non interrogé</span>';
 
-  let html=`<div class="mb-3">${buildWorkflowProgress(wf)}</div>${alertEndett(te)}`;
+  let html=`<div class="mb-3">${buildWorkflowProgress(wf)}</div>${alertEndett(c.te)}`;
   html+=`<ul class="nav nav-tabs mb-3"><li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#dT1">Client</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#dT2">Projet</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#dT3">Financement</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#dT4">Gestion admin</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#dT5">Pièces</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#dT6">Suivi</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#dT8">MRH</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#dT7" onclick="loadNotes(${id},'detail')">Notes</a></li>
   </ul><div class="tab-content">`;
 
   // Tab Client
-  const bdge=(v)=>v?`<span class="badge ${v==='OK'?'bg-success':'bg-danger'}">${v}</span>`:'—';
-  html+=`<div class="tab-pane fade show active" id="dT1"><div class="row g-3">
-    <div class="col-md-6"><table class="table table-sm"><tbody>
+  const ages=parseArr(d.enfants_ages_json).filter(a=>a!==null&&a!=='');
+  const rowsT=(arr,cols)=>arr.length?`<table class="table table-sm table-striped mb-2"><tbody>${arr.map(cols).join('')}</tbody></table>`:'<p class="text-muted small mb-2">Aucun élément</p>';
+  html+=`<div class="tab-pane fade show active" id="dT1">
+    <table class="table table-sm mb-3"><tbody>
       <tr><td>N° personne</td><td><strong>${escapeHtml(d.numero_personne)}</strong></td></tr>
       <tr><td>Type client</td><td>${escapeHtml(d.type_client)}</td></tr>
-      <tr><td>Banque de France</td><td>${bdge(d.banque_de_france)}</td></tr>
-      <tr><td>DRC</td><td>${bdge(d.drc)}</td></tr>
-      <tr><td>TopCC</td><td>${bdge(d.topcc)}</td></tr>
-      <tr><td>Primo accédant</td><td>${d.primo_accedant==1?'OUI':d.primo_accedant===0||d.primo_accedant==='0'?'NON':'—'}</td></tr>
-      <tr><td>Statut occupation</td><td>${occMap[d.statut_occupation]||d.statut_occupation||'—'}</td></tr>
-      <tr><td>Personnes foyer / Enfants</td><td>${d.nb_personnes_foyer??'—'} / ${d.nb_enfants??'—'}</td></tr>
-    </tbody></table></div>
-    <div class="col-md-6">
-      <h6>Revenus</h6>
-      ${revenus.length?`<table class="table table-sm table-striped"><thead><tr><th>Intitulé</th><th>Montant</th><th>Futur</th><th>Pondération</th></tr></thead><tbody>
-        ${revenus.map(r=>`<tr><td>${escapeHtml(r.intitule)}</td><td>${fmt(r.montant)} €${r.periodicite==='annuelle'?' /an':' /mois'}</td><td>${r.revenu_futur?'Oui':''}</td><td>${r.revenu_futur?(r.ponderation||100)+'%':''}</td></tr>`).join('')}
-      </tbody></table>`:'<p class="text-muted small">Aucun revenu renseigné</p>'}
-      <h6 class="mt-2">Charges</h6>
-      ${chargesArr.length?`<table class="table table-sm table-striped"><thead><tr><th>Intitulé</th><th>Montant</th><th>Non conservé</th></tr></thead><tbody>
-        ${chargesArr.map(c=>`<tr class="${c.non_conserve?'text-muted':''}" ><td>${escapeHtml(c.intitule)}</td><td>${fmt(c.montant)} €</td><td>${c.non_conserve?'<span class="badge bg-secondary">Exclu</span>':''}</td></tr>`).join('')}
-      </tbody></table>`:'<p class="text-muted small">Aucune charge renseignée</p>'}
-      <h6 class="mt-2">Épargne</h6>
-      ${epargne.length?`<table class="table table-sm table-striped"><thead><tr><th>Intitulé</th><th>Montant</th><th>Banque</th></tr></thead><tbody>
-        ${epargne.map(e=>`<tr><td>${escapeHtml(e.intitule)}</td><td>${fmt(e.montant)} €</td><td>${e.hors_cemp?escapeHtml(e.nom_banque||'—'):''}</td></tr>`).join('')}
-      </tbody></table>`:'<p class="text-muted small">Aucune épargne renseignée</p>'}
-    </div>
-  </div></div>`;
+      <tr><td>Primo accédant</td><td>${escapeHtml(PRIMO_LABELS[primoStatut(d)]||'—')}</td></tr>
+      <tr><td>Statut d'occupation actuel</td><td>${escapeHtml(OCC_LABELS[d.statut_occupation]||'—')}</td></tr>
+      <tr><td>Personnes dans le foyer</td><td>${d.nb_personnes_foyer??'—'}</td></tr>
+      <tr><td>Enfants</td><td>${d.nb_enfants??'—'}${ages.length?' (âges : '+ages.map(a=>escapeHtml(String(a))).join(', ')+' ans)':''}</td></tr>
+      <tr><td>Personnes supplémentaires à charge</td><td>${d.nb_personnes_charge_supp??'—'}</td></tr>
+      <tr><td>Revenu fiscal de référence cumulé</td><td><strong>${money(c.rfr)}</strong></td></tr>
+    </tbody></table>
+    <div class="row g-3">${c.emps.map((e,i)=>`<div class="col-md-6"><div class="card h-100"><div class="card-header"><strong>Emprunteur ${i+1}${e.nom?' — '+escapeHtml(e.nom):''}</strong></div><div class="card-body">
+      <div class="small mb-2">BdF : ${bdge(e.bdf)} · DRC : ${bdge(e.drc)} · TopCC : ${bdge(e.topcc)} · RFR : <strong>${money(num(e.rfr))}</strong></div>
+      <h6>Revenus <small class="text-muted">(${money(sumRevenus(e.revenus))}/mois)</small></h6>
+      ${rowsT(e.revenus||[],r=>`<tr><td>${escapeHtml(r.intitule)}</td><td>${money(num(r.montant))}${r.periodicite==='annuelle'?' /an':' /mois'}</td><td>${r.revenu_futur?'Futur '+(r.ponderation||100)+'%':''}</td></tr>`)}
+      <h6>Charges <small class="text-muted">(${money(sumCharges(e.charges))}/mois conservées)</small></h6>
+      ${rowsT(e.charges||[],r=>`<tr class="${r.non_conserve?'text-muted':''}"><td>${escapeHtml(r.intitule)}</td><td>${money(num(r.montant))}</td><td>${r.non_conserve?'<span class="badge bg-secondary">Exclu</span>':''}</td></tr>`)}
+      <h6>Épargne</h6>
+      ${rowsT(e.epargne||[],r=>`<tr><td>${escapeHtml(r.intitule)}</td><td>${money(num(r.montant))}</td><td>${r.hors_cemp?escapeHtml(r.nom_banque||'Hors CEMP'):''}</td></tr>`)}
+    </div></div></div>`).join('')}</div>
+  </div>`;
 
   // Tab Projet
-  const ubMap={RP:'Résidence Principale',RS:'Résidence Secondaire',RL:'Locatif'};
-  html+=`<div class="tab-pane fade" id="dT2"><table class="table table-sm"><tbody>
-    <tr><td>Usage du bien</td><td>${ubMap[d.usage_bien]||d.usage_bien||'—'}${d.usage_bien==='RL'&&d.usage_rl_type?' – '+(d.usage_rl_type==='RL_PRINCIPALE'?'RL Principale':'RL Secondaire'):''}</td></tr>
-    <tr><td>Mode d'occupation</td><td>${d.mode_occupation||'—'}</td></tr>
-  </tbody></table></div>`;
+  const dpeTxt=d.dpe_etiquette?`${escapeHtml(d.dpe_etiquette)}${d.dpe_ges?' · GES '+escapeHtml(d.dpe_ges):''}${d.dpe_conso?' · '+escapeHtml(String(d.dpe_conso))+' kWh/m²/an':''}${d.dpe_date?' · du '+fmtD(d.dpe_date):''}${d.dpe_numero?' (n° '+escapeHtml(d.dpe_numero)+')':''}`:'—';
+  html+=`<div class="tab-pane fade" id="dT2"><div class="row g-3"><div class="col-md-6"><table class="table table-sm"><tbody>
+    <tr><td>Type de projet</td><td>${escapeHtml(TYPE_PROJET_LABELS[d.type_projet]||'—')}</td></tr>
+    <tr><td>Usage</td><td>${escapeHtml(USAGE_LABELS[usageChoice(d)]||'—')}</td></tr>
+    <tr><td>Mode d'occupation</td><td>${escapeHtml(MODE_OCC_LABELS[modeOcc(d)]||'—')}</td></tr>
+    <tr><td colspan="2" class="fw-bold bg-light">Montants</td></tr>
+    <tr><td>Acquisition</td><td>${money(num(d.montant_acquisition))}</td></tr>
+    <tr><td>Dont mobilier financable</td><td>${money(num(d.dont_mobilier_financable))}</td></tr>
+    <tr><td>Frais de notaire</td><td>${money(num(d.frais_notaire))}</td></tr>
+    <tr><td>Frais de négociation (agence)</td><td>${money(num(d.frais_negociation)+num(d.frais_agence))}</td></tr>
+    <tr><td>Frais divers</td><td>${money(num(d.frais_divers))}</td></tr>
+  </tbody></table></div><div class="col-md-6"><table class="table table-sm"><tbody>
+    <tr><td colspan="2" class="fw-bold bg-light">Le bien</td></tr>
+    <tr><td>Localisation</td><td>${escapeHtml(d.adresse_bien||'—')}</td></tr>
+    <tr><td>Type d'acquisition</td><td>${escapeHtml(TYPE_ACQ_LABELS[d.type_acquisition]||'—')}</td></tr>
+    <tr><td>Type de propriété</td><td>${escapeHtml(TYPE_PROP_LABELS[d.type_propriete]||'—')}</td></tr>
+    <tr><td>Type de logement</td><td>${escapeHtml(d.type_logement||'—')}</td></tr>
+    <tr><td>Nombre de logements</td><td>${d.nb_logements??'—'}</td></tr>
+    <tr><td>Surface habitable</td><td>${d.surface_habitable?escapeHtml(String(d.surface_habitable))+' m²':'—'}</td></tr>
+    <tr><td>Fin de construction</td><td>${fmtD(d.date_fin_construction)}</td></tr>
+    <tr><td>DPE</td><td>${dpeTxt}</td></tr>
+  </tbody></table></div></div></div>`;
 
   // Tab Financement
+  const lignesRows=c.lignes.map((l,i)=>`<tr><td>${escapeHtml(l.libelle||('Ligne '+(i+1)))}${l.doublissimo?' <span class="badge bg-info">Doublissimo</span>':''}</td><td>${money(num(l.montant))}</td><td>${parseInt(l.duree)||0} mois</td><td>${num(l.taux).toFixed(3).replace('.',',')} %</td><td>${money(num(l.frais_dossier))}</td><td><strong>${money(c.sch[i].mens)}</strong></td><td>${money(c.sch[i].interets)}</td></tr>`).join('');
+  const assRows=getAssurances(d).map((a,i)=>{
+    const cost=c.ass[i]||{monthly:0,total:0};
+    return `<tr><td>${escapeHtml((c.emps[a.emp??0]?.nom)||('Emprunteur '+((a.emp??0)+1)))} — ${escapeHtml((c.lignes[a.ligne??0]?.libelle)||('Ligne '+((a.ligne??0)+1)))}</td>
+      <td>${a.taux!==''&&a.taux!=null?num(a.taux).toFixed(3).replace('.',',')+' % ('+(a.base==='CRD'?'CRD':'CI')+')':'—'}</td><td>${num(a.quotite)||100} %</td>
+      <td>${escapeHtml((a.couverture||[]).join(', ')||'—')}</td><td>${escapeHtml([a.type,a.franchise,a.ipp].filter(Boolean).join(' · ')||'—')}</td>
+      <td>${money(cost.monthly)}</td><td>${money(cost.total)}</td></tr>`;}).join('');
   html+=`<div class="tab-pane fade" id="dT3">
     <div class="row g-3 mb-3">
-      <div class="col-md-3"><div class="stat-card"><div class="stat-number">${fmt(totalF)} €</div><div class="stat-label">Total financement</div></div></div>
-      <div class="col-md-3"><div class="stat-card"><div class="stat-number">${fmt(capPH)} €</div><div class="stat-label">Capital PH</div></div></div>
-      <div class="col-md-3"><div class="stat-card"><div class="stat-number">${fmt(mensG)} €</div><div class="stat-label">Mensualité globale</div></div></div>
-      <div class="col-md-3"><div class="stat-card"><div class="stat-number">${badgeEndett(te)}</div><div class="stat-label">Taux endettement</div></div></div>
+      <div class="col-md-3"><div class="stat-card"><div class="stat-number">${money(c.totalFin)}</div><div class="stat-label">Total à financer</div></div></div>
+      <div class="col-md-3"><div class="stat-card"><div class="stat-number">${money(c.mensHorsAssur)}</div><div class="stat-label">Mensualité hors assurance</div></div></div>
+      <div class="col-md-3"><div class="stat-card"><div class="stat-number">${money(c.mensTout)}</div><div class="stat-label">Mensualité tout inclus (assurance ${money(c.mensAssur)})</div></div></div>
+      <div class="col-md-3"><div class="stat-card"><div class="stat-number">${badgeEndett(c.te)}</div><div class="stat-label">Taux d'endettement (assurance incluse)</div></div></div>
+      <div class="col-md-3"><div class="stat-card"><div class="stat-number">${money(c.reste)}</div><div class="stat-label">Reste à vivre cumulé</div></div></div>
+      <div class="col-md-3"><div class="stat-card"><div class="stat-number">${c.restePers===null?'N/A':money(c.restePers)}</div><div class="stat-label">Reste à vivre / personne (${c.nbPers})</div></div></div>
+      <div class="col-md-6"><div class="stat-card" style="border-left-color:#1B6234"><div class="stat-number">${money(c.coutCredit)}</div><div class="stat-label">Coût total du crédit (intérêts ${money(c.interets)} + assurances ${money(c.totAssur)} + frais de dossier ${money(c.fraisDossier)} + garantie ${money(c.garantie)})</div></div></div>
     </div>
-    <div class="row g-3">
-    <div class="col-md-6"><table class="table table-sm"><tbody>
-      <tr><td>Taux / Durée</td><td>${d.taux_emprunt}% / ${d.duree_emprunt} mois</td></tr>
-      <tr><td>Montant acquisition</td><td>${fmt(d.montant_acquisition)} €</td></tr>
-      <tr><td>Dont mobilier financable</td><td>${fmt(d.dont_mobilier_financable)} €</td></tr>
-      <tr><td>Frais de notaire</td><td>${fmt(d.frais_notaire)} €</td></tr>
-      <tr><td>Frais de dossier</td><td>${fmt(d.frais_dossier)} €</td></tr>
-      ${d.frais_midi_epargne==1?`<tr><td>Frais Midi Épargne</td><td>${fmt(d.montant_midi_epargne)} €</td></tr>`:''}
-      <tr><td>Frais de négociation</td><td>${fmt(d.frais_negociation)} €</td></tr>
-      <tr><td>Frais divers</td><td>${fmt(d.frais_divers)} €</td></tr>
-      <tr><td>Frais d'agence</td><td>${fmt(d.frais_agence)} €</td></tr>
-      <tr><td>TVA financée</td><td>${fmt(d.tva_financee)} €</td></tr>
-      <tr><td>Apport</td><td>${fmt(d.apport)} €</td></tr>
-      <tr><td>Garantie (${d.garantie_type||'—'})</td><td>${fmt(d.garantie_montant)} €</td></tr>
-    </tbody></table></div>
-    <div class="col-md-6">
-      <h6>ADE</h6>
-      ${ade.length?ade.map((a,i)=>`<div class="card mb-2"><div class="card-body p-2">
-        <strong>Assuré ${i+1}</strong><br>
-        Couverture: ${(a.couverture||[]).join(', ')||'—'} | Quotité: ${a.quotite||0}%<br>
-        Type: ${a.type||'—'} | Franchise: ${a.franchise||'—'} | IPP: ${a.ipp||'—'}<br>
-        Coût total: <strong>${fmt(a.cout_total)} €</strong>
-      </div></div>`).join(''):'<p class="text-muted small">Aucune ADE</p>'}
-      ${d.ptz_actif==1?`<div class="alert alert-info py-1 mt-2">PTZ : ${fmt(d.ptz_montant)} € / ${d.ptz_duree} mois → mensualité : ${fmt(getMensPTZ(d))} €</div>`:''}
-      ${d.ecoptz_actif==1?`<div class="alert alert-info py-1">EcoPTZ : ${fmt(d.ecoptz_montant)} € / ${d.ecoptz_duree} mois → mensualité : ${fmt(getMensEcoPTZ(d))} €</div>`:''}
+    <div class="row g-3"><div class="col-md-5"><table class="table table-sm"><tbody>
+      <tr><td>Apport</td><td>${money(num(d.apport))}</td></tr>
+      <tr><td>Frais de garantie (${escapeHtml(d.garantie_type||'—')})</td><td>${money(num(d.garantie_montant))}</td></tr>
+      ${d.frais_midi_epargne==1?`<tr><td>Frais Midi Épargne</td><td>${money(num(d.montant_midi_epargne))}</td></tr>`:''}
+      <tr><td>TVA financée</td><td>${money(num(d.tva_financee))}</td></tr>
+      <tr><td>Reste à financer</td><td>${money(c.resteAFin)}</td></tr>
+      ${d.doublissimo==1?'<tr><td>Doublissimo</td><td>Oui</td></tr>':''}
+    </tbody></table>
+    ${d.ptz_actif==1?`<div class="alert alert-info py-1">PTZ : ${money(num(d.ptz_montant))} / ${d.ptz_duree} mois → mensualité : ${money(c.mensPTZ)}</div>`:''}
+    ${d.ecoptz_actif==1?`<div class="alert alert-info py-1">EcoPTZ : ${money(num(d.ecoptz_montant))} / ${d.ecoptz_duree} mois → mensualité : ${money(c.mensEco)}</div>`:''}
+    </div><div class="col-md-7">
+      <h6>Lignes de crédit</h6>
+      <table class="table table-sm table-striped"><thead><tr><th>Ligne</th><th>Montant</th><th>Durée</th><th>Taux</th><th>Frais dossier</th><th>Mensualité</th><th>Intérêts</th></tr></thead><tbody>${lignesRows}</tbody></table>
     </div></div>
-    ${alertEndett(te)}
+    <h6>Assurance emprunteur</h6>
+    ${assRows?`<div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Assuré — ligne</th><th>Taux</th><th>Quotité</th><th>Garanties</th><th>Détail</th><th>Mensualité</th><th>Coût total</th></tr></thead><tbody>${assRows}</tbody></table></div>`:'<p class="text-muted small">Aucune assurance renseignée</p>'}
+    ${alertEndett(c.te)}
   </div>`;
 
   // Tab Gestion Admin
@@ -894,6 +1168,15 @@ function showDetail(id){
     <tr><td>Date de signature possible (AR+11j)</td><td>${fmtD(d.suivi_date_j11)}</td></tr>
     <tr><td>Signature définitive effective</td><td>${fmtD(d.suivi_date_signature_definitive)}</td></tr>
     <tr><td>Versement notaire</td><td>${fmtD(d.suivi_date_versement_notaire)}</td></tr>
+  </tbody></table></div>`;
+
+
+  // Tab MRH
+  const mrhOpts=parseArr(d.mrh_options_json);
+  html+=`<div class="tab-pane fade" id="dT8"><table class="table table-sm"><tbody>
+    <tr><td>Montant du devis</td><td>${d.mrh_montant_devis?money(num(d.mrh_montant_devis)):'—'}</td></tr>
+    <tr><td>Formule choisie</td><td>${escapeHtml(d.mrh_formule||'—')}</td></tr>
+    <tr><td>Options choisies</td><td>${mrhOpts.length?'<ul class="mb-0 ps-3">'+mrhOpts.map(o=>`<li>${escapeHtml(o)}</li>`).join('')+'</ul>':'—'}</td></tr>
   </tbody></table></div>`;
 
   // Tab Notes
@@ -964,58 +1247,85 @@ function deleteNote(nid,dossierId,px){
     .then(r=>r.json()).then(res=>{if(res.success) loadNotes(dossierId,px);});
 }
 
+
 // ── AMORTISSEMENT ─────────────────────────────────────────────────────────────
+// Échéancier cumulé de toutes les lignes (crédits, PTZ, EcoPTZ) avec cotisation d'assurance
+function allScheduleLines(d){
+  const c=computeAll(d);
+  const lines=c.lignes.map((l,i)=>({label:l.libelle||('Ligne '+(i+1)),s:c.sch[i],ligneIdx:i,montant:num(l.montant)}));
+  if(d.ptz_actif==1&&num(d.ptz_duree)>0) lines.push({label:'PTZ',s:scheduleLine(num(d.ptz_montant),0,d.ptz_duree),ligneIdx:null,montant:num(d.ptz_montant)});
+  if(d.ecoptz_actif==1&&num(d.ecoptz_duree)>0) lines.push({label:'EcoPTZ',s:scheduleLine(num(d.ecoptz_montant),0,d.ecoptz_duree),ligneIdx:null,montant:num(d.ecoptz_montant)});
+  return {c,lines};
+}
+function assuranceByMonth(d,c,ligneIdx,m){ // cotisation d'assurance du mois m (1..n) pour une ligne
+  return getAssurances(d).reduce((t,a)=>{
+    if((a.ligne??0)!==ligneIdx) return t;
+    const li=c.lignes[ligneIdx], taux=num(a.taux), quot=num(a.quotite)>0?num(a.quotite)/100:1;
+    if(taux>0){
+      if(a.base==='CRD') return t+(c.sch[ligneIdx].rows[m-1]?.crd||0)*quot*taux/100/12;
+      return t+num(li.montant)*quot*taux/100/12;
+    }
+    if(num(a.cout_total)>0&&parseInt(li.duree)>0) return t+num(a.cout_total)/parseInt(li.duree);
+    return t;
+  },0);
+}
 function showAmortissement(id){
   const d=dossiersData.find(x=>x.id==id);
   if(!d) return;
-  const capital=getCapitalPH(d);
-  const taux=parseFloat(d.taux_emprunt||0)/100;
-  const tm=taux/12;
-  const duree=parseInt(d.duree_emprunt||0);
-  if(duree<=0||capital<=0){
+  const {c,lines}=allScheduleLines(d);
+  const nMax=Math.max(0,...lines.map(l=>l.s.rows.length));
+  if(!nMax||c.capital<=0){
     document.getElementById('amortContent').innerHTML='<div class="alert alert-warning">Données insuffisantes.</div>';
     new bootstrap.Modal(document.getElementById('amortModal')).show();return;
   }
-  const mens=tm>0?capital*tm/(1-Math.pow(1+tm,-duree)):capital/duree;
-  let solde=capital,rows='',ti=0,tc=0;
-  for(let m=1;m<=duree;m++){
-    const int=solde*tm;
-    const cap=mens-int;
-    solde=Math.max(0,solde-cap);
-    ti+=int;tc+=cap;
-    rows+=`<tr><td>${m}</td><td>${fmt(mens)}</td><td>${fmt(cap)}</td><td>${fmt(int)}</td><td>${fmt(solde)}</td></tr>`;
+  let rows='',ti=0,tc=0,ta=0,tt=0;
+  for(let m=1;m<=nMax;m++){
+    let cap=0,int=0,mens=0,ass=0,crd=0;
+    lines.forEach(l=>{
+      const r=l.s.rows[m-1]; if(!r) return;
+      cap+=r.capital;int+=r.interet;mens+=l.s.mens;crd+=Math.max(0,r.crd-r.capital);
+      if(l.ligneIdx!==null) ass+=assuranceByMonth(d,c,l.ligneIdx,m);
+    });
+    ti+=int;tc+=cap;ta+=ass;tt+=mens+ass;
+    rows+=`<tr><td>${m}</td><td>${fmt(mens)}</td><td>${fmt(cap)}</td><td>${fmt(int)}</td><td>${fmt(ass)}</td><td>${fmt(mens+ass)}</td><td>${fmt(crd)}</td></tr>`;
   }
   document.getElementById('amortContent').innerHTML=`
     <div class="row g-3 mb-3">
-      <div class="col-md-3"><div class="stat-card"><div class="stat-number">${fmt(capital)} €</div><div class="stat-label">Capital PH emprunté</div></div></div>
-      <div class="col-md-3"><div class="stat-card"><div class="stat-number">${fmt(mens)} €</div><div class="stat-label">Mensualité PH</div></div></div>
+      <div class="col-md-3"><div class="stat-card"><div class="stat-number">${fmt(c.capital+ptzMontant(d)+ecoMontant(d))} €</div><div class="stat-label">Capital emprunté (toutes lignes)</div></div></div>
       <div class="col-md-3"><div class="stat-card"><div class="stat-number">${fmt(ti)} €</div><div class="stat-label">Coût total intérêts</div></div></div>
-      <div class="col-md-3"><div class="stat-card"><div class="stat-number">${fmt(mens*duree)} €</div><div class="stat-label">Coût total crédit</div></div></div>
+      <div class="col-md-3"><div class="stat-card"><div class="stat-number">${fmt(ta)} €</div><div class="stat-label">Coût total assurances</div></div></div>
+      <div class="col-md-3"><div class="stat-card"><div class="stat-number">${fmt(tt)} €</div><div class="stat-label">Total remboursé (assurances incluses)</div></div></div>
     </div>
+    <p class="text-muted small">Lignes prises en compte : ${lines.map(l=>escapeHtml(l.label)).join(', ')}</p>
     <div class="table-responsive" style="max-height:500px;overflow-y:auto">
       <table class="table table-sm table-striped">
-        <thead class="table-dark" style="position:sticky;top:0"><tr><th>Mois</th><th>Mensualité</th><th>Capital</th><th>Intérêts</th><th>Solde restant</th></tr></thead>
+        <thead class="table-dark" style="position:sticky;top:0"><tr><th>Mois</th><th>Mensualité</th><th>Capital</th><th>Intérêts</th><th>Assurance</th><th>Total mois</th><th>Restant dû</th></tr></thead>
         <tbody>${rows}</tbody>
-        <tfoot class="table-secondary"><tr><td><strong>Total</strong></td><td><strong>${fmt(mens*duree)}</strong></td><td><strong>${fmt(tc)}</strong></td><td><strong>${fmt(ti)}</strong></td><td>—</td></tr></tfoot>
+        <tfoot class="table-secondary"><tr><td><strong>Total</strong></td><td>—</td><td><strong>${fmt(tc)}</strong></td><td><strong>${fmt(ti)}</strong></td><td><strong>${fmt(ta)}</strong></td><td><strong>${fmt(tt)}</strong></td><td>—</td></tr></tfoot>
       </table>
     </div>`;
   new bootstrap.Modal(document.getElementById('amortModal')).show();
 }
 
-// ── SIMULATION ────────────────────────────────────────────────────────────────
+// ── SIMULATION « ET SI… » (porte sur la première ligne de crédit) ─────────────
+function simDossier(d,taux,duree,ra){
+  const lignes=getLignes(d).map(l=>({...l}));
+  lignes[0]={...lignes[0],taux,duree,montant:Math.max(0,num(lignes[0].montant)-ra)};
+  return {...d,lignes_credit_json:JSON.stringify(lignes)};
+}
 function showSimulation(id){
   const d=dossiersData.find(x=>x.id==id);
   if(!d) return;
-  const cap=getCapitalPH(d);
+  const l0=getLignes(d)[0];
   document.getElementById('simulContent').innerHTML=`
-    <h6>${escapeHtml(d.numero_personne)} — Capital PH : ${fmt(cap)} €</h6>
+    <h6>${escapeHtml(d.numero_personne)} — simulation sur « ${escapeHtml(l0.libelle||'Ligne 1')} » (${fmt(l0.montant)} €)</h6>
     <div class="row g-3 mb-3">
       <div class="col-md-4"><label class="form-label">Taux (%)</label>
-        <input type="range" class="form-range" id="simTaux" min="0" max="8" step="0.1" value="${d.taux_emprunt||0}" oninput="updateSim(${id})">
-        <div class="text-center fw-bold" id="simTauxVal">${d.taux_emprunt||0}%</div></div>
+        <input type="range" class="form-range" id="simTaux" min="0" max="8" step="0.1" value="${num(l0.taux)}" oninput="updateSim(${id})">
+        <div class="text-center fw-bold" id="simTauxVal">${num(l0.taux)} %</div></div>
       <div class="col-md-4"><label class="form-label">Durée (mois)</label>
-        <input type="range" class="form-range" id="simDuree" min="60" max="360" step="12" value="${d.duree_emprunt||0}" oninput="updateSim(${id})">
-        <div class="text-center fw-bold" id="simDureeVal">${d.duree_emprunt||0} mois</div></div>
+        <input type="range" class="form-range" id="simDuree" min="60" max="360" step="12" value="${parseInt(l0.duree)||0}" oninput="updateSim(${id})">
+        <div class="text-center fw-bold" id="simDureeVal">${parseInt(l0.duree)||0} mois</div></div>
       <div class="col-md-4"><label class="form-label">Remboursement anticipé (€)</label>
         <input type="number" class="form-control" id="simRa" value="0" step="1000" oninput="updateSim(${id})"></div>
     </div>
@@ -1026,30 +1336,26 @@ function showSimulation(id){
 }
 function updateSim(id){
   const d=dossiersData.find(x=>x.id==id);
-  const cap=getCapitalPH(d)-parseFloat(document.getElementById('simRa')?.value||0);
-  const taux=parseFloat(document.getElementById('simTaux')?.value||0);
-  const duree=parseInt(document.getElementById('simDuree')?.value||0);
-  document.getElementById('simTauxVal').textContent=taux+'%';
+  const ra=num(document.getElementById('simRa')?.value);
+  const taux=num(document.getElementById('simTaux')?.value);
+  const duree=parseInt(document.getElementById('simDuree')?.value)||0;
+  document.getElementById('simTauxVal').textContent=taux+' %';
   document.getElementById('simDureeVal').textContent=duree+' mois ('+Math.round(duree/12)+' ans)';
-  const mens=calcMensualite(Math.max(0,cap),taux,duree);
-  const fakeD={...d,taux_emprunt:taux,duree_emprunt:duree};
-  const te=calcTauxEndett({...fakeD,revenus_json:d.revenus_json,charges_json:d.charges_json});
-  const origMens=calcMensualite(getCapitalPH(d),parseFloat(d.taux_emprunt||0),parseInt(d.duree_emprunt||0));
-  const diff=mens-origMens;
+  const base=computeAll(d), sim=computeAll(simDossier(d,taux,duree,ra));
+  const diff=sim.mensTout-base.mensTout;
   document.getElementById('simResults').innerHTML=`
     <div class="row g-3">
-      <div class="col-md-3"><div class="stat-card"><div class="stat-number">${fmt(mens)} €</div><div class="stat-label">Mensualité PH</div></div></div>
-      <div class="col-md-3"><div class="stat-card"><div class="stat-number">${fmt(mens*duree-Math.max(0,cap))} €</div><div class="stat-label">Total intérêts</div></div></div>
-      <div class="col-md-3"><div class="stat-card"><div class="stat-number">${badgeEndett(te)}</div><div class="stat-label">Endettement</div></div></div>
+      <div class="col-md-3"><div class="stat-card"><div class="stat-number">${fmt(sim.mensTout)} €</div><div class="stat-label">Mensualité tout inclus</div></div></div>
+      <div class="col-md-3"><div class="stat-card"><div class="stat-number">${fmt(sim.coutCredit)} €</div><div class="stat-label">Coût total du crédit</div></div></div>
+      <div class="col-md-3"><div class="stat-card"><div class="stat-number">${badgeEndett(sim.te)}</div><div class="stat-label">Endettement</div></div></div>
       <div class="col-md-3"><div class="stat-card"><div class="stat-number" style="color:${diff>0?'#dc3545':'#28a745'}">${diff>0?'+':''}${fmt(diff)} €</div><div class="stat-label">Diff. mensualité</div></div></div>
-    </div>${alertEndett(te)}`;
+    </div>${alertEndett(sim.te)}`;
   let rows='';
-  for(let t=taux;t<=taux+2;t+=0.5){
-    const m=calcMensualite(Math.max(0,cap),t,duree);
-    const te2=calcTauxEndett({...fakeD,taux_emprunt:t});
-    rows+=`<tr><td>${t.toFixed(1)}%</td><td>${fmt(m)} €</td><td>${fmt(m*duree)} €</td><td>${badgeEndett(te2)}</td></tr>`;
+  for(let t=taux;t<=taux+2.001;t+=0.5){
+    const s=computeAll(simDossier(d,t,duree,ra));
+    rows+=`<tr><td>${t.toFixed(1)} %</td><td>${fmt(s.mensTout)} €</td><td>${fmt(s.coutCredit)} €</td><td>${badgeEndett(s.te)}</td></tr>`;
   }
-  document.getElementById('simTable').innerHTML=`<table class="table table-sm table-striped"><thead><tr><th>Taux</th><th>Mensualité</th><th>Coût total</th><th>Endettement</th></tr></thead><tbody>${rows}</tbody></table>`;
+  document.getElementById('simTable').innerHTML=`<table class="table table-sm table-striped"><thead><tr><th>Taux</th><th>Mensualité tout inclus</th><th>Coût total crédit</th><th>Endettement</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 // ── COMPARAISON ───────────────────────────────────────────────────────────────
@@ -1057,7 +1363,7 @@ function showCompareSelect(){
   if(dossiersData.length<2){alert('Il faut au moins 2 dossiers.');return;}
   document.getElementById('compareContent').innerHTML=`
     <p>Sélectionnez les dossiers à comparer :</p>
-    ${dossiersData.map(d=>`<div class="form-check"><input class="form-check-input compare-chk" type="checkbox" value="${d.id}"><label class="form-check-label">${escapeHtml(d.numero_personne)} — ${fmt(d.montant_acquisition)} € @ ${d.taux_emprunt}% / ${d.duree_emprunt} mois</label></div>`).join('')}
+    ${dossiersData.map(d=>`<div class="form-check"><input class="form-check-input compare-chk" type="checkbox" value="${d.id}"><label class="form-check-label">${escapeHtml(d.numero_personne)} — ${fmt(computeAll(d).capital)} € empruntés</label></div>`).join('')}
     <button class="btn btn-ce mt-3" onclick="runComparison()"><i class="fas fa-balance-scale"></i> Comparer</button>
     <div id="compareResults" class="mt-3"></div>`;
   new bootstrap.Modal(document.getElementById('compareModal')).show();
@@ -1066,27 +1372,24 @@ function runComparison(){
   const ids=Array.from(document.querySelectorAll('.compare-chk:checked')).map(c=>parseInt(c.value));
   if(ids.length<2){alert('Sélectionnez au moins 2 dossiers.');return;}
   const ds=ids.map(id=>dossiersData.find(d=>d.id==id)).filter(Boolean);
+  const cs=ds.map(computeAll);
   const headers='<th>Critère</th>'+ds.map(d=>`<th>${escapeHtml(d.numero_personne)}</th>`).join('');
   function row(label,vals,hi){
-    const nums=vals.map(v=>typeof v==='number'?v:0);
-    const best=hi==='min'?Math.min(...nums):hi==='max'?Math.max(...nums):null;
-    return `<tr><td><strong>${label}</strong></td>${vals.map((v,i)=>`<td${best!==null&&nums[i]===best?' class="table-success"':''}>${typeof v==='number'?fmt(v)+' €':v}</td>`).join('')}</tr>`;
+    const best=hi==='min'?Math.min(...vals):hi==='max'?Math.max(...vals):null;
+    return `<tr><td><strong>${label}</strong></td>${vals.map(v=>`<td${best!==null&&v===best?' class="table-success"':''}>${fmt(v)} €</td>`).join('')}</tr>`;
   }
-  const data=ds.map(d=>({
-    cap:getCapitalPH(d),mens:getMensGlobale(d),
-    ti:calcMensualite(getCapitalPH(d),parseFloat(d.taux_emprunt||0),parseInt(d.duree_emprunt||0))*parseInt(d.duree_emprunt||0)-getCapitalPH(d),
-    te:calcTauxEndett(d)
-  }));
   document.getElementById('compareResults').innerHTML=`
     <table class="table table-sm table-bordered">
       <thead class="table-dark"><tr>${headers}</tr></thead>
       <tbody>
-        ${row('Capital PH',data.map(r=>r.cap),null)}
-        <tr><td><strong>Taux</strong></td>${ds.map(d=>`<td>${d.taux_emprunt}%</td>`).join('')}</tr>
-        <tr><td><strong>Durée</strong></td>${ds.map(d=>`<td>${d.duree_emprunt} mois</td>`).join('')}</tr>
-        ${row('Mensualité globale',data.map(r=>r.mens),'min')}
-        ${row('Total intérêts PH',data.map(r=>r.ti),'min')}
-        <tr><td><strong>Endettement</strong></td>${data.map(r=>`<td>${badgeEndett(r.te)}</td>`).join('')}</tr>
+        ${row('Capital emprunté',cs.map(c=>c.capital),null)}
+        <tr><td><strong>Lignes de crédit</strong></td>${cs.map(c=>`<td>${c.lignes.length}</td>`).join('')}</tr>
+        ${row('Mensualité hors assurance',cs.map(c=>c.mensHorsAssur),'min')}
+        ${row('Mensualité tout inclus',cs.map(c=>c.mensTout),'min')}
+        ${row('Total intérêts',cs.map(c=>c.interets),'min')}
+        ${row('Coût total du crédit',cs.map(c=>c.coutCredit),'min')}
+        ${row('Reste à vivre cumulé',cs.map(c=>c.reste),'max')}
+        <tr><td><strong>Endettement</strong></td>${cs.map(c=>`<td>${badgeEndett(c.te)}</td>`).join('')}</tr>
       </tbody>
     </table>`;
 }
@@ -1095,23 +1398,13 @@ function runComparison(){
 function printDossier(id){
   const d=dossiersData.find(x=>x.id==id);
   if(!d) return;
-  const totalF=getTotalFinancement(d);
-  const capPH=getCapitalPH(d);
-  const mensPH=calcMensualite(capPH,parseFloat(d.taux_emprunt||0),parseInt(d.duree_emprunt||0));
-  const mensPTZ=getMensPTZ(d);
-  const mensEco=getMensEcoPTZ(d);
-  const mensG=mensPH+mensPTZ+mensEco;
-  const te=calcTauxEndett(d);
-  const rev=calcRevenus(d.revenus_json);
-  const charges=calcChargesConservees(d.charges_json);
-  const revenus=parseJ(d.revenus_json);
-  const chargesArr=parseJ(d.charges_json);
-  const epargne=parseJ(d.epargne_json);
-  const ade=parseJ(d.ade_json);
+  const c=computeAll(d);
   const wfLabel=(workflowLabels[d.workflow_status]||['—'])[0];
-  const teClass=te===null?'pr-kpi-ok':te<=33?'pr-kpi-ok':te<=35?'pr-kpi-warn':'pr-kpi-danger';
+  const teClass=c.te===null?'pr-kpi-ok':c.te<=33?'pr-kpi-ok':c.te<=35?'pr-kpi-warn':'pr-kpi-danger';
   const p=(l,v)=>`<tr><td class="lbl">${l}</td><td class="val">${v}</td></tr>`;
-  const occMap={PROPRIETAIRE:'Propriétaire',LOCATAIRE_HLM:'Locataire HLM',AUTRE_LOCATAIRE:'Autre locataire',LOGE_GRATUIT:'Logé à titre gratuit'};
+  const m=v=>fmt(v)+' €';
+  const ages=parseArr(d.enfants_ages_json).filter(a=>a!==null&&a!=='');
+  const bd=e=>`BdF ${e.bdf||'—'} / DRC ${e.drc||'—'} / TopCC ${e.topcc||'—'}`;
 
   document.getElementById('printArea').innerHTML=`<div class="pr-wrap">
   <div class="pr-header">
@@ -1123,53 +1416,68 @@ function printDossier(id){
     <div class="pr-col"><div class="pr-section"><div class="pr-section-title">CLIENT</div><table><tbody>
       ${p('N° personne',escapeHtml(d.numero_personne))}
       ${p('Type client',escapeHtml(d.type_client)||'—')}
-      ${p('BdF / DRC / TopCC',(d.banque_de_france||'—')+' / '+(d.drc||'—')+' / '+(d.topcc||'—'))}
-      ${p('Primo accédant',d.primo_accedant==1?'OUI':d.primo_accedant===0||d.primo_accedant==='0'?'NON':'—')}
-      ${p('Statut occupation',occMap[d.statut_occupation]||d.statut_occupation||'—')}
-      ${p('Foyer / Enfants',(d.nb_personnes_foyer??'—')+' / '+(d.nb_enfants??'—'))}
-      ${p('Usage du bien',(d.usage_bien||'—')+(d.usage_rl_type?' – '+d.usage_rl_type:''))}
-      ${p('Mode occupation',d.mode_occupation||'—')}
+      ${c.emps.map((e,i)=>p('Emprunteur '+(i+1)+(e.nom?' – '+escapeHtml(e.nom):''),bd(e)+' · RFR '+m(num(e.rfr)))).join('')}
+      ${p('RFR cumulé',m(c.rfr))}
+      ${p('Primo accédant',escapeHtml(PRIMO_LABELS[primoStatut(d)]||'—'))}
+      ${p('Statut occupation',escapeHtml(OCC_LABELS[d.statut_occupation]||'—'))}
+      ${p('Foyer / Enfants / Charge supp.',(d.nb_personnes_foyer??'—')+' / '+(d.nb_enfants??'—')+(ages.length?' ('+ages.join(', ')+' ans)':'')+' / '+(d.nb_personnes_charge_supp??'—'))}
+    </tbody></table></div>
+    <div class="pr-section"><div class="pr-section-title">PROJET</div><table><tbody>
+      ${p('Type de projet',escapeHtml(TYPE_PROJET_LABELS[d.type_projet]||'—'))}
+      ${p('Usage / Occupation',escapeHtml((USAGE_LABELS[usageChoice(d)]||'—')+' / '+(MODE_OCC_LABELS[modeOcc(d)]||'—')))}
+      ${p('Bien',escapeHtml([TYPE_ACQ_LABELS[d.type_acquisition],d.type_logement,TYPE_PROP_LABELS[d.type_propriete]].filter(Boolean).join(' · ')||'—'))}
+      ${p('Adresse',escapeHtml(d.adresse_bien||'—'))}
+      ${p('Surface / Logements',(d.surface_habitable?escapeHtml(String(d.surface_habitable))+' m²':'—')+' / '+(d.nb_logements??'—'))}
+      ${p('Fin de construction',fmtD(d.date_fin_construction))}
+      ${p('DPE',d.dpe_etiquette?escapeHtml(d.dpe_etiquette)+(d.dpe_ges?' (GES '+escapeHtml(d.dpe_ges)+')':''):'—')}
     </tbody></table></div></div>
     <div class="pr-col"><div class="pr-section"><div class="pr-section-title">REVENUS / CHARGES</div>
       <table><tbody>
-        ${revenus.map(r=>`${p(escapeHtml(r.intitule)+(r.revenu_futur?' (futur, '+(r.ponderation||100)+'%)':''),fmt(r.montant)+' €'+(r.periodicite==='annuelle'?' /an':' /mois'))}`).join('')}
-        <tr><td class="pr-sub-title" colspan="2">Charges conservées</td></tr>
-        ${chargesArr.filter(c=>!c.non_conserve).map(c=>`${p(escapeHtml(c.intitule),fmt(c.montant)+' €')}`).join('')}
-        ${chargesArr.filter(c=>c.non_conserve).length?`<tr><td class="lbl text-muted" colspan="2">${chargesArr.filter(c=>c.non_conserve).length} charge(s) non conservée(s)</td></tr>`:''}
+        ${c.emps.map((e,i)=>`<tr><td class="pr-sub-title" colspan="2">Emprunteur ${i+1}</td></tr>
+          ${(e.revenus||[]).map(r=>p(escapeHtml(r.intitule)+(r.revenu_futur?' (futur, '+(r.ponderation||100)+'%)':''),fmt(r.montant)+' €'+(r.periodicite==='annuelle'?' /an':' /mois'))).join('')}
+          ${(e.charges||[]).filter(x=>!x.non_conserve).map(x=>p('Charge : '+escapeHtml(x.intitule),m(num(x.montant)))).join('')}`).join('')}
       </tbody></table>
       <div class="pr-kpi-row">
-        <div class="pr-kpi pr-kpi-green"><div class="pr-kpi-val">${fmt(rev)} €</div><div class="pr-kpi-lbl">Revenus effectifs/mois</div></div>
-        <div class="pr-kpi ${teClass}"><div class="pr-kpi-val">${te!==null?parseFloat(te).toFixed(1)+'%':'N/A'}</div><div class="pr-kpi-lbl">Taux d'endettement</div></div>
+        <div class="pr-kpi pr-kpi-green"><div class="pr-kpi-val">${m(c.revenus)}</div><div class="pr-kpi-lbl">Revenus effectifs/mois</div></div>
+        <div class="pr-kpi pr-kpi-green"><div class="pr-kpi-val">${m(c.charges)}</div><div class="pr-kpi-lbl">Charges conservées</div></div>
+      </div>
+      <div class="pr-kpi-row">
+        <div class="pr-kpi ${teClass}"><div class="pr-kpi-val">${pct2(c.te)}</div><div class="pr-kpi-lbl">Taux d'endettement (assurance incluse)</div></div>
+        <div class="pr-kpi pr-kpi-green"><div class="pr-kpi-val">${m(c.reste)}</div><div class="pr-kpi-lbl">Reste à vivre cumulé</div></div>
+        <div class="pr-kpi pr-kpi-green"><div class="pr-kpi-val">${c.restePers===null?'N/A':m(c.restePers)}</div><div class="pr-kpi-lbl">Reste à vivre / pers. (${c.nbPers})</div></div>
       </div>
     </div></div>
   </div>
   <div class="pr-cols">
     <div class="pr-col"><div class="pr-section"><div class="pr-section-title">PLAN DE FINANCEMENT</div><table><tbody>
-      ${p('Montant acquisition',fmt(d.montant_acquisition)+' €')}
-      ${d.dont_mobilier_financable>0?p('Dont mobilier financable',fmt(d.dont_mobilier_financable)+' €'):''}
-      ${p('Frais de notaire',fmt(d.frais_notaire)+' €')}
-      ${p('Frais de dossier',fmt(d.frais_dossier)+' €')}
-      ${d.frais_midi_epargne==1?p('Frais Midi Épargne',fmt(d.montant_midi_epargne)+' €'):''}
-      ${parseFloat(d.frais_negociation)>0?p('Frais de négociation',fmt(d.frais_negociation)+' €'):''}
-      ${parseFloat(d.frais_divers)>0?p('Frais divers',fmt(d.frais_divers)+' €'):''}
-      ${parseFloat(d.frais_agence)>0?p("Frais d'agence",fmt(d.frais_agence)+' €'):''}
-      ${parseFloat(d.tva_financee)>0?p('TVA financée',fmt(d.tva_financee)+' €'):''}
-      ${p('Garantie '+(d.garantie_type||'—'),fmt(d.garantie_montant)+' €')}
-      ${p('Apport',fmt(d.apport)+' €')}
+      ${p('Acquisition',m(num(d.montant_acquisition)))}
+      ${num(d.dont_mobilier_financable)>0?p('Dont mobilier financable',m(num(d.dont_mobilier_financable))):''}
+      ${p('Frais de notaire',m(num(d.frais_notaire)))}
+      ${num(d.frais_negociation)+num(d.frais_agence)>0?p('Frais de négociation',m(num(d.frais_negociation)+num(d.frais_agence))):''}
+      ${num(d.frais_divers)>0?p('Frais divers',m(num(d.frais_divers))):''}
+      ${d.frais_midi_epargne==1?p('Frais Midi Épargne',m(num(d.montant_midi_epargne))):''}
+      ${num(d.tva_financee)>0?p('TVA financée',m(num(d.tva_financee))):''}
+      ${p('Garantie '+escapeHtml(d.garantie_type||'—'),m(num(d.garantie_montant)))}
+      ${p('Frais de dossier',m(c.fraisDossier))}
+      ${p('Apport',m(num(d.apport)))}
     </tbody></table>
     <div class="pr-kpi-row">
-      <div class="pr-kpi pr-kpi-green"><div class="pr-kpi-val">${fmt(totalF)} €</div><div class="pr-kpi-lbl">Total à financer</div></div>
-      <div class="pr-kpi pr-kpi-green"><div class="pr-kpi-val">${fmt(capPH)} €</div><div class="pr-kpi-lbl">Capital PH</div></div>
+      <div class="pr-kpi pr-kpi-green"><div class="pr-kpi-val">${m(c.totalFin)}</div><div class="pr-kpi-lbl">Total à financer</div></div>
+      <div class="pr-kpi pr-kpi-green"><div class="pr-kpi-val">${m(c.capital)}</div><div class="pr-kpi-lbl">Capital emprunté</div></div>
     </div></div></div>
     <div class="pr-col"><div class="pr-section"><div class="pr-section-title">CONDITIONS CRÉDIT</div><table><tbody>
-      ${p('Taux / Durée',d.taux_emprunt+'% / '+d.duree_emprunt+' mois')}
-      ${d.ptz_actif==1?p('PTZ',fmt(d.ptz_montant)+' € / '+d.ptz_duree+' mois → '+fmt(mensPTZ)+' €/mois'):''}
-      ${d.ecoptz_actif==1?p('EcoPTZ',fmt(d.ecoptz_montant)+' € / '+d.ecoptz_duree+' mois → '+fmt(mensEco)+' €/mois'):''}
-      ${ade.length?ade.map((a,i)=>p('ADE '+(i+1)+' – '+(a.couverture||[]).join('+')+' '+a.quotite+'%','Coût: '+fmt(a.cout_total)+' €')).join(''):''}
+      ${c.lignes.map((l,i)=>p(escapeHtml(l.libelle||('Ligne '+(i+1)))+(l.doublissimo?' (Doublissimo)':''),m(num(l.montant))+' · '+(parseInt(l.duree)||0)+' m · '+num(l.taux).toFixed(3).replace('.',',')+' % → '+m(c.sch[i].mens)+'/mois')).join('')}
+      ${d.ptz_actif==1?p('PTZ',m(num(d.ptz_montant))+' / '+d.ptz_duree+' mois → '+m(c.mensPTZ)+'/mois'):''}
+      ${d.ecoptz_actif==1?p('EcoPTZ',m(num(d.ecoptz_montant))+' / '+d.ecoptz_duree+' mois → '+m(c.mensEco)+'/mois'):''}
+      ${getAssurances(d).map((a,i)=>p('Assurance '+escapeHtml((c.emps[a.emp??0]?.nom)||('Empr. '+((a.emp??0)+1)))+' / L'+((a.ligne??0)+1)+' ('+escapeHtml((a.couverture||[]).join('+')||'—')+' '+(num(a.quotite)||100)+'%)',(a.taux!==''&&a.taux!=null?num(a.taux).toFixed(3).replace('.',',')+' % → ':'')+m(c.ass[i].monthly)+'/mois')).join('')}
+      ${d.mrh_formule||d.mrh_montant_devis?p('MRH',escapeHtml(d.mrh_formule||'—')+(d.mrh_montant_devis?' · devis '+m(num(d.mrh_montant_devis)):'')):''}
     </tbody></table>
     <div class="pr-kpi-row">
-      <div class="pr-kpi pr-kpi-primary"><div class="pr-kpi-val">${fmt(mensPH)} €</div><div class="pr-kpi-lbl">Mensualité PH</div></div>
-      <div class="pr-kpi pr-kpi-primary"><div class="pr-kpi-val">${fmt(mensG)} €</div><div class="pr-kpi-lbl">Mensualité globale</div></div>
+      <div class="pr-kpi pr-kpi-primary"><div class="pr-kpi-val">${m(c.mensHorsAssur)}</div><div class="pr-kpi-lbl">Mensualité hors assurance</div></div>
+      <div class="pr-kpi pr-kpi-primary"><div class="pr-kpi-val">${m(c.mensTout)}</div><div class="pr-kpi-lbl">Mensualité tout inclus</div></div>
+    </div>
+    <div class="pr-kpi-row">
+      <div class="pr-kpi pr-kpi-green"><div class="pr-kpi-val">${m(c.coutCredit)}</div><div class="pr-kpi-lbl">Coût total du crédit (intérêts ${m(c.interets)}, assurances ${m(c.totAssur)}, frais ${m(c.fraisDossier+c.garantie)})</div></div>
     </div></div></div>
   </div>
   <div class="pr-cols">
