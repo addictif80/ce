@@ -543,7 +543,7 @@ function resultPanelHtml(d,c){
       ${k('Assurance / mois',fmt(c.mensAssur)+' €')}
       ${k('Mensualité tout inclus',`<span class="fs-5">${fmt(c.mensTout)} €</span>`,'border border-primary')}
       ${k("Taux d'endettement (assurance incluse)",badgeEndett(c.te))}
-      ${k('Revenus cumulés / mois',fmt(c.revenus)+' €')}
+      ${k('Revenus cumulés / mois',fmt(c.revenus)+' €'+'<div class="small text-muted">'+c.emps.map((e,i)=>'Emprunteur '+(i+1)+' : '+fmt(sumRevenus(e.revenus))+' €').join(' · ')+'</div>')}
       ${k('Charges conservées',fmt(c.charges)+' €')}
       ${k('Reste à vivre cumulé',`<span class="${c.reste>=0?'text-success':'text-danger'}">${fmt(c.reste)} €</span>`)}
       ${k('Reste à vivre / personne ('+c.nbPers+')',c.restePers===null?'N/A':`<span class="${c.restePers>=0?'text-success':'text-danger'}">${fmt(c.restePers)} €</span>`)}
