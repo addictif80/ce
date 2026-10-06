@@ -212,6 +212,12 @@ function ciCollect($p) {
 
     $emps = json_decode($p['emprunteurs_json'] ?? '[]', true);
     $emps = is_array($emps) ? array_slice(array_values($emps), 0, 2) : [];
+    foreach ($emps as &$em) { // champs texte bornés
+        $em = is_array($em) ? $em : [];
+        $em['num_personne'] = mb_substr(trim((string)($em['num_personne'] ?? '')), 0, 50);
+        $em['nom'] = mb_substr(trim((string)($em['nom'] ?? '')), 0, 100);
+    }
+    unset($em);
     $e1 = $emps[0] ?? [];
     $okko = fn($v) => in_array($v ?? '', ['OK', 'KO'], true) ? $v : null;
 
@@ -367,7 +373,7 @@ $cRefusees = count(array_filter($dossiers, fn($d) => ($d['workflow_status']??'')
     </div>
     <table class="data-table" id="tableDossiers">
         <thead><tr>
-            <th>Date</th><th>N° personne</th><th>Usage</th><th>Capital emprunté</th><th>Lignes</th>
+            <th>Date</th><th>N° dossier</th><th>N° personne emprunteur(s)</th><th>Usage</th><th>Capital emprunté</th><th>Lignes</th>
             <th>Mensualité tout inclus</th><th>Endettement</th><th>Statut</th><th>Actions</th>
         </tr></thead>
         <tbody>
@@ -375,7 +381,8 @@ $cRefusees = count(array_filter($dossiers, fn($d) => ($d['workflow_status']??'')
             $wf=$d['workflow_status']??'etude'; $wfI=$workflowLabels[$wf]??['Inconnu','secondary']; ?>
             <tr>
                 <td><?= formatDate($d['date_ajout']) ?></td>
-                <td><?= e($d['numero_personne']) ?></td>
+                <td><strong><?= e($d['numero_personne']) ?></strong></td>
+                <td id="pers_<?= $d['id'] ?>">—</td>
                 <td id="usg_<?= $d['id'] ?>">—</td>
                 <td id="cap_<?= $d['id'] ?>">—</td>
                 <td id="nl_<?= $d['id'] ?>">—</td>
@@ -443,6 +450,7 @@ $cRefusees = count(array_filter($dossiers, fn($d) => ($d['workflow_status']??'')
 <script>
 const dossiersData   = <?= json_encode(array_values($dossiers)) ?>;
 const workflowLabels = <?= json_encode($workflowLabels) ?>;
+const conseillerData = <?= json_encode(['nom' => $currentUser['nom'] ?? '', 'prenom' => $currentUser['prenom'] ?? '', 'email' => $currentUser['email_pro'] ?? '', 'tel' => $currentUser['tel_pro'] ?? ''], JSON_UNESCAPED_UNICODE) ?>;
 const workflowSteps  = ['etude','dossier_complet','synthese_envoyee','controle','edition_offres','envoi_signature','offre_signee','deblocage','termine'];
 </script>
 <script src="ci.js?v=<?= (int)@filemtime(__DIR__ . '/ci.js') ?>"></script>
@@ -474,7 +482,7 @@ if (openId) {
 .sy-head{display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:2px solid #000;padding-bottom:4px;margin-bottom:5px}
 .sy-logo{height:34px;width:auto}
 .sy-title{flex:1;text-align:center;font-size:13pt;font-weight:700;letter-spacing:.5px}
-.sy-meta{text-align:right;font-size:7.5pt;min-width:90px}
+.sy-meta{text-align:right;font-size:7.5pt;min-width:150px}
 .sy-sec{border:1px solid #000;margin-bottom:5px;page-break-inside:avoid}
 .sy-sec-t{background:#ddd;border-bottom:1px solid #000;font-weight:700;font-size:8pt;padding:1px 5px}
 .sy-body{padding:3px 5px}
@@ -483,6 +491,8 @@ if (openId) {
 .sy-card{border:1px solid #888;padding:2px 5px}
 .sy-card-t{font-weight:700;font-size:8.5pt}
 .sy-small{font-size:7.5pt}
+.sy-normal{font-weight:400;font-size:7.5pt}
+.sy-conseiller{margin-top:2px;padding-top:2px;border-top:1px solid #888;font-size:7pt;line-height:1.25}
 table.sy-t{width:100%;border-collapse:collapse}
 table.sy-t td,table.sy-t th{padding:1px 3px;font-size:7.6pt;vertical-align:top}
 table.sy-t th{text-align:left;border-bottom:1px solid #000;font-weight:700}

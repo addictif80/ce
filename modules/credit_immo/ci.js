@@ -24,7 +24,7 @@ function calcMensualite(capital,tauxAnnuel,duree){
 function getEmprunteurs(d){
   const e=parseArr(d.emprunteurs_json);
   if(e.length) return e.slice(0,2);
-  return [{nom:'',bdf:d.banque_de_france||'',drc:d.drc||'',topcc:d.topcc||'',rfr:'',
+  return [{nom:'',num_personne:d.numero_personne||'',bdf:d.banque_de_france||'',drc:d.drc||'',topcc:d.topcc||'',rfr:'',
     revenus:parseArr(d.revenus_json),charges:parseArr(d.charges_json),epargne:parseArr(d.epargne_json)}];
 }
 function sumRevenus(arr){
@@ -210,6 +210,11 @@ document.addEventListener('DOMContentLoaded',()=>{
     const c=computeAll(d);
     const em=document.getElementById('mens_'+d.id), et=document.getElementById('tend_'+d.id);
     const set=(k,v)=>{const el=document.getElementById(k+'_'+d.id); if(el) el.textContent=v;};
+    const pers=document.getElementById('pers_'+d.id);
+    if(pers){
+      const l=c.emps.filter(x=>x.num_personne).map(x=>escapeHtml(String(x.num_personne))+(x.nom?' <span class="text-muted small">('+escapeHtml(x.nom)+')</span>':''));
+      pers.innerHTML=l.length?l.join('<br>'):'—';
+    }
     set('usg',USAGE_LABELS[usageChoice(d)]||'—'); set('cap',fmt(c.capital)+' €'); set('nl',c.lignes.length);
     if(em) em.textContent=fmt(c.mensTout)+' €';
     if(et) et.innerHTML=badgeEndett(c.te);
@@ -301,8 +306,11 @@ function buildEmprunteurPanel(px,i,e){
       <strong><i class="fas fa-user"></i> Emprunteur ${i+1}</strong>
       ${i>0?`<button type="button" class="btn btn-sm btn-outline-danger" onclick="removeEmprunteur('${px}')"><i class="fas fa-user-minus"></i> Retirer</button>`:''}
     </div><div class="card-body">
+    <div class="row g-2 mb-2">
+      <div class="col-md-3"><label class="form-label small mb-0">N° personne</label><input type="text" class="form-control form-control-sm" data-ef="num_personne" maxlength="50" value="${escapeHtml(e.num_personne||'')}" oninput="onFormChange('${px}')"></div>
+      <div class="col-md-5"><label class="form-label small mb-0">Nom / prénom</label><input type="text" class="form-control form-control-sm" data-ef="nom" value="${escapeHtml(e.nom||'')}" oninput="onFormChange('${px}')"></div>
+    </div>
     <div class="row g-2 mb-3">
-      <div class="col-md-3"><label class="form-label small mb-0">Nom / prénom</label><input type="text" class="form-control form-control-sm" data-ef="nom" value="${escapeHtml(e.nom||'')}" oninput="onFormChange('${px}')"></div>
       ${st('bdf','Interro. Banque de France',e.bdf)}${st('drc','Interro. DRC',e.drc)}${st('topcc','TopCC',e.topcc)}
       <div class="col-md-3"><label class="form-label small mb-0">Revenu fiscal de référence (€)</label><input type="number" step="0.01" min="0" class="form-control form-control-sm" data-ef="rfr" value="${e.rfr??''}" oninput="onFormChange('${px}')"></div>
     </div>
@@ -602,7 +610,7 @@ function buildFormTabs(px,d){
       <!-- ── TAB 1 CLIENT ── -->
       <div class="tab-pane fade show active" id="${px}T1">
         <div class="row g-3 mb-3">
-          <div class="col-md-4"><label class="form-label">N° personne</label><input type="text" name="numero_personne" class="form-control" value="${escapeHtml(d.numero_personne||'')}"></div>
+          <div class="col-md-4"><label class="form-label">N° dossier</label><input type="text" name="numero_personne" class="form-control" value="${escapeHtml(d.numero_personne||'')}"></div>
           <div class="col-md-4"><label class="form-label">Type client</label><select name="type_client" class="form-select">
             ${['Particulier','Pro','Asso'].map(v=>`<option value="${v}" ${(d.type_client||'Particulier')===v?'selected':''}>${v==='Pro'?'Professionnel':v==='Asso'?'Association':v}</option>`).join('')}
           </select></div>
@@ -1103,7 +1111,7 @@ function showDetail(id){
   const rowsT=(arr,cols)=>arr.length?`<table class="table table-sm table-striped mb-2"><tbody>${arr.map(cols).join('')}</tbody></table>`:'<p class="text-muted small mb-2">Aucun élément</p>';
   html+=`<div class="tab-pane fade show active" id="dT1">
     <table class="table table-sm mb-3"><tbody>
-      <tr><td>N° personne</td><td><strong>${escapeHtml(d.numero_personne)}</strong></td></tr>
+      <tr><td>N° dossier</td><td><strong>${escapeHtml(d.numero_personne)}</strong></td></tr>
       <tr><td>Type client</td><td>${escapeHtml(d.type_client)}</td></tr>
       <tr><td>Primo accédant</td><td>${escapeHtml(PRIMO_LABELS[primoStatut(d)]||'—')}</td></tr>
       <tr><td>Statut d'occupation actuel</td><td>${escapeHtml(OCC_LABELS[d.statut_occupation]||'—')}</td></tr>
@@ -1112,7 +1120,7 @@ function showDetail(id){
       <tr><td>Personnes supplémentaires à charge</td><td>${d.nb_personnes_charge_supp??'—'}</td></tr>
       <tr><td>Revenu fiscal de référence cumulé</td><td><strong>${money(c.rfr)}</strong></td></tr>
     </tbody></table>
-    <div class="row g-3">${c.emps.map((e,i)=>`<div class="col-md-6"><div class="card h-100"><div class="card-header"><strong>Emprunteur ${i+1}${e.nom?' — '+escapeHtml(e.nom):''}</strong></div><div class="card-body">
+    <div class="row g-3">${c.emps.map((e,i)=>`<div class="col-md-6"><div class="card h-100"><div class="card-header"><strong>Emprunteur ${i+1}${e.nom?' — '+escapeHtml(e.nom):''}</strong>${e.num_personne?' <span class="text-muted">· N° personne '+escapeHtml(String(e.num_personne))+'</span>':''}</div><div class="card-body">
       <div class="small mb-2">BdF : ${bdge(e.bdf)} · DRC : ${bdge(e.drc)} · TopCC : ${bdge(e.topcc)} · RFR : <strong>${money(num(e.rfr))}</strong></div>
       <h6>Revenus <small class="text-muted">(${money(sumRevenus(e.revenus))}/mois)</small></h6>
       ${rowsT(e.revenus||[],r=>`<tr><td>${escapeHtml(r.intitule)}</td><td>${money(num(r.montant))}${r.periodicite==='annuelle'?' /an':' /mois'}</td><td>${r.revenu_futur?'Futur '+(r.ponderation||100)+'%':''}</td></tr>`)}
@@ -1486,9 +1494,9 @@ function printDossier(id){
   </div>
   <div class="pr-cols">
     <div class="pr-col"><div class="pr-section"><div class="pr-section-title">CLIENT</div><table><tbody>
-      ${p('N° personne',escapeHtml(d.numero_personne))}
+      ${p('N° dossier',escapeHtml(d.numero_personne))}
       ${p('Type client',escapeHtml(d.type_client)||'—')}
-      ${c.emps.map((e,i)=>p('Emprunteur '+(i+1)+(e.nom?' – '+escapeHtml(e.nom):''),bd(e)+' · RFR '+m(num(e.rfr)))).join('')}
+      ${c.emps.map((e,i)=>p('Emprunteur '+(i+1)+(e.nom?' – '+escapeHtml(e.nom):'')+(e.num_personne?' (n° '+escapeHtml(String(e.num_personne))+')':''),bd(e)+' · RFR '+m(num(e.rfr)))).join('')}
       ${p('RFR cumulé',m(c.rfr))}
       ${p('Primo accédant',escapeHtml(PRIMO_LABELS[primoStatut(d)]||'—'))}
       ${p('Statut occupation',escapeHtml(OCC_LABELS[d.statut_occupation]||'—'))}
@@ -1587,6 +1595,16 @@ function printWhenReady(){
     img.onload=img.onerror=go; setTimeout(go,2500);
   } else window.print();
 }
+// Conseiller (propriétaire du dossier = utilisateur connecté) : nom, prénom, e-mail, téléphone
+function conseillerTxt(){
+  const c=(typeof conseillerData!=='undefined'&&conseillerData)||{};
+  const ident=[c.prenom,c.nom].filter(Boolean).join(' ');
+  const lignes=[];
+  if(ident) lignes.push('<b>Conseiller :</b> '+escapeHtml(ident));
+  if(c.email) lignes.push(escapeHtml(c.email));
+  if(c.tel) lignes.push(escapeHtml(c.tel));
+  return lignes.join('<br>');
+}
 function printSynthese(id){
   const d=dossiersData.find(x=>x.id==id);
   if(!d) return;
@@ -1602,7 +1620,7 @@ function printSynthese(id){
   const empCard=(em,i)=>{
     const retenues=(em.charges||[]).filter(x=>!x.non_conserve), exclues=(em.charges||[]).filter(x=>x.non_conserve);
     const chargeRows=[...retenues.map(x=>({x,off:false})),...exclues.map(x=>({x,off:true}))];
-    return `<div class="sy-card"><div class="sy-card-t">${e(nomEmp(i))}</div>
+    return `<div class="sy-card"><div class="sy-card-t">${e(nomEmp(i))}${em.num_personne?' <span class="sy-normal">· N° personne '+e(String(em.num_personne))+'</span>':''}</div>
       <div class="sy-small">BdF : ${e(em.bdf||'—')} · DRC : ${e(em.drc||'—')} · TopCC : ${e(em.topcc||'—')}${num(em.rfr)>0?' · RFR : '+mm(em.rfr):''}</div>
       <table class="sy-t"><tbody>
         <tr><td colspan="2" class="sy-sub">Revenus</td></tr>
@@ -1657,7 +1675,8 @@ function printSynthese(id){
     <div class="sy-head">
       <img src="https://www.img.caisse-epargne.fr/app/uploads/sites/16/2021/05/31152836/ce-logo-midi-pyrennees.png" class="sy-logo" alt="Caisse d'Épargne">
       <div class="sy-title">SYNTHÈSE CRÉDIT IMMOBILIER</div>
-      <div class="sy-meta">Dossier N° <b>${e(d.numero_personne)}</b><br>Édité le ${new Date().toLocaleDateString('fr-FR')}</div>
+      <div class="sy-meta">Dossier N° <b>${e(d.numero_personne)}</b><br>Édité le ${new Date().toLocaleDateString('fr-FR')}
+        ${conseillerTxt()?'<div class="sy-conseiller">'+conseillerTxt()+'</div>':''}</div>
     </div>
 
     <div class="sy-sec"><div class="sy-sec-t">1 · EMPRUNTEURS</div><div class="sy-body">
