@@ -449,6 +449,10 @@ function buildAssuranceRow(px,a,ei,li,empLabel,ligneLabel){
       <div class="col-md-2"><label class="form-label small mb-0">IPP</label>${sel('ipp',['33%','66%'],a.ipp)}</div>
     </div></div>`;
 }
+function toutesAssurancesCRD(px){
+  document.querySelectorAll(`#${px}_ade_list [data-af=base]`).forEach(sel=>{sel.value='CRD';});
+  onFormChange(px);
+}
 function readAssurances(px){
   return Array.from(document.querySelectorAll(`#${px}_ade_list .ci-ass`)).map(row=>{
     const g=f=>row.querySelector(`[data-af="${f}"]`);
@@ -686,7 +690,10 @@ function buildFormTabs(px,d){
         <button type="button" class="btn btn-sm btn-outline-primary mb-3" onclick="addLigne('${px}')"><i class="fas fa-plus"></i> Ajouter une ligne de crédit</button>
 
         <hr>
-        <h6>Assurance emprunteur <span class="text-muted small">(une ligne par emprunteur et par ligne de crédit)</span></h6>
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+          <h6 class="mb-0">Assurance emprunteur <span class="text-muted small">(une ligne par emprunteur et par ligne de crédit)</span></h6>
+          <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toutesAssurancesCRD('${px}')" title="Applique la méthode du logiciel de crédit (capital restant dû, mensualité lissée) à toutes les lignes d'assurance"><i class="fas fa-sync-alt"></i> Tout passer en « capital restant dû »</button>
+        </div>
         <div id="${px}_ade_list" class="ci-json-list mb-2"></div>
         <div class="row g-2 align-items-center mb-3"><div class="col-md-5"><label class="form-label small mb-0">Assurance prise en compte dans le TAEG</label>
           <select name="taeg_assurance" class="form-select form-select-sm" onchange="onFormChange('${px}')">
