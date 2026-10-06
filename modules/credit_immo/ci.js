@@ -1474,120 +1474,7 @@ function runComparison(){
     </table>`;
 }
 
-// ── PRINT ─────────────────────────────────────────────────────────────────────
-function printDossier(id){
-  const d=dossiersData.find(x=>x.id==id);
-  if(!d) return;
-  const c=computeAll(d);
-  const wfLabel=(workflowLabels[d.workflow_status]||['—'])[0];
-  const teClass=c.te===null?'pr-kpi-ok':c.te<=33?'pr-kpi-ok':c.te<=35?'pr-kpi-warn':'pr-kpi-danger';
-  const p=(l,v)=>`<tr><td class="lbl">${l}</td><td class="val">${v}</td></tr>`;
-  const m=v=>fmt(v)+' €';
-  const ages=parseArr(d.enfants_ages_json).filter(a=>a!==null&&a!=='');
-  const bd=e=>`BdF ${e.bdf||'—'} / DRC ${e.drc||'—'} / TopCC ${e.topcc||'—'}`;
-
-  document.getElementById('printArea').innerHTML=`<div class="pr-wrap">
-  <div class="pr-header">
-    <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRKmky9-XoScC_uRBERr-pjPJuedYPHmyGh5w&s" class="pr-logo" alt="">
-    <div class="pr-header-center"><div class="pr-title">SYNTHÈSE CRÉDIT IMMOBILIER</div><div class="pr-subtitle">Dossier N° <strong>${escapeHtml(d.numero_personne)}</strong></div></div>
-    <div class="pr-header-right"><div class="pr-date">${new Date().toLocaleDateString('fr-FR')}</div><div class="pr-statut">${wfLabel}</div></div>
-  </div>
-  <div class="pr-cols">
-    <div class="pr-col"><div class="pr-section"><div class="pr-section-title">CLIENT</div><table><tbody>
-      ${p('N° dossier',escapeHtml(d.numero_personne))}
-      ${p('Type client',escapeHtml(d.type_client)||'—')}
-      ${c.emps.map((e,i)=>p('Emprunteur '+(i+1)+(e.nom?' – '+escapeHtml(e.nom):'')+(e.num_personne?' (n° '+escapeHtml(String(e.num_personne))+')':''),bd(e)+' · RFR '+m(num(e.rfr)))).join('')}
-      ${p('RFR cumulé',m(c.rfr))}
-      ${p('Primo accédant',escapeHtml(PRIMO_LABELS[primoStatut(d)]||'—'))}
-      ${p('Statut occupation',escapeHtml(OCC_LABELS[d.statut_occupation]||'—'))}
-      ${p('Foyer / Enfants / Charge supp.',(d.nb_personnes_foyer??'—')+' / '+(d.nb_enfants??'—')+(ages.length?' ('+ages.join(', ')+' ans)':'')+' / '+(d.nb_personnes_charge_supp??'—'))}
-    </tbody></table></div>
-    <div class="pr-section"><div class="pr-section-title">PROJET</div><table><tbody>
-      ${p('Type de projet',escapeHtml(TYPE_PROJET_LABELS[d.type_projet]||'—'))}
-      ${p('Usage / Occupation',escapeHtml((USAGE_LABELS[usageChoice(d)]||'—')+' / '+(MODE_OCC_LABELS[modeOcc(d)]||'—')))}
-      ${p('Bien',escapeHtml([TYPE_ACQ_LABELS[d.type_acquisition],d.type_logement,TYPE_PROP_LABELS[d.type_propriete]].filter(Boolean).join(' · ')||'—'))}
-      ${p('Adresse',escapeHtml(d.adresse_bien||'—'))}
-      ${p('Surface / Logements',(d.surface_habitable?escapeHtml(String(d.surface_habitable))+' m²':'—')+' / '+(d.nb_logements??'—'))}
-      ${p('Fin de construction',fmtD(d.date_fin_construction))}
-      ${p('DPE',d.dpe_etiquette?escapeHtml(d.dpe_etiquette)+(d.dpe_ges?' (GES '+escapeHtml(d.dpe_ges)+')':''):'—')}
-    </tbody></table></div></div>
-    <div class="pr-col"><div class="pr-section"><div class="pr-section-title">REVENUS / CHARGES</div>
-      <table><tbody>
-        ${c.emps.map((e,i)=>`<tr><td class="pr-sub-title" colspan="2">Emprunteur ${i+1}</td></tr>
-          ${(e.revenus||[]).map(r=>p(escapeHtml(r.intitule)+(r.revenu_futur?' (futur, '+(r.ponderation||100)+'%)':''),fmt(r.montant)+' €'+(r.periodicite==='annuelle'?' /an':' /mois'))).join('')}
-          ${(e.charges||[]).filter(x=>!x.non_conserve).map(x=>p('Charge : '+escapeHtml(x.intitule),m(num(x.montant)))).join('')}`).join('')}
-      </tbody></table>
-      <div class="pr-kpi-row">
-        <div class="pr-kpi pr-kpi-green"><div class="pr-kpi-val">${m(c.revenus)}</div><div class="pr-kpi-lbl">Revenus effectifs/mois</div></div>
-        <div class="pr-kpi pr-kpi-green"><div class="pr-kpi-val">${m(c.charges)}</div><div class="pr-kpi-lbl">Charges conservées</div></div>
-      </div>
-      <div class="pr-kpi-row">
-        <div class="pr-kpi ${teClass}"><div class="pr-kpi-val">${pct2(c.te)}</div><div class="pr-kpi-lbl">Taux d'endettement (assurance incluse)</div></div>
-        <div class="pr-kpi pr-kpi-green"><div class="pr-kpi-val">${m(c.reste)}</div><div class="pr-kpi-lbl">Reste à vivre cumulé</div></div>
-        <div class="pr-kpi pr-kpi-green"><div class="pr-kpi-val">${c.restePers===null?'N/A':m(c.restePers)}</div><div class="pr-kpi-lbl">Reste à vivre / pers. (${c.nbPers})</div></div>
-      </div>
-    </div></div>
-  </div>
-  <div class="pr-cols">
-    <div class="pr-col"><div class="pr-section"><div class="pr-section-title">PLAN DE FINANCEMENT</div><table><tbody>
-      ${p('Acquisition',m(num(d.montant_acquisition)))}
-      ${num(d.dont_mobilier_financable)>0?p('Dont mobilier financable',m(num(d.dont_mobilier_financable))):''}
-      ${p('Frais de notaire',m(num(d.frais_notaire)))}
-      ${num(d.frais_negociation)+num(d.frais_agence)>0?p('Frais de négociation',m(num(d.frais_negociation)+num(d.frais_agence))):''}
-      ${num(d.frais_divers)>0?p('Frais divers',m(num(d.frais_divers))):''}
-      ${d.frais_midi_epargne==1?p('Frais Midi Épargne',m(num(d.montant_midi_epargne))):''}
-      ${num(d.tva_financee)>0?p('TVA financée',m(num(d.tva_financee))):''}
-      ${p('Garantie '+escapeHtml(d.garantie_type||'—'),m(num(d.garantie_montant)))}
-      ${p('Frais de dossier',m(c.fraisDossier))}
-      ${p('Apport',m(num(d.apport)))}
-    </tbody></table>
-    <div class="pr-kpi-row">
-      <div class="pr-kpi pr-kpi-green"><div class="pr-kpi-val">${m(c.totalFin)}</div><div class="pr-kpi-lbl">Total à financer</div></div>
-      <div class="pr-kpi pr-kpi-green"><div class="pr-kpi-val">${m(c.capital)}</div><div class="pr-kpi-lbl">Capital emprunté</div></div>
-    </div></div></div>
-    <div class="pr-col"><div class="pr-section"><div class="pr-section-title">CONDITIONS CRÉDIT</div><table><tbody>
-      ${c.lignes.map((l,i)=>p(escapeHtml(l.libelle||('Ligne '+(i+1)))+(l.doublissimo?' (Doublissimo)':''),m(num(l.montant))+' · '+(parseInt(l.duree)||0)+' m · '+num(l.taux).toFixed(3).replace('.',',')+' % → '+m(c.sch[i].mens)+'/mois · TAEG '+taegTxt(c.taegLignes[i]))).join('')}
-      ${d.ptz_actif==1?p('PTZ',m(num(d.ptz_montant))+' / '+d.ptz_duree+' mois → '+m(c.mensPTZ)+'/mois'):''}
-      ${d.ecoptz_actif==1?p('EcoPTZ',m(num(d.ecoptz_montant))+' / '+d.ecoptz_duree+' mois → '+m(c.mensEco)+'/mois'):''}
-      ${getAssurances(d).map((a,i)=>p('Assurance '+escapeHtml((c.emps[a.emp??0]?.nom)||('Empr. '+((a.emp??0)+1)))+' / L'+((a.ligne??0)+1)+' ('+escapeHtml((a.couverture||[]).join('+')||'—')+' '+(num(a.quotite)||100)+'%)',(a.taux!==''&&a.taux!=null?num(a.taux).toFixed(3).replace('.',',')+' % → ':'')+m(c.ass[i].monthly)+'/mois')).join('')}
-      ${d.mrh_formule||d.mrh_montant_devis?p('MRH',escapeHtml(d.mrh_formule||'—')+(d.mrh_montant_devis?' · devis '+m(num(d.mrh_montant_devis)):'')):''}
-    </tbody></table>
-    <div class="pr-kpi-row">
-      <div class="pr-kpi pr-kpi-primary"><div class="pr-kpi-val">${m(c.mensHorsAssur)}</div><div class="pr-kpi-lbl">Mensualité hors assurance</div></div>
-      <div class="pr-kpi pr-kpi-primary"><div class="pr-kpi-val">${m(c.mensTout)}</div><div class="pr-kpi-lbl">Mensualité tout inclus</div></div>
-    </div>
-    <div class="pr-kpi-row">
-      <div class="pr-kpi pr-kpi-primary"><div class="pr-kpi-val">${taegTxt(c.taegGlobal)}</div><div class="pr-kpi-lbl">TAEG global</div></div>
-      <div class="pr-kpi pr-kpi-green"><div class="pr-kpi-val">${m(c.coutCredit)}</div><div class="pr-kpi-lbl">Coût total du crédit (intérêts ${m(c.interets)}, assurances ${m(c.totAssur)}, frais ${m(c.fraisDossier+c.garantie)})</div></div>
-    </div></div></div>
-  </div>
-  <div class="pr-cols">
-    <div class="pr-col"><div class="pr-section"><div class="pr-section-title">GESTION ADMINISTRATIVE</div><table><tbody>
-      <tr><td colspan="2" class="pr-sub-title">ADE</td></tr>
-      ${p('Envoyée le',fmtD(d.ade_envoyee_le))}${p('Retour',fmtD(d.ade_retour_le))}${p('Réponse',d.ade_reponse||'—')}
-      ${d.garantie_type==='CEGC'?`<tr><td colspan="2" class="pr-sub-title">CEGC</td></tr>${p('Envoyée le',fmtD(d.suivi_date_demande_cegc))}${p('Retour',fmtD(d.suivi_date_retour_cegc))}${p('Réponse',d.suivi_cegc_accord==1?'ACCORD':d.suivi_cegc_refus==1?'REFUS':'—')}`:''}
-      ${p('Date prélèvement',fmtD(d.date_prelevement))}
-      ${p('Notaire',escapeHtml(d.notaire_nom||'—'))}
-      ${p('Signature notaire (prévis.)',fmtD(d.date_signature_notaire_prev))}
-    </tbody></table></div></div>
-    <div class="pr-col"><div class="pr-section"><div class="pr-section-title">SUIVI & SIGNATURE</div><table><tbody>
-      ${p('Édition liasse',fmtD(d.suivi_date_edition_liasse))}
-      ${p('Envoi conformité',fmtD(d.suivi_date_envoi_conformite))}
-      ${p('Retour conformité',fmtD(d.suivi_date_retour_conformite))}
-      ${p('Résultat conformité',d.suivi_conformite_reponse||'—')}
-      ${p('Édition offres',fmtD(d.suivi_date_edition_offres_dt))}
-      ${p('Accusé de réception',fmtD(d.suivi_date_accuse_reception))}
-      ${p('Date signature possible',fmtD(d.suivi_date_j11))}
-      ${p('Signature définitive',fmtD(d.suivi_date_signature_definitive))}
-      ${p('Versement notaire',fmtD(d.suivi_date_versement_notaire))}
-    </tbody></table></div></div>
-  </div>
-  <div class="pr-footer">Document confidentiel — Caisse d'Épargne — ${new Date().toLocaleDateString('fr-FR')}</div>
-</div>`;
-  window.print();
-}
-
-// ── FICHE SYNTHÈSE (1 page A4, noir et blanc, à agrafer sur la sous-chemise) ────
+// ── IMPRESSIONS (fiche synthèse et dossier complet : 1 page A4, noir et blanc) ───
 function printWhenReady(){
   const img=document.querySelector('#printArea img');
   if(img&&!img.complete){
@@ -1596,91 +1483,110 @@ function printWhenReady(){
   } else window.print();
 }
 // Conseiller (propriétaire du dossier = utilisateur connecté) : nom, prénom, e-mail, téléphone
-function conseillerTxt(){
+function conseillerParts(){
   const c=(typeof conseillerData!=='undefined'&&conseillerData)||{};
-  const ident=[c.prenom,c.nom].filter(Boolean).join(' ');
-  const lignes=[];
-  if(ident) lignes.push('<b>Conseiller :</b> '+escapeHtml(ident));
-  if(c.email) lignes.push(escapeHtml(c.email));
-  if(c.tel) lignes.push(escapeHtml(c.tel));
-  return lignes.join('<br>');
+  return {ident:[c.prenom,c.nom].filter(Boolean).join(' '),email:c.email||'',tel:c.tel||''};
 }
-function printSynthese(id){
-  const d=dossiersData.find(x=>x.id==id);
-  if(!d) return;
-  const c=computeAll(d);
+function conseillerTxt(){
+  const c=conseillerParts(), l=[];
+  if(c.ident) l.push('<b>Conseiller :</b> '+escapeHtml(c.ident));
+  if(c.email) l.push(escapeHtml(c.email));
+  if(c.tel) l.push(escapeHtml(c.tel));
+  return l.join('<br>');
+}
+const LOGO_CE='https://www.img.caisse-epargne.fr/app/uploads/sites/16/2021/05/31152836/ce-logo-midi-pyrennees.png';
+
+// Blocs communs aux deux impressions (listes bornées : « + n autres » pour toujours tenir sur une page)
+function ficheKit(d){
+  const c=computeAll(d), e=escapeHtml;
   const mm=v=>{const x=num(v);return (Number.isInteger(x)?x.toLocaleString('fr-FR'):fmt(x))+' €';}; // montants ronds sans décimales
-  const e=escapeHtml;
-  // Listes bornées pour que la fiche tienne toujours sur une page
   const cap=(arr,n,row,label,cols)=>arr.slice(0,n).map(row).join('')+(arr.length>n?`<tr><td colspan="${cols||2}" class="sy-grey">… + ${arr.length-n} ${label}</td></tr>`:'');
   const ages=parseArr(d.enfants_ages_json).filter(a=>a!==null&&a!=='');
-  const nomEmp=(i)=>(c.emps[i]&&c.emps[i].nom)?c.emps[i].nom:('Emprunteur '+(i+1));
-  const ligneNom=(i)=>(c.lignes[i]&&c.lignes[i].libelle)?c.lignes[i].libelle:('Ligne '+(i+1));
+  const nomEmp=i=>(c.emps[i]&&c.emps[i].nom)?c.emps[i].nom:('Emprunteur '+(i+1));
+  const ligneNom=i=>(c.lignes[i]&&c.lignes[i].libelle)?c.lignes[i].libelle:('Ligne '+(i+1));
+  const foyerN=(d.nb_personnes_foyer!==null&&d.nb_personnes_foyer!==undefined&&d.nb_personnes_foyer!=='')?d.nb_personnes_foyer:c.nbPers;
+  const taux2=t=>num(t).toFixed(2).replace('.',',')+' %';
 
-  const empCard=(em,i)=>{
-    const retenues=(em.charges||[]).filter(x=>!x.non_conserve), exclues=(em.charges||[]).filter(x=>x.non_conserve);
-    const chargeRows=[...retenues.map(x=>({x,off:false})),...exclues.map(x=>({x,off:true}))];
+  // lim = {rev,chg,epa} : nombre maximal de lignes affichées (epa = 0 : épargne non affichée)
+  const empCard=(em,i,lim)=>{
+    const chargeRows=[...(em.charges||[]).filter(x=>!x.non_conserve).map(x=>({x,off:false})),...(em.charges||[]).filter(x=>x.non_conserve).map(x=>({x,off:true}))];
     return `<div class="sy-card"><div class="sy-card-t">${e(nomEmp(i))}${em.num_personne?' <span class="sy-normal">· N° personne '+e(String(em.num_personne))+'</span>':''}</div>
       <div class="sy-small">BdF : ${e(em.bdf||'—')} · DRC : ${e(em.drc||'—')} · TopCC : ${e(em.topcc||'—')}${num(em.rfr)>0?' · RFR : '+mm(em.rfr):''}</div>
       <table class="sy-t"><tbody>
         <tr><td colspan="2" class="sy-sub">Revenus</td></tr>
-        ${cap(em.revenus||[],6,r=>`<tr><td>${e(r.intitule||'Revenu')}${r.revenu_futur?' <span class="sy-grey">(futur '+(r.ponderation||100)+' %)</span>':''}</td><td class="r">${mm(r.montant)}${r.periodicite==='annuelle'?' /an':''}</td></tr>`,'autres revenus')}
+        ${cap(em.revenus||[],lim.rev,r=>`<tr><td>${e(r.intitule||'Revenu')}${r.revenu_futur?' <span class="sy-grey">(futur '+(r.ponderation||100)+' %)</span>':''}</td><td class="r">${mm(r.montant)}${r.periodicite==='annuelle'?' /an':''}</td></tr>`,'autres revenus')}
         <tr class="tot"><td>Total revenus / mois</td><td class="r">${mm(sumRevenus(em.revenus))}</td></tr>
         <tr><td colspan="2" class="sy-sub">Charges</td></tr>
-        ${chargeRows.length?cap(chargeRows,4,o=>`<tr class="${o.off?'sy-grey':''}"><td>${e(o.x.intitule||'Charge')}${o.off?' (non retenue)':''}</td><td class="r">${mm(o.x.montant)}</td></tr>`,'autres charges'):'<tr><td colspan="2" class="sy-grey">Aucune charge</td></tr>'}
+        ${chargeRows.length?cap(chargeRows,lim.chg,o=>`<tr class="${o.off?'sy-grey':''}"><td>${e(o.x.intitule||'Charge')}${o.off?' (non retenue)':''}</td><td class="r">${mm(o.x.montant)}</td></tr>`,'autres charges'):'<tr><td colspan="2" class="sy-grey">Aucune charge</td></tr>'}
         <tr class="tot"><td>Charges retenues / mois</td><td class="r">${mm(sumCharges(em.charges))}</td></tr>
+        ${lim.epa?`<tr><td colspan="2" class="sy-sub">Épargne <span class="sy-normal">(${mm((em.epargne||[]).reduce((t,x)=>t+num(x.montant),0))})</span></td></tr>
+        ${(em.epargne||[]).length?cap(em.epargne,lim.epa,x=>`<tr><td>${e(x.intitule||'Épargne')}${x.hors_cemp?' <span class="sy-grey">(hors CEMP'+(x.nom_banque?' – '+e(x.nom_banque):'')+')</span>':''}</td><td class="r">${mm(x.montant)}</td></tr>`,'autres épargnes'):'<tr><td colspan="2" class="sy-grey">Aucune épargne</td></tr>'}`:''}
       </tbody></table></div>`;
   };
-
-  const foyerN=d.nb_personnes_foyer!==null&&d.nb_personnes_foyer!==undefined&&d.nb_personnes_foyer!==''?d.nb_personnes_foyer:c.nbPers;
   const dpeBloc=d.dpe_etiquette
     ?`<span class="sy-dpe">${e(d.dpe_etiquette)}</span> DPE${d.dpe_ges?' · GES <b>'+e(d.dpe_ges)+'</b>':''}${d.dpe_conso?' · '+e(String(d.dpe_conso))+' kWh/m²/an':''}${d.dpe_date?' · établi le '+fmtD(d.dpe_date):''}${d.dpe_numero?' · n° '+e(d.dpe_numero):''}`
     :'<span class="sy-grey">DPE non renseigné</span>';
+
+  // Plan de financement (la somme des lignes donne exactement le montant financé)
+  const planRows=()=>{
+    const plan=[]; const add=(l,v,cls)=>plan.push(`<tr class="${cls||''}"><td>${l}</td><td class="r">${v}</td></tr>`);
+    add('Acquisition'+(num(d.dont_mobilier_financable)>0?' <span class="sy-grey">(dont mobilier '+mm(d.dont_mobilier_financable)+')</span>':''),mm(d.montant_acquisition));
+    add('Frais de notaire',mm(d.frais_notaire));
+    if(num(d.frais_negociation)+num(d.frais_agence)>0) add('Frais de négociation',mm(num(d.frais_negociation)+num(d.frais_agence)));
+    add('Montant du projet',mm(getCoutProjet(d)),'tot');
+    if(num(d.frais_divers)>0) add('+ Frais divers',mm(d.frais_divers));
+    if(num(d.tva_financee)>0) add('+ TVA financée',mm(d.tva_financee));
+    if(d.frais_midi_epargne==1&&num(d.montant_midi_epargne)>0) add('+ Frais Midi Épargne',mm(d.montant_midi_epargne));
+    if(num(d.garantie_montant)>0||d.garantie_type) add('+ Garantie '+e(d.garantie_type||''),mm(d.garantie_montant));
+    if(c.fraisDossier>0) add('+ Frais de dossier',mm(c.fraisDossier));
+    add('− Apport',mm(d.apport));
+    if(ptzMontant(d)>0) add('− PTZ',mm(ptzMontant(d)));
+    if(ecoMontant(d)>0) add('− EcoPTZ',mm(ecoMontant(d)));
+    add('Montant financé',mm(c.totalFin-num(d.apport)-ptzMontant(d)-ecoMontant(d)),'tot');
+    return plan.join('');
+  };
+  // Lignes de crédit (full : + frais de dossier et intérêts)
+  const creditRows=(max,full)=>{
+    const nc=full?9:7;
+    const row=([l,i])=>`<tr><td>${e(ligneNom(i))}${l.doublissimo&&!/doublissimo/i.test(ligneNom(i))?' <span class="sy-grey">(Doublissimo)</span>':''}</td><td class="r">${mm(l.montant)}</td><td class="r">${parseInt(l.duree)||0} m</td><td class="r">${taux2(l.taux)}</td>${full?`<td class="r">${mm(l.frais_dossier)}</td>`:''}<td class="r">${fmt(c.sch[i].mens)}</td><td class="r"><b>${fmt(c.sch[i].mens+ligneAssuranceMensuelle(c,i))}</b></td><td class="r">${taegTxt(c.taegLignes[i])}</td>${full?`<td class="r">${mm(c.sch[i].interets)}</td>`:''}</tr>`;
+    const zero=(lab,mt,du,mens)=>`<tr><td>${lab}</td><td class="r">${mm(mt)}</td><td class="r">${parseInt(du)||0} m</td><td class="r">0 %</td>${full?'<td class="r">—</td>':''}<td class="r">${fmt(mens)}</td><td class="r"><b>${fmt(mens)}</b></td><td class="r">—</td>${full?'<td class="r">0 €</td>':''}</tr>`;
+    return cap(c.lignes.map((l,i)=>[l,i]),max,row,'autres lignes',nc)
+      +(d.ptz_actif==1?zero('PTZ',d.ptz_montant,d.ptz_duree,c.mensPTZ):'')
+      +(d.ecoptz_actif==1?zero('EcoPTZ'+(d.ecoptz_performance_globale==1?' <span class="sy-grey">(perf. globale)</span>':(d.ecoptz_bouquets==1?' <span class="sy-grey">('+(d.ecoptz_nb_bouquets||1)+' bouquet(s))</span>':'')),d.ecoptz_montant,d.ecoptz_duree,c.mensEco):'');
+  };
+  const creditHead=full=>`<thead><tr><th>Ligne</th><th class="r">Montant</th><th class="r">Durée</th><th class="r">Taux</th>${full?'<th class="r">Frais doss.</th>':''}<th class="r">Mens. hors ass.</th><th class="r">Mens. avec ass.</th><th class="r">TAEG</th>${full?'<th class="r">Intérêts</th>':''}</tr></thead>`;
+  const assHtml=max=>{
+    const rows=c.assRaw.map((a,k)=>({a,k})).filter(x=>num(x.a.taux)>0||(x.a.couverture||[]).length||num(x.a.cout_total)>0);
+    if(!rows.length) return '';
+    return `<table class="sy-t" style="margin-top:3px"><thead><tr><th colspan="6">Assurance emprunteur</th><th class="r">€/mois</th></tr></thead><tbody>
+      ${cap(rows,max,({a,k})=>`<tr><td>${e(ligneNom(a.ligne??0))}</td><td>${e(nomEmp(a.emp??0))}</td><td class="r">${a.taux!==''&&a.taux!=null?num(a.taux).toFixed(3).replace('.',',')+' %':'—'} ${a.base==='CI'?'CI':'CRD'}</td><td class="r">${num(a.quotite)||100} %</td><td colspan="2">${e([(a.couverture||[]).join('/'),a.type,a.franchise,a.ipp].filter(Boolean).join(' · ')||'—')}</td><td class="r">${fmt(c.ass[k].monthly)}</td></tr>`,'autres assurances',7)}
+      </tbody></table>`;
+  };
+  const mrhOpts=parseArr(d.mrh_options_json);
+  const hasMrh=!!(d.mrh_formule||num(d.mrh_montant_devis)>0||mrhOpts.length);
+  const mrhTxt=`${num(d.mrh_montant_devis)>0?'devis '+mm(d.mrh_montant_devis)+' · ':''}formule ${e(d.mrh_formule||'—')}${mrhOpts.length?' · options : '+mrhOpts.slice(0,8).map(e).join(', ')+(mrhOpts.length>8?'…':''):''}`;
+  const head=(titre,extra)=>`<div class="sy-head">
+      <img src="${LOGO_CE}" class="sy-logo" alt="Caisse d'Épargne">
+      <div class="sy-title">${titre}</div>
+      <div class="sy-meta">Dossier N° <b>${e(d.numero_personne)}</b><br>Édité le ${new Date().toLocaleDateString('fr-FR')}${extra||''}
+        ${conseillerTxt()?'<div class="sy-conseiller">'+conseillerTxt()+'</div>':''}</div>
+    </div>`;
+  return {c,e,mm,cap,ages,nomEmp,ligneNom,foyerN,taux2,empCard,dpeBloc,planRows,creditRows,creditHead,assHtml,hasMrh,mrhTxt,head};
+}
+
+// ── FICHE SYNTHÈSE ─────────────────────────────────────────────────────────────
+function printSynthese(id){
+  const d=dossiersData.find(x=>x.id==id);
+  if(!d) return;
+  const K=ficheKit(d), {c,e,mm,ages,foyerN}=K;
   const bienL2=[TYPE_PROJET_LABELS[d.type_projet],USAGE_LABELS[usageChoice(d)]].filter(Boolean);
   const bienL3=[TYPE_ACQ_LABELS[d.type_acquisition],d.type_logement,d.surface_habitable?e(String(d.surface_habitable))+' m²':'',d.nb_logements?d.nb_logements+' logement(s)':''].filter(Boolean);
   const bienL4=[TYPE_PROP_LABELS[d.type_propriete],MODE_OCC_LABELS[modeOcc(d)]?'Occupé par : '+MODE_OCC_LABELS[modeOcc(d)].toLowerCase():'',d.date_fin_construction?'Fin de construction : '+fmtD(d.date_fin_construction):''].filter(Boolean);
-
-  // Plan de financement (la somme des lignes donne exactement le montant financé)
-  const plan=[];
-  const add=(l,v,cls)=>plan.push(`<tr class="${cls||''}"><td>${l}</td><td class="r">${v}</td></tr>`);
-  add('Acquisition'+(num(d.dont_mobilier_financable)>0?' <span class="sy-grey">(dont mobilier '+mm(d.dont_mobilier_financable)+')</span>':''),mm(d.montant_acquisition));
-  add('Frais de notaire',mm(d.frais_notaire));
-  if(num(d.frais_negociation)+num(d.frais_agence)>0) add('Frais de négociation',mm(num(d.frais_negociation)+num(d.frais_agence)));
-  add('Montant du projet',mm(getCoutProjet(d)),'tot');
-  if(num(d.frais_divers)>0) add('+ Frais divers',mm(d.frais_divers));
-  if(num(d.tva_financee)>0) add('+ TVA financée',mm(d.tva_financee));
-  if(d.frais_midi_epargne==1&&num(d.montant_midi_epargne)>0) add('+ Frais Midi Épargne',mm(d.montant_midi_epargne));
-  if(num(d.garantie_montant)>0||d.garantie_type) add('+ Garantie '+e(d.garantie_type||''),mm(d.garantie_montant));
-  if(c.fraisDossier>0) add('+ Frais de dossier',mm(c.fraisDossier));
-  add('− Apport',mm(d.apport));
-  if(ptzMontant(d)>0) add('− PTZ',mm(ptzMontant(d)));
-  if(ecoMontant(d)>0) add('− EcoPTZ',mm(ecoMontant(d)));
-  add('Montant financé',mm(c.totalFin-num(d.apport)-ptzMontant(d)-ecoMontant(d)),'tot');
-
-  const ligneRows=c.lignes.map((l,i)=>[l,i]);
-  const creditRows=cap(ligneRows,6,([l,i])=>`<tr><td>${e(ligneNom(i))}${l.doublissimo&&!/doublissimo/i.test(ligneNom(i))?' <span class="sy-grey">(Doublissimo)</span>':''}</td><td class="r">${mm(l.montant)}</td><td class="r">${parseInt(l.duree)||0} m</td><td class="r">${num(l.taux).toFixed(2).replace('.',',')} %</td><td class="r">${fmt(c.sch[i].mens)}</td><td class="r"><b>${fmt(c.sch[i].mens+ligneAssuranceMensuelle(c,i))}</b></td><td class="r">${taegTxt(c.taegLignes[i])}</td></tr>`,'autres lignes',7)
-    +(d.ptz_actif==1?`<tr><td>PTZ</td><td class="r">${mm(d.ptz_montant)}</td><td class="r">${parseInt(d.ptz_duree)||0} m</td><td class="r">0 %</td><td class="r">${fmt(c.mensPTZ)}</td><td class="r"><b>${fmt(c.mensPTZ)}</b></td><td class="r">—</td></tr>`:'')
-    +(d.ecoptz_actif==1?`<tr><td>EcoPTZ</td><td class="r">${mm(d.ecoptz_montant)}</td><td class="r">${parseInt(d.ecoptz_duree)||0} m</td><td class="r">0 %</td><td class="r">${fmt(c.mensEco)}</td><td class="r"><b>${fmt(c.mensEco)}</b></td><td class="r">—</td></tr>`:'');
-
-  const assRows=c.assRaw.map((a,k)=>({a,k})).filter(x=>num(x.a.taux)>0||(x.a.couverture||[]).length||num(x.a.cout_total)>0);
-  const assHtml=assRows.length?`<table class="sy-t" style="margin-top:3px"><thead><tr><th colspan="6">Assurance emprunteur</th><th class="r">€/mois</th></tr></thead><tbody>
-    ${cap(assRows,8,({a,k})=>`<tr><td>${e(ligneNom(a.ligne??0))}</td><td>${e(nomEmp(a.emp??0))}</td><td class="r">${a.taux!==''&&a.taux!=null?num(a.taux).toFixed(3).replace('.',',')+' %':'—'} ${a.base==='CI'?'CI':'CRD'}</td><td class="r">${num(a.quotite)||100} %</td><td colspan="2">${e([(a.couverture||[]).join('/'),a.type,a.franchise,a.ipp].filter(Boolean).join(' · ')||'—')}</td><td class="r">${fmt(c.ass[k].monthly)}</td></tr>`,'autres assurances',7)}
-    </tbody></table>`:'';
-
-  const mrhOpts=parseArr(d.mrh_options_json);
-  const mrh=(d.mrh_formule||num(d.mrh_montant_devis)>0||mrhOpts.length)
-    ?`<div class="sy-sec"><div class="sy-body"><b>MRH</b> : ${num(d.mrh_montant_devis)>0?'devis '+mm(d.mrh_montant_devis)+' · ':''}formule ${e(d.mrh_formule||'—')}${mrhOpts.length?' · options : '+mrhOpts.slice(0,8).map(e).join(', ')+(mrhOpts.length>8?'…':''):''}</div></div>`:'';
-
   document.getElementById('printArea').innerHTML=`<div class="sy-wrap">
-    <div class="sy-head">
-      <img src="https://www.img.caisse-epargne.fr/app/uploads/sites/16/2021/05/31152836/ce-logo-midi-pyrennees.png" class="sy-logo" alt="Caisse d'Épargne">
-      <div class="sy-title">SYNTHÈSE CRÉDIT IMMOBILIER</div>
-      <div class="sy-meta">Dossier N° <b>${e(d.numero_personne)}</b><br>Édité le ${new Date().toLocaleDateString('fr-FR')}
-        ${conseillerTxt()?'<div class="sy-conseiller">'+conseillerTxt()+'</div>':''}</div>
-    </div>
+    ${K.head('SYNTHÈSE CRÉDIT IMMOBILIER')}
 
     <div class="sy-sec"><div class="sy-sec-t">1 · EMPRUNTEURS</div><div class="sy-body">
-      <div class="sy-cols">${c.emps.map((em,i)=>`<div class="sy-col">${empCard(em,i)}</div>`).join('')}</div>
+      <div class="sy-cols">${c.emps.map((em,i)=>`<div class="sy-col">${K.empCard(em,i,{rev:6,chg:4,epa:0})}</div>`).join('')}</div>
       <div class="sy-small" style="margin-top:3px">Foyer : <b>${foyerN}</b> personne(s) · Enfants : <b>${d.nb_enfants??0}</b>${ages.length?' ('+ages.map(a=>e(String(a))).join(', ')+' ans)':''}${num(d.nb_personnes_charge_supp)>0?' · À charge : '+d.nb_personnes_charge_supp:''} · Primo accédant : <b>${e(PRIMO_LABELS[primoStatut(d)]||'—')}</b> · Occupation actuelle : <b>${e(OCC_LABELS[d.statut_occupation]||'—')}</b></div>
       <div class="sy-kpi">
         <div>Revenus / mois<b>${mm(c.revenus)}</b></div><div>Charges retenues<b>${mm(c.charges)}</b></div>
@@ -1693,14 +1599,14 @@ function printSynthese(id){
       ${bienL2.length?`<div>${bienL2.map(e).join(' · ')}</div>`:''}
       ${bienL3.length?`<div>${bienL3.join(' · ')}</div>`:''}
       ${bienL4.length?`<div>${bienL4.map(e).join(' · ')}</div>`:''}
-      <div style="margin-top:3px">${dpeBloc}</div>
+      <div style="margin-top:3px">${K.dpeBloc}</div>
     </div></div>
 
     <div class="sy-sec"><div class="sy-sec-t">3 · FINANCEMENT</div><div class="sy-body"><div class="sy-cols">
-      <div class="sy-col" style="flex:0 0 38%"><table class="sy-t"><tbody>${plan.join('')}</tbody></table></div>
+      <div class="sy-col" style="flex:0 0 38%"><table class="sy-t"><tbody>${K.planRows()}</tbody></table></div>
       <div class="sy-col">
-        <table class="sy-t"><thead><tr><th>Ligne</th><th class="r">Montant</th><th class="r">Durée</th><th class="r">Taux</th><th class="r">Mens. hors ass.</th><th class="r">Mens. avec ass.</th><th class="r">TAEG</th></tr></thead><tbody>${creditRows}</tbody></table>
-        ${assHtml}
+        <table class="sy-t">${K.creditHead(false)}<tbody>${K.creditRows(6,false)}</tbody></table>
+        ${K.assHtml(8)}
         <table class="sy-t" style="margin-top:3px"><tbody>
           <tr class="tot"><td>Mensualité tout inclus</td><td class="r">${fmt(c.mensTout)} €</td></tr>
           <tr><td>dont assurance</td><td class="r">${fmt(c.mensAssur)} €</td></tr>
@@ -1710,7 +1616,92 @@ function printSynthese(id){
       </div>
     </div></div></div>
 
-    ${mrh}
+    ${K.hasMrh?`<div class="sy-sec"><div class="sy-body"><b>MRH</b> : ${K.mrhTxt}</div></div>`:''}
+    <div class="sy-foot">Document confidentiel — Caisse d'Épargne</div>
+  </div>`;
+  printWhenReady();
+}
+
+// ── DOSSIER COMPLET : toutes les informations du dossier sur 1 page A4 (petits caractères) ──
+async function printDossier(id){
+  const d=dossiersData.find(x=>x.id==id);
+  if(!d) return;
+  let notes=[];
+  try{const r=await fetch('index.php?ajax=notes&dossier_id='+id); const j=await r.json(); notes=Array.isArray(j)?j:[];}catch(err){}
+  const K=ficheKit(d), {c,e,mm,cap,ages,foyerN,nomEmp,ligneNom}=K;
+  const wf=(workflowLabels[d.workflow_status]||['—'])[0];
+  const kv=(l,v)=>`<tr><td class="sy-k">${l}</td><td>${v===''||v===null||v===undefined?'—':v}</td></tr>`;
+  const D=v=>fmtD(v);
+  const oneLine=t=>escapeHtml(String(t||'').replace(/\s+/g,' ').trim());
+  const piece=(f,l)=>`<tr><td>${d[f]==1?'[x]':'[ ]'} ${l}</td><td class="r">${d[f+'_date']?D(d[f+'_date']):''}</td></tr>`;
+  const hasPtzEco=d.ptz_actif==1||d.ecoptz_actif==1;
+  const nbBq=parseInt(d.ecoptz_nb_bouquets)||0;
+  const cegc=d.garantie_type==='CEGC';
+  const note=n=>`<tr><td>${D(n.created_at)} · ${oneLine(n.conseiller)} : ${oneLine(n.note).slice(0,150)}${oneLine(n.note).length>150?'…':''}</td></tr>`;
+  const epargneTot=c.emps.reduce((t,em)=>t+(em.epargne||[]).reduce((s,x)=>s+num(x.montant),0),0);
+
+  document.getElementById('printArea').innerHTML=`<div class="sy-wrap fc">
+    ${K.head('DOSSIER COMPLET — CRÉDIT IMMOBILIER','<br>Statut : <b>'+e(wf)+'</b>')}
+
+    <div class="sy-sec"><div class="sy-sec-t">1 · CLIENT</div><div class="sy-body">
+      <div class="sy-cols">${c.emps.map((em,i)=>`<div class="sy-col">${K.empCard(em,i,{rev:5,chg:4,epa:3})}</div>`).join('')}</div>
+      <div class="sy-small" style="margin-top:2px">Type de client : <b>${e({Particulier:'Particulier',Pro:'Professionnel',Asso:'Association'}[d.type_client]||d.type_client||'—')}</b> · Foyer : <b>${foyerN}</b> pers. · Enfants : <b>${d.nb_enfants??0}</b>${ages.length?' ('+ages.map(a=>e(String(a))).join(', ')+' ans)':''} · Personnes à charge : <b>${d.nb_personnes_charge_supp??0}</b> · Primo accédant : <b>${e(PRIMO_LABELS[primoStatut(d)]||'—')}</b> · Occupation actuelle : <b>${e(OCC_LABELS[d.statut_occupation]||'—')}</b> · RFR cumulé : <b>${mm(c.rfr)}</b> · Épargne cumulée : <b>${mm(epargneTot)}</b></div>
+    </div></div>
+
+    <div class="sy-sec"><div class="sy-sec-t">2 · PROJET ET BIEN</div><div class="sy-body"><div class="sy-cols">
+      <div class="sy-col"><table class="sy-t"><tbody>
+        ${kv('Type de projet',e(TYPE_PROJET_LABELS[d.type_projet]||''))}${kv('Usage',e(USAGE_LABELS[usageChoice(d)]||''))}${kv("Mode d'occupation",e(MODE_OCC_LABELS[modeOcc(d)]||''))}
+        ${kv("Type d'acquisition",e(TYPE_ACQ_LABELS[d.type_acquisition]||''))}${kv('Type de propriété',e(TYPE_PROP_LABELS[d.type_propriete]||''))}
+      </tbody></table></div>
+      <div class="sy-col"><table class="sy-t"><tbody>
+        ${kv('Type de logement',e(d.type_logement||''))}${kv('Nombre de logements',d.nb_logements??'')}${kv('Surface habitable',d.surface_habitable?e(String(d.surface_habitable))+' m²':'')}
+        ${kv('Fin de construction',d.date_fin_construction?D(d.date_fin_construction):'')}
+      </tbody></table></div>
+      <div class="sy-col"><div><b>${e(d.adresse_bien||'Adresse non renseignée')}</b></div><div style="margin-top:3px">${K.dpeBloc}</div></div>
+    </div></div></div>
+
+    <div class="sy-sec"><div class="sy-sec-t">3 · FINANCEMENT</div><div class="sy-body"><div class="sy-cols">
+      <div class="sy-col" style="flex:0 0 30%"><table class="sy-t"><tbody>${K.planRows()}
+        <tr><td colspan="2" class="sy-sub">Autres informations</td></tr>
+        ${kv('Garantie',e(d.garantie_type||''))}${kv('Doublissimo',d.doublissimo==1?'Oui':'Non')}${kv('Reste à financer',mm(c.resteAFin))}
+        ${d.ptz_actif==1?kv('PTZ',mm(d.ptz_montant)+' / '+(parseInt(d.ptz_duree)||0)+' m'):''}
+        ${d.ecoptz_actif==1?kv('EcoPTZ',mm(d.ecoptz_montant)+' / '+(parseInt(d.ecoptz_duree)||0)+' m'+(d.ecoptz_performance_globale==1?' · perf. globale':(d.ecoptz_bouquets==1?' · '+(nbBq||1)+' bouquet(s)':''))):''}
+      </tbody></table></div>
+      <div class="sy-col">
+        <table class="sy-t">${K.creditHead(true)}<tbody>${K.creditRows(6,true)}</tbody></table>
+        ${K.assHtml(8)}
+        <div class="sy-kpi">
+          <div>Mensualité hors ass.<b>${fmt(c.mensHorsAssur)} €</b></div><div>Assurance / mois<b>${fmt(c.mensAssur)} €</b></div>
+          <div>Mensualité tout inclus<b>${fmt(c.mensTout)} €</b></div><div>TAEG global<b>${taegTxt(c.taegGlobal)}</b></div>
+          <div>Taux d'endettement<b>${pct2(c.te)}</b></div><div>Reste à vivre<b>${mm(c.reste)}</b>${c.restePers===null?'':'<span>'+mm(c.restePers)+' / pers.</span>'}</div>
+        </div>
+        <div class="sy-small" style="margin-top:2px">Revenus <b>${mm(c.revenus)}</b>/mois · Charges retenues <b>${mm(c.charges)}</b>/mois · Intérêts <b>${fmt(c.interets)} €</b> · Assurances (total) <b>${fmt(c.totAssur)} €</b> · Frais de dossier + garantie <b>${fmt(c.fraisDossier+c.garantie)} €</b> · <b>Coût total du crédit ${fmt(c.coutCredit)} €</b></div>
+      </div>
+    </div></div></div>
+
+    <div class="sy-sec"><div class="sy-body"><div class="sy-cols">
+      <div class="sy-col"><div class="sy-sub2">GESTION ADMINISTRATIVE</div><table class="sy-t"><tbody>
+        ${kv('ADE envoyée le',d.ade_envoyee_le?D(d.ade_envoyee_le):'')}${kv('ADE retour le',d.ade_retour_le?D(d.ade_retour_le):'')}${kv('ADE réponse',e(d.ade_reponse||''))}
+        ${cegc?kv('CEGC envoyée le',d.suivi_date_demande_cegc?D(d.suivi_date_demande_cegc):'')+kv('CEGC retour le',d.suivi_date_retour_cegc?D(d.suivi_date_retour_cegc):'')+kv('CEGC réponse',d.suivi_cegc_accord==1?'ACCORD':d.suivi_cegc_refus==1?'REFUS':''):''}
+        ${kv('Date de prélèvement',d.date_prelevement?D(d.date_prelevement):'')}${kv('Notaire',e(d.notaire_nom||''))}${kv('Adresse notaire',oneLine(d.notaire_adresse))}${kv('Signature notaire (prév.)',d.date_signature_notaire_prev?D(d.date_signature_notaire_prev):'')}
+      </tbody></table></div>
+      <div class="sy-col"><div class="sy-sub2">PIÈCES</div><table class="sy-t"><tbody>
+        ${piece('doc_ji',"Justificatif d'identité")}${piece('doc_jd','Justificatif de domicile')}${piece('doc_ir','Justificatif de revenus')}${piece('doc_contrat_travail','Contrat de travail')}
+        ${piece('doc_bulletins_salaire','3 derniers bulletins de salaire')}${piece('doc_justif_propriete','Justif. patrimoine immobilier')}${piece('doc_releves_externes','3 derniers relevés ext.')}${piece('doc_epargnes_externes','Relevé épargnes ext.')}${piece('doc_devis','Devis')}
+        ${hasPtzEco?`<tr><td colspan="2" class="sy-sub">PTZ / EcoPTZ</td></tr>${piece('eco_formulaire_emprunteur','Formulaire emprunteur')}${piece('eco_formulaire_entreprises','Formulaire entreprises'+(nbBq>0?' ('+nbBq+')':''))}${piece('eco_dpe','DPE')}${piece('eco_audit','Audit')}${piece('eco_ademe_emprunteur','ADEME emprunteur')}${piece('eco_ademe_entreprises','ADEME entreprises')}${piece('eco_devis_travaux','Devis travaux')}`:''}
+      </tbody></table></div>
+      <div class="sy-col"><div class="sy-sub2">SUIVI ET SIGNATURE</div><table class="sy-t"><tbody>
+        ${kv('Édition liasse (FSI)',d.suivi_date_edition_liasse?D(d.suivi_date_edition_liasse):'')}
+        ${kv('Conformité : envoi',d.suivi_date_envoi_conformite?D(d.suivi_date_envoi_conformite):'')}${kv('Conformité : retour',d.suivi_date_retour_conformite?D(d.suivi_date_retour_conformite):'')}
+        ${kv('Conformité : réponse',e((d.suivi_conformite_reponse||'').replace('_',' ')))}${d.suivi_conformite_motif?kv('Motif',oneLine(d.suivi_conformite_motif)):''}
+        ${kv('Édition des offres',d.suivi_date_edition_offres_dt?D(d.suivi_date_edition_offres_dt):'')}${kv('Accusé de réception',d.suivi_date_accuse_reception?D(d.suivi_date_accuse_reception):'')}
+        ${kv('Signature possible (AR+11 j)',d.suivi_date_j11?D(d.suivi_date_j11):'')}${kv('Signature définitive',d.suivi_date_signature_definitive?D(d.suivi_date_signature_definitive):'')}${kv('Versement notaire',d.suivi_date_versement_notaire?D(d.suivi_date_versement_notaire):'')}
+      </tbody></table></div>
+      <div class="sy-col"><div class="sy-sub2">MRH</div><div class="sy-small">${K.hasMrh?K.mrhTxt:'<span class="sy-grey">Non renseignée</span>'}</div>
+        <div class="sy-sub2" style="margin-top:3px">NOTES</div>
+        ${notes.length?`<table class="sy-t"><tbody>${cap(notes,4,note,'autres notes',1)}</tbody></table>`:'<div class="sy-small sy-grey">Aucune note</div>'}
+      </div>
+    </div></div></div>
     <div class="sy-foot">Document confidentiel — Caisse d'Épargne</div>
   </div>`;
   printWhenReady();
