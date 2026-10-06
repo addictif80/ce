@@ -308,7 +308,7 @@ function getDefaultMenuItems() {
         ['item_key' => 'activite', 'parent_key' => null, 'label' => 'Mon activité', 'icon' => 'fa-briefcase', 'url' => null, 'uri_patterns' => 'instances,rappels,demandes_clients,offres,interets_clients,rappels_clients,signatures,envoi_documents,kanban,gestion_portefeuille', 'ordre' => 1],
         ['item_key' => 'formation', 'parent_key' => null, 'label' => 'Formation', 'icon' => 'fa-graduation-cap', 'url' => null, 'uri_patterns' => 'formations', 'ordre' => 2],
         ['item_key' => 'commercial', 'parent_key' => null, 'label' => 'Commercial', 'icon' => 'fa-handshake', 'url' => null, 'uri_patterns' => 'production,phoning,eai,mobilites', 'ordre' => 3],
-        ['item_key' => 'outils', 'parent_key' => null, 'label' => 'Outils', 'icon' => 'fa-tools', 'url' => null, 'uri_patterns' => 'credit_immo,calculateur,courriers,courriers_internes,blocnotes,procedures,bureau_dom,retraits,dpe,/rge/,/modules/stock/', 'ordre' => 4],
+        ['item_key' => 'outils', 'parent_key' => null, 'label' => 'Outils', 'icon' => 'fa-tools', 'url' => null, 'uri_patterns' => 'credit_immo,calculateur,courriers,courriers_internes,blocnotes,procedures,bureau_dom,retraits,dpe,/rge/,/capacite/,/modules/stock/', 'ordre' => 4],
         ['item_key' => 'references', 'parent_key' => null, 'label' => 'Références', 'icon' => 'fa-bookmark', 'url' => null, 'uri_patterns' => '/codes/,/contacts/', 'ordre' => 5],
         // Items - Mon activité
         ['item_key' => 'kanban', 'parent_key' => 'activite', 'label' => 'Vue Kanban', 'icon' => 'fa-columns', 'url' => '/modules/kanban/index.php', 'uri_patterns' => 'kanban', 'ordre' => 0],
@@ -342,6 +342,7 @@ function getDefaultMenuItems() {
         ['item_key' => 'bureau_dom', 'parent_key' => 'outils', 'label' => 'Bureau domiciliaire', 'icon' => 'fa-building', 'url' => '/modules/bureau_dom/index.php', 'uri_patterns' => 'bureau_dom', 'ordre' => 7],
         ['item_key' => 'retraits', 'parent_key' => 'outils', 'label' => 'Calculateur retraits', 'icon' => 'fa-money-bill-wave', 'url' => '/modules/retraits/index.php', 'uri_patterns' => 'retraits', 'ordre' => 8],
         ['item_key' => 'rge', 'parent_key' => 'outils', 'label' => 'Vérification RGE', 'icon' => 'fa-certificate', 'url' => '/modules/rge/index.php', 'uri_patterns' => '/rge/', 'ordre' => 11],
+        ['item_key' => 'capacite', 'parent_key' => 'outils', 'label' => 'Capacité d\'emprunt', 'icon' => 'fa-hand-holding-dollar', 'url' => '/modules/capacite/index.php', 'uri_patterns' => '/capacite/', 'ordre' => 12],
         ['item_key' => 'dpe', 'parent_key' => 'outils', 'label' => 'Recherche DPE', 'icon' => 'fa-leaf', 'url' => '/modules/dpe/index.php', 'uri_patterns' => '/dpe/', 'ordre' => 10],
         // Items - Références
         ['item_key' => 'codes', 'parent_key' => 'references', 'label' => 'Codes utiles', 'icon' => 'fa-key', 'url' => '/modules/codes/index.php', 'uri_patterns' => '/codes/', 'ordre' => 1],
@@ -850,6 +851,11 @@ function getPublicToolsCatalog() {
         'calculateur' => [
             'label' => 'Calculateur de budget', 'icon' => 'fa-calculator', 'url' => 'calculateur.php', 'default' => true,
             'description' => 'Estimez votre reste à vivre à partir de vos revenus et de vos charges mensuelles.',
+            'note' => 'Les calculs se font dans votre navigateur : rien n\'est envoyé ni conservé.',
+        ],
+        'capacite' => [
+            'label' => 'Capacité d\'emprunt', 'icon' => 'fa-hand-holding-dollar', 'url' => 'capacite.php', 'default' => true,
+            'description' => 'Estimez le capital empruntable et le budget d\'achat à partir des revenus, des charges et des conditions du prêt.',
             'note' => 'Les calculs se font dans votre navigateur : rien n\'est envoyé ni conservé.',
         ],
         'courrier' => [
