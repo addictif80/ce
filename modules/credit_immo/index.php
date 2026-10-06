@@ -116,6 +116,7 @@ $migrations = [
     "ALTER TABLE credit_immobilier ADD COLUMN mrh_montant_devis DECIMAL(10,2) DEFAULT NULL",
     "ALTER TABLE credit_immobilier ADD COLUMN mrh_formule VARCHAR(100) DEFAULT NULL",
     "ALTER TABLE credit_immobilier ADD COLUMN mrh_options_json TEXT DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN taeg_assurance VARCHAR(5) DEFAULT 'MIN'",
 ];
 foreach ($migrations as $sql) { try { $db->exec($sql); } catch (Exception $e) {} }
 
@@ -261,6 +262,7 @@ function ciCollect($p) {
         // colonnes historiques = première ligne de crédit et total des frais de dossier
         'taux_emprunt' => min(99.999, (float)($l1['taux'] ?? 0)), 'duree_emprunt' => (int)($l1['duree'] ?? 0), 'frais_dossier' => $fraisDossier,
         'ade_json' => ciJsonList($p['ade_json'] ?? '[]'),
+        'taeg_assurance' => $enum('taeg_assurance', ['MIN', 'ALL', 'EMP1', 'EMP2']) ?? 'MIN',
         'ptz_actif' => $flag('ptz_actif'), 'ptz_montant' => d2n($p['ptz_montant'] ?? 0), 'ptz_duree' => (int)($p['ptz_duree'] ?? 0),
         'ecoptz_actif' => $flag('ecoptz_actif'), 'ecoptz_montant' => d2n($p['ecoptz_montant'] ?? 0), 'ecoptz_duree' => (int)($p['ecoptz_duree'] ?? 0),
         'ecoptz_bouquets' => $flag('ecoptz_bouquets'), 'ecoptz_nb_bouquets' => (int)($p['ecoptz_nb_bouquets'] ?? 0),

@@ -131,17 +131,37 @@ function computeAll(d){
   const nbPers=parseInt(d.nb_personnes_foyer)||(emps.length+(parseInt(d.nb_enfants)||0)+(parseInt(d.nb_personnes_charge_supp)||0));
   const interets=sch.reduce((t,s)=>t+s.interets,0);
   const fraisDossier=getFraisDossier(d), garantie=num(d.garantie_montant);
-  // TAEG par ligne (assurance de la ligne + frais de dossier de la ligne) et global (toutes lignes, PTZ/EcoPTZ, frais de dossier et garantie)
+  // TAEG (méthode du logiciel de référence, retrouvée sur un dossier réel : 4,23 % / 2,51 %) :
+  //  - taux actuariel effectif ; frais de dossier propres à chaque ligne ; garantie répartie au prorata des montants ;
+  //  - assurance : celle d'un seul emprunteur par ligne (« le moins cher » par défaut), réglable (taeg_assurance).
+  const taegMode=d.taeg_assurance||'MIN';
+  const montantLignes=lignes.reduce((t,l)=>t+num(l.montant),0);
+  const taegIns=lignes.map((l,li)=>{
+    const rows=assRaw.filter(a=>(a.ligne??0)===li).map(a=>({...a,ligne:0}));
+    const cost=r=>computeAssurances([l],[r])[0].monthly;
+    let sel=rows;
+    if(taegMode==='EMP1') sel=rows.filter(r=>(r.emp??0)===0);
+    else if(taegMode==='EMP2') sel=rows.filter(r=>(r.emp??0)===1);
+    else if(taegMode==='MIN'){
+      const priced=rows.filter(r=>cost(r)>0).sort((x,y)=>cost(x)-cost(y));
+      sel=priced.length?[priced[0]]:[];
+    }
+    return computeAssurances([l],sel).reduce((t,x)=>t+x.monthly,0);
+  });
+  const taegLignes=lignes.map((l,i)=>{
+    const n=parseInt(l.duree)||0;
+    const garantiePart=montantLignes>0?garantie*num(l.montant)/montantLignes:0;
+    return n>0?calcTaeg(num(l.montant)-num(l.frais_dossier)-garantiePart,Array(n).fill(sch[i].mens+taegIns[i])):null;
+  });
   const lineIns=lignes.map((l,i)=>ass.reduce((t,a,k)=>t+(((assRaw[k].ligne)??0)===i?a.monthly:0),0));
-  const taegLignes=lignes.map((l,i)=>{const n=parseInt(l.duree)||0; return n>0?calcTaeg(num(l.montant)-num(l.frais_dossier),Array(n).fill(sch[i].mens+lineIns[i])):null;});
   const nPtz=d.ptz_actif==1?(parseInt(d.ptz_duree)||0):0, nEco=d.ecoptz_actif==1?(parseInt(d.ecoptz_duree)||0):0;
   const N=Math.max(0,nPtz,nEco,...lignes.map(l=>parseInt(l.duree)||0));
   const flows=Array(N).fill(0);
-  lignes.forEach((l,i)=>{const n=parseInt(l.duree)||0; for(let k=0;k<n;k++) flows[k]+=sch[i].mens+lineIns[i];});
+  lignes.forEach((l,i)=>{const n=parseInt(l.duree)||0; for(let k=0;k<n;k++) flows[k]+=sch[i].mens+taegIns[i];});
   for(let k=0;k<nPtz;k++) flows[k]+=mensPTZ;
   for(let k=0;k<nEco;k++) flows[k]+=mensEco;
   const taegGlobal=calcTaeg(lignes.reduce((t,l)=>t+num(l.montant),0)+ptzMontant(d)+ecoMontant(d)-fraisDossier-garantie,flows);
-  return {lignes,sch,emps,ass,assRaw,taegLignes,taegGlobal,lineIns,mensLignes,mensPTZ,mensEco,mensHorsAssur,mensAssur,mensTout,totAssur,
+  return {lignes,sch,emps,ass,assRaw,taegLignes,taegGlobal,taegIns,lineIns,mensLignes,mensPTZ,mensEco,mensHorsAssur,mensAssur,mensTout,totAssur,
     revenus,charges,te,reste,restePers:nbPers>0?reste/nbPers:null,nbPers,interets,fraisDossier,garantie,
     coutCredit:interets+totAssur+fraisDossier+garantie,totalFin:getTotalFinancement(d),
     capital:lignes.reduce((t,l)=>t+num(l.montant),0),rfr:emps.reduce((t,e)=>t+num(e.rfr),0),resteAFin:getResteAFinancer(d)};
@@ -506,7 +526,9 @@ function resultPanelHtml(d,c){
   const rest=c.resteAFin;
   const k=(label,val,cls)=>`<div class="col-md-3 col-6"><div class="card border-0 bg-light text-center p-2 ${cls||''}"><div class="fw-bold">${val}</div><div class="small text-muted">${label}</div></div></div>`;
   return `<div class="row g-2 mt-1">
-      ${k('Total à financer',fmt(c.totalFin)+' €')}
+      ${k('Montant du projet (acquisition + notaire + négociation)',fmt(getCoutProjet(d))+' €')}
+      ${k('Total à financer (frais de dossier et garantie inclus)',fmt(c.totalFin)+' €')}
+      ${k('Montant financé (après apport)',fmt(c.totalFin-num(d.apport)-ptzMontant(d)-ecoMontant(d))+' €')}
       ${k('Reste à financer',fmt(rest)+' €',Math.abs(rest)>0.5?'border border-warning':'')}
       ${k('Mensualité hors assurance',fmt(c.mensHorsAssur)+' €')}
       ${k('Assurance / mois',fmt(c.mensAssur)+' €')}
@@ -665,7 +687,11 @@ function buildFormTabs(px,d){
 
         <hr>
         <h6>Assurance emprunteur <span class="text-muted small">(une ligne par emprunteur et par ligne de crédit)</span></h6>
-        <div id="${px}_ade_list" class="ci-json-list mb-3"></div>
+        <div id="${px}_ade_list" class="ci-json-list mb-2"></div>
+        <div class="row g-2 align-items-center mb-3"><div class="col-md-5"><label class="form-label small mb-0">Assurance prise en compte dans le TAEG</label>
+          <select name="taeg_assurance" class="form-select form-select-sm" onchange="onFormChange('${px}')">
+            ${[['MIN','Le moins cher des emprunteurs (comme le logiciel de référence)'],['ALL','Tous les emprunteurs'],['EMP1','Emprunteur 1 seul'],['EMP2','Emprunteur 2 seul']].map(([v,l])=>`<option value="${v}" ${(d.taeg_assurance||'MIN')===v?'selected':''}>${l}</option>`).join('')}
+          </select></div></div>
 
         <hr>
         <div class="row g-3">
@@ -1128,7 +1154,9 @@ function showDetail(id){
       <div class="col-md-6"><div class="stat-card" style="border-left-color:#1B6234"><div class="stat-number">${money(c.coutCredit)}</div><div class="stat-label">Coût total du crédit (intérêts ${money(c.interets)} + assurances ${money(c.totAssur)} + frais de dossier ${money(c.fraisDossier)} + garantie ${money(c.garantie)})</div></div></div>
     </div>
     <div class="row g-3"><div class="col-md-5"><table class="table table-sm"><tbody>
+      <tr><td>Montant du projet (acquisition + notaire + négociation)</td><td>${money(getCoutProjet(d))}</td></tr>
       <tr><td>Apport</td><td>${money(num(d.apport))}</td></tr>
+      <tr><td>Montant financé (après apport)</td><td>${money(c.totalFin-num(d.apport)-ptzMontant(d)-ecoMontant(d))}</td></tr>
       <tr><td>Frais de garantie (${escapeHtml(d.garantie_type||'—')})</td><td>${money(num(d.garantie_montant))}</td></tr>
       ${d.frais_midi_epargne==1?`<tr><td>Frais Midi Épargne</td><td>${money(num(d.montant_midi_epargne))}</td></tr>`:''}
       <tr><td>TVA financée</td><td>${money(num(d.tva_financee))}</td></tr>
