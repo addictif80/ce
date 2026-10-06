@@ -154,3 +154,74 @@ function toggleDash(){
   const w=document.getElementById('ciDash'); const open=w.style.display==='none';
   w.style.display=open?'':'none'; if(open) ciDashboard();
 }
+
+// ── COMPARATIF CLIENT (1 page A4 à remettre au client : 2 ou 3 scénarios de financement) ──────
+// S'appuie sur la fenêtre « Comparer » : les scénarios sont des dossiers (utiliser « Dupliquer » pour décliner un dossier).
+(function(){
+  const base=runComparison;
+  runComparison=function(){
+    base();
+    const ids=Array.from(document.querySelectorAll('.compare-chk:checked')).map(c=>parseInt(c.value));
+    const box=document.getElementById('compareResults');
+    if(!box||ids.length<2) return;
+    if(ids.length>3){box.insertAdjacentHTML('beforeend','<div class="alert alert-info py-2 mt-2 small">Le comparatif client est limité à 3 scénarios.</div>');return;}
+    const ds=ids.map(id=>dossiersData.find(d=>d.id==id)).filter(Boolean);
+    box.insertAdjacentHTML('beforeend',`<div class="card mt-3"><div class="card-header fw-semibold"><i class="fas fa-print"></i> Comparatif à remettre au client</div><div class="card-body">
+      <div class="row g-2">${ds.map((d,i)=>`<div class="col-md-4"><label class="form-label small mb-0">Nom du scénario ${i+1}</label><input type="text" class="form-control form-control-sm" id="cmpLabel${i}" value="Scénario ${String.fromCharCode(65+i)}" maxlength="40"></div>`).join('')}</div>
+      <label class="form-label small mb-0 mt-2">Commentaire du conseiller (facultatif)</label><textarea class="form-control form-control-sm" id="cmpComment" rows="2" maxlength="400"></textarea>
+      <button class="btn btn-ce mt-2" onclick="printComparatif([${ids.join(',')}])"><i class="fas fa-print"></i> Imprimer le comparatif</button>
+      <div class="form-text">Ne contient pas d'informations internes (interrogations BdF/DRC, notes, suivi).</div></div></div>`);
+  };
+})();
+
+function printComparatif(ids){
+  const ds=ids.map(id=>dossiersData.find(d=>d.id==id)).filter(Boolean);
+  if(ds.length<2) return;
+  const e=escapeHtml, cs=ds.map(computeAll);
+  const labels=ds.map((d,i)=>(document.getElementById('cmpLabel'+i)||{}).value||('Scénario '+String.fromCharCode(65+i)));
+  const comment=((document.getElementById('cmpComment')||{}).value||'').trim();
+  const mm=v=>{const x=num(v);return (Number.isInteger(x)?x.toLocaleString('fr-FR'):fmt(x))+' €';};
+  const hasPtz=ds.some(d=>d.ptz_actif==1||d.ecoptz_actif==1);
+  // Meilleure valeur en gras (min ou max) ; null = pas de mise en valeur
+  const row=(lab,vals,txt,best)=>{
+    const ok=vals.filter(v=>v!==null&&!isNaN(v)).map(v=>Math.round(v*100)/100);
+    const b=best==='min'?Math.min(...ok):best==='max'?Math.max(...ok):null, tie=ok.every(v=>v===ok[0]); // pas de mise en valeur si tous égaux
+    return `<tr><td>${lab}</td>${vals.map((v,i)=>`<td class="r${b!==null&&!tie&&Math.round(v*100)/100===b?' sy-best':''}">${txt[i]}</td>`).join('')}</tr>`;
+  };
+  const ligneTxt=c=>c.lignes.filter(l=>num(l.montant)>0).map(l=>`${mm(l.montant)} sur ${Math.round((parseInt(l.duree)||0)/12*10)/10} ans à ${num(l.taux).toFixed(2).replace('.',',')} %`).join('<br>')||'—';
+  const sec=(t)=>`<tr><td colspan="${ds.length+1}" class="sy-sub">${t}</td></tr>`;
+  const cond=conseillerTxt();
+  document.getElementById('printArea').innerHTML=`<div class="sy-wrap">
+    <div class="sy-head"><img src="${LOGO_CE}" class="sy-logo" alt="Caisse d'Épargne">
+      <div class="sy-title">COMPARATIF DE FINANCEMENT</div>
+      <div class="sy-meta">Édité le ${new Date().toLocaleDateString('fr-FR')}${cond?'<div class="sy-conseiller">'+cond+'</div>':''}</div></div>
+    <div class="sy-sec"><div class="sy-sec-t">Votre projet</div><div class="sy-body">
+      ${e(ds[0].adresse_bien||'')||'<span class="sy-grey">Adresse du bien non renseignée</span>'}${num(getCoutProjet(ds[0]))>0?' · Coût du projet : <b>'+mm(getCoutProjet(ds[0]))+'</b>':''}${num(ds[0].apport)>0?' · Apport : <b>'+mm(ds[0].apport)+'</b>':''}
+    </div></div>
+    <div class="sy-sec"><div class="sy-sec-t">Comparaison des scénarios</div><div class="sy-body">
+      <table class="sy-t sy-cmp"><thead><tr><th></th>${labels.map(l=>`<th class="r">${e(l)}</th>`).join('')}</tr></thead><tbody>
+        ${sec('Le financement')}
+        <tr><td>Prêt(s)</td>${cs.map(c=>`<td class="r">${ligneTxt(c)}</td>`).join('')}</tr>
+        ${hasPtz?row('Dont PTZ / EcoPTZ',cs.map((c,i)=>ptzMontant(ds[i])+ecoMontant(ds[i])),cs.map((c,i)=>mm(ptzMontant(ds[i])+ecoMontant(ds[i]))),null):''}
+        ${row('Capital emprunté',cs.map(c=>c.capital),cs.map(c=>mm(c.capital)),'min')}
+        ${sec('Vos remboursements')}
+        ${row('Mensualité hors assurance',cs.map(c=>c.mensHorsAssur),cs.map(c=>fmt(c.mensHorsAssur)+' €'),'min')}
+        ${row('Assurance emprunteur / mois',cs.map(c=>c.mensAssur),cs.map(c=>fmt(c.mensAssur)+' €'),'min')}
+        ${row('<b>Mensualité tout inclus</b>',cs.map(c=>c.mensTout),cs.map(c=>'<b>'+fmt(c.mensTout)+' €</b>'),'min')}
+        ${sec('Le coût du crédit')}
+        ${row('TAEG',cs.map(c=>c.taegGlobal),cs.map(c=>taegTxt(c.taegGlobal)),'min')}
+        ${row('Intérêts',cs.map(c=>c.interets),cs.map(c=>mm(c.interets)),'min')}
+        ${row('Assurances (total)',cs.map(c=>c.totAssur),cs.map(c=>mm(c.totAssur)),'min')}
+        ${row('Frais de dossier et garantie',cs.map(c=>c.fraisDossier+c.garantie),cs.map(c=>mm(c.fraisDossier+c.garantie)),'min')}
+        ${row('<b>Coût total du crédit</b>',cs.map(c=>c.coutCredit),cs.map(c=>'<b>'+mm(c.coutCredit)+'</b>'),'min')}
+        ${sec('Votre budget')}
+        ${row("Taux d'endettement",cs.map(c=>c.te),cs.map(c=>pct2(c.te)),'min')}
+        ${row('Reste à vivre',cs.map(c=>c.reste),cs.map(c=>mm(c.reste)+(c.restePers===null?'':'<br><span class="sy-grey">'+mm(c.restePers)+' / pers.</span>')),'max')}
+      </tbody></table>
+      <div class="sy-small" style="margin-top:4px">La valeur la plus favorable de chaque ligne est mise en gras.</div>
+    </div></div>
+    ${comment?`<div class="sy-sec"><div class="sy-sec-t">Le mot du conseiller</div><div class="sy-body">${e(comment).replace(/\n/g,'<br>')}</div></div>`:''}
+    <div class="sy-foot">Simulation à titre indicatif, sans valeur contractuelle : l'octroi du crédit reste soumis à l'accord de la Caisse d'Épargne après étude du dossier. Un crédit vous engage et doit être remboursé.</div>
+  </div>`;
+  printWhenReady();
+}

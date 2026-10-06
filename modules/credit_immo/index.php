@@ -557,6 +557,8 @@ table.sy-t{width:100%;border-collapse:collapse}
 table.sy-t td,table.sy-t th{padding:1px 3px;font-size:7.6pt;vertical-align:top}
 table.sy-t th{text-align:left;border-bottom:1px solid #000;font-weight:700}
 table.sy-t .r{text-align:right;white-space:nowrap}
+table.sy-cmp td,table.sy-cmp th{font-size:8.5pt;padding:2px 5px}
+table.sy-cmp td.sy-best{font-weight:700;background:#e9e9e9}
 table.sy-t td.sy-sub{font-weight:700;border-bottom:1px solid #bbb;padding-top:3px}
 table.sy-t tr.tot td{border-top:1px solid #000;font-weight:700}
 .sy-grey{color:#555;font-style:italic}
