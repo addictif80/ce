@@ -520,6 +520,11 @@ function onFormChange(px){
   document.querySelectorAll(`#${px}_ade_list .ci-ass`).forEach((row,i)=>{
     const a=c.ass[i], el=row.querySelector('.ci-ass-cout'); if(el&&a) el.textContent=a.total>0?fmt(a.monthly)+' €/mois — total '+fmt(a.total)+' €':'';
   });
+  const warn=document.getElementById(px+'_ass_warn');
+  if(warn){
+    const mixte=c.lignes.some((l,li)=>new Set(c.assRaw.filter(a=>(a.ligne??0)===li&&num(a.taux)>0).map(a=>a.base||'CRD')).size>1);
+    warn.innerHTML=mixte?'<div class="alert alert-warning py-1 small mb-2"><i class="fas fa-exclamation-triangle"></i> Les assurances d\'une même ligne n\'ont pas la même base (capital initial / capital restant dû) : la mensualité n\'est alors pas lissée comme dans le logiciel de crédit. Utilisez le bouton « Tout passer en capital restant dû » si ce n\'est pas voulu.</div>':'';
+  }
   renderResultPanel(px,d,c);
 }
 // Cotisation d'assurance mensuelle (1re échéance) rattachée à une ligne de crédit, tous emprunteurs confondus
@@ -695,6 +700,7 @@ function buildFormTabs(px,d){
           <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toutesAssurancesCRD('${px}')" title="Applique la méthode du logiciel de crédit (capital restant dû, mensualité lissée) à toutes les lignes d'assurance"><i class="fas fa-sync-alt"></i> Tout passer en « capital restant dû »</button>
         </div>
         <div id="${px}_ade_list" class="ci-json-list mb-2"></div>
+        <div id="${px}_ass_warn"></div>
         <div class="row g-2 align-items-center mb-3"><div class="col-md-5"><label class="form-label small mb-0">Assurance prise en compte dans le TAEG</label>
           <select name="taeg_assurance" class="form-select form-select-sm" onchange="onFormChange('${px}')">
             ${[['MIN','Le moins cher des emprunteurs (comme le logiciel de référence)'],['ALL','Tous les emprunteurs'],['EMP1','Emprunteur 1 seul'],['EMP2','Emprunteur 2 seul']].map(([v,l])=>`<option value="${v}" ${(d.taeg_assurance||'MIN')===v?'selected':''}>${l}</option>`).join('')}
