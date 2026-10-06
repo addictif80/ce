@@ -1130,7 +1130,7 @@ $modules = [
     'demandes_clients' => ['label' => 'Demandes clients', 'icon' => 'headset', 'cols' => ['service','date_ajout'], 'display' => ['Service','Date']],
     'suivi_production' => ['label' => 'Suivi production', 'icon' => 'chart-line', 'cols' => ['categorie','montant','date_ajout'], 'display' => ['Catégorie','Montant','Date']],
     'seances_phoning' => ['label' => 'Séances phoning', 'icon' => 'phone-volume', 'cols' => ['date_seance','nb_appels'], 'display' => ['Date','Nb appels']],
-    'credit_immobilier' => ['label' => 'Crédit immobilier', 'icon' => 'home', 'cols' => ['numero_personne','montant_acquisition','date_ajout'], 'display' => ['N° personne','Montant','Date']],
+    'credit_immobilier' => ['label' => 'Crédit immobilier', 'icon' => 'home', 'cols' => ['numero_personne','montant_acquisition','date_ajout'], 'display' => ['N° dossier','Montant','Date']],
     'calculateur_budget' => ['label' => 'Calculateur budget', 'icon' => 'calculator', 'cols' => ['id','created_at'], 'display' => ['ID','Date']],
     'formations' => ['label' => 'Formations', 'icon' => 'graduation-cap', 'cols' => ['titre','date_debut'], 'display' => ['Titre','Date']],
     'blocnotes' => ['label' => 'Bloc-notes', 'icon' => 'sticky-note', 'cols' => ['titre','updated_at'], 'display' => ['Titre','Dernière modif']],

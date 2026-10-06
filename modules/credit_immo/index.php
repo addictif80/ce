@@ -212,6 +212,12 @@ function ciCollect($p) {
 
     $emps = json_decode($p['emprunteurs_json'] ?? '[]', true);
     $emps = is_array($emps) ? array_slice(array_values($emps), 0, 2) : [];
+    foreach ($emps as &$em) { // champs texte bornés
+        $em = is_array($em) ? $em : [];
+        $em['num_personne'] = mb_substr(trim((string)($em['num_personne'] ?? '')), 0, 50);
+        $em['nom'] = mb_substr(trim((string)($em['nom'] ?? '')), 0, 100);
+    }
+    unset($em);
     $e1 = $emps[0] ?? [];
     $okko = fn($v) => in_array($v ?? '', ['OK', 'KO'], true) ? $v : null;
 
@@ -367,7 +373,7 @@ $cRefusees = count(array_filter($dossiers, fn($d) => ($d['workflow_status']??'')
     </div>
     <table class="data-table" id="tableDossiers">
         <thead><tr>
-            <th>Date</th><th>N° personne</th><th>Usage</th><th>Capital emprunté</th><th>Lignes</th>
+            <th>Date</th><th>N° dossier</th><th>N° personne emprunteur(s)</th><th>Usage</th><th>Capital emprunté</th><th>Lignes</th>
             <th>Mensualité tout inclus</th><th>Endettement</th><th>Statut</th><th>Actions</th>
         </tr></thead>
         <tbody>
@@ -375,7 +381,8 @@ $cRefusees = count(array_filter($dossiers, fn($d) => ($d['workflow_status']??'')
             $wf=$d['workflow_status']??'etude'; $wfI=$workflowLabels[$wf]??['Inconnu','secondary']; ?>
             <tr>
                 <td><?= formatDate($d['date_ajout']) ?></td>
-                <td><?= e($d['numero_personne']) ?></td>
+                <td><strong><?= e($d['numero_personne']) ?></strong></td>
+                <td id="pers_<?= $d['id'] ?>">—</td>
                 <td id="usg_<?= $d['id'] ?>">—</td>
                 <td id="cap_<?= $d['id'] ?>">—</td>
                 <td id="nl_<?= $d['id'] ?>">—</td>
@@ -387,7 +394,8 @@ $cRefusees = count(array_filter($dossiers, fn($d) => ($d['workflow_status']??'')
                     <button class="btn btn-sm btn-ce-outline" onclick="editDossier(<?= $d['id'] ?>)" title="Modifier"><i class="fas fa-edit"></i></button>
                     <button class="btn btn-sm btn-ce-outline" onclick="showAmortissement(<?= $d['id'] ?>)" title="Amortissement"><i class="fas fa-table"></i></button>
                     <button class="btn btn-sm btn-ce-outline" onclick="showSimulation(<?= $d['id'] ?>)" title="Simulation"><i class="fas fa-calculator"></i></button>
-                    <button class="btn btn-sm btn-ce-outline" onclick="printDossier(<?= $d['id'] ?>)" title="Imprimer"><i class="fas fa-print"></i></button>
+                    <button class="btn btn-sm btn-ce-outline" onclick="printSynthese(<?= $d['id'] ?>)" title="Fiche synthèse (1 page, à agrafer sur la sous-chemise)"><i class="fas fa-file-alt"></i></button>
+                    <button class="btn btn-sm btn-ce-outline" onclick="printDossier(<?= $d['id'] ?>)" title="Dossier complet (impression détaillée)"><i class="fas fa-print"></i></button>
                     <form method="POST" class="d-inline" onsubmit="return confirm('Supprimer ce dossier ?')">
                         <input type="hidden" name="action" value="delete">
                         <input type="hidden" name="id" value="<?= $d['id'] ?>">
@@ -442,6 +450,7 @@ $cRefusees = count(array_filter($dossiers, fn($d) => ($d['workflow_status']??'')
 <script>
 const dossiersData   = <?= json_encode(array_values($dossiers)) ?>;
 const workflowLabels = <?= json_encode($workflowLabels) ?>;
+const conseillerData = <?= json_encode(['nom' => $currentUser['nom'] ?? '', 'prenom' => $currentUser['prenom'] ?? '', 'email' => $currentUser['email_pro'] ?? '', 'tel' => $currentUser['tel_pro'] ?? ''], JSON_UNESCAPED_UNICODE) ?>;
 const workflowSteps  = ['etude','dossier_complet','synthese_envoyee','controle','edition_offres','envoi_signature','offre_signee','deblocage','termine'];
 </script>
 <script src="ci.js?v=<?= (int)@filemtime(__DIR__ . '/ci.js') ?>"></script>
@@ -467,6 +476,36 @@ if (openId) {
     #printArea,#printArea *{visibility:visible!important}
     #printArea{display:block!important;position:absolute;left:0;top:0;width:100%;font-family:'Segoe UI',Arial,sans-serif;font-size:7.8pt;color:#1a1a1a;line-height:1.3}
 }
+
+/* Fiche synthèse : 1 page A4, lisible en noir et blanc */
+.sy-wrap{font-family:Arial,Helvetica,sans-serif;font-size:8pt;color:#000;line-height:1.25}
+.sy-head{display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:2px solid #000;padding-bottom:4px;margin-bottom:5px}
+.sy-logo{height:34px;width:auto}
+.sy-title{flex:1;text-align:center;font-size:13pt;font-weight:700;letter-spacing:.5px}
+.sy-meta{text-align:right;font-size:7.5pt;min-width:150px}
+.sy-sec{border:1px solid #000;margin-bottom:5px;page-break-inside:avoid}
+.sy-sec-t{background:#ddd;border-bottom:1px solid #000;font-weight:700;font-size:8pt;padding:1px 5px}
+.sy-body{padding:3px 5px}
+.sy-cols{display:flex;gap:6px}
+.sy-col{flex:1;min-width:0}
+.sy-card{border:1px solid #888;padding:2px 5px}
+.sy-card-t{font-weight:700;font-size:8.5pt}
+.sy-small{font-size:7.5pt}
+.sy-normal{font-weight:400;font-size:7.5pt}
+.sy-conseiller{margin-top:2px;padding-top:2px;border-top:1px solid #888;font-size:7pt;line-height:1.25}
+table.sy-t{width:100%;border-collapse:collapse}
+table.sy-t td,table.sy-t th{padding:1px 3px;font-size:7.6pt;vertical-align:top}
+table.sy-t th{text-align:left;border-bottom:1px solid #000;font-weight:700}
+table.sy-t .r{text-align:right;white-space:nowrap}
+table.sy-t td.sy-sub{font-weight:700;border-bottom:1px solid #bbb;padding-top:3px}
+table.sy-t tr.tot td{border-top:1px solid #000;font-weight:700}
+.sy-grey{color:#555;font-style:italic}
+.sy-kpi{display:flex;gap:4px;margin-top:4px}
+.sy-kpi div{flex:1;border:1px solid #000;text-align:center;padding:2px;font-size:7pt}
+.sy-kpi b{display:block;font-size:10pt}
+.sy-kpi span{display:block;font-size:7pt}
+.sy-dpe{display:inline-block;border:2px solid #000;font-size:15pt;font-weight:700;line-height:1.1;padding:0 8px;margin-right:4px;vertical-align:middle}
+.sy-foot{border-top:1px solid #000;margin-top:4px;padding-top:3px;font-size:7pt;text-align:center}
 .pr-wrap{font-family:'Segoe UI',Arial,sans-serif;font-size:7.8pt;color:#1a1a1a}
 .pr-header{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #1B6234;padding-bottom:5px;margin-bottom:7px}
 .pr-logo{height:38px;width:auto;object-fit:contain}

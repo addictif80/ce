@@ -539,8 +539,8 @@ function searchGlobal($query, $userId) {
 
     // Crédit immobilier
     try {
-        $stmt = $db->prepare("SELECT id, CONCAT(COALESCE(numero_personne,''), ' - ', COALESCE(adresse_bien,'')) AS titre, adresse_bien AS detail, 'credit_immo' AS type FROM credit_immobilier WHERE user_id = ? AND (numero_personne LIKE ? OR adresse_bien LIKE ?)");
-        $stmt->execute([$userId, $like, $like]);
+        $stmt = $db->prepare("SELECT id, CONCAT(COALESCE(numero_personne,''), ' - ', COALESCE(adresse_bien,'')) AS titre, adresse_bien AS detail, 'credit_immo' AS type FROM credit_immobilier WHERE user_id = ? AND (numero_personne LIKE ? OR adresse_bien LIKE ? OR emprunteurs_json LIKE ?)");
+        $stmt->execute([$userId, $like, $like, $like]);
         $results = array_merge($results, $stmt->fetchAll());
     } catch (Exception $e) {}
 
