@@ -1578,3 +1578,121 @@ function printDossier(id){
 </div>`;
   window.print();
 }
+
+// ── FICHE SYNTHÈSE (1 page A4, noir et blanc, à agrafer sur la sous-chemise) ────
+function printWhenReady(){
+  const img=document.querySelector('#printArea img');
+  if(img&&!img.complete){
+    let done=false; const go=()=>{if(!done){done=true;window.print();}};
+    img.onload=img.onerror=go; setTimeout(go,2500);
+  } else window.print();
+}
+function printSynthese(id){
+  const d=dossiersData.find(x=>x.id==id);
+  if(!d) return;
+  const c=computeAll(d);
+  const mm=v=>{const x=num(v);return (Number.isInteger(x)?x.toLocaleString('fr-FR'):fmt(x))+' €';}; // montants ronds sans décimales
+  const e=escapeHtml;
+  // Listes bornées pour que la fiche tienne toujours sur une page
+  const cap=(arr,n,row,label,cols)=>arr.slice(0,n).map(row).join('')+(arr.length>n?`<tr><td colspan="${cols||2}" class="sy-grey">… + ${arr.length-n} ${label}</td></tr>`:'');
+  const ages=parseArr(d.enfants_ages_json).filter(a=>a!==null&&a!=='');
+  const nomEmp=(i)=>(c.emps[i]&&c.emps[i].nom)?c.emps[i].nom:('Emprunteur '+(i+1));
+  const ligneNom=(i)=>(c.lignes[i]&&c.lignes[i].libelle)?c.lignes[i].libelle:('Ligne '+(i+1));
+
+  const empCard=(em,i)=>{
+    const retenues=(em.charges||[]).filter(x=>!x.non_conserve), exclues=(em.charges||[]).filter(x=>x.non_conserve);
+    const chargeRows=[...retenues.map(x=>({x,off:false})),...exclues.map(x=>({x,off:true}))];
+    return `<div class="sy-card"><div class="sy-card-t">${e(nomEmp(i))}</div>
+      <div class="sy-small">BdF : ${e(em.bdf||'—')} · DRC : ${e(em.drc||'—')} · TopCC : ${e(em.topcc||'—')}${num(em.rfr)>0?' · RFR : '+mm(em.rfr):''}</div>
+      <table class="sy-t"><tbody>
+        <tr><td colspan="2" class="sy-sub">Revenus</td></tr>
+        ${cap(em.revenus||[],6,r=>`<tr><td>${e(r.intitule||'Revenu')}${r.revenu_futur?' <span class="sy-grey">(futur '+(r.ponderation||100)+' %)</span>':''}</td><td class="r">${mm(r.montant)}${r.periodicite==='annuelle'?' /an':''}</td></tr>`,'autres revenus')}
+        <tr class="tot"><td>Total revenus / mois</td><td class="r">${mm(sumRevenus(em.revenus))}</td></tr>
+        <tr><td colspan="2" class="sy-sub">Charges</td></tr>
+        ${chargeRows.length?cap(chargeRows,4,o=>`<tr class="${o.off?'sy-grey':''}"><td>${e(o.x.intitule||'Charge')}${o.off?' (non retenue)':''}</td><td class="r">${mm(o.x.montant)}</td></tr>`,'autres charges'):'<tr><td colspan="2" class="sy-grey">Aucune charge</td></tr>'}
+        <tr class="tot"><td>Charges retenues / mois</td><td class="r">${mm(sumCharges(em.charges))}</td></tr>
+      </tbody></table></div>`;
+  };
+
+  const foyerN=d.nb_personnes_foyer!==null&&d.nb_personnes_foyer!==undefined&&d.nb_personnes_foyer!==''?d.nb_personnes_foyer:c.nbPers;
+  const dpeBloc=d.dpe_etiquette
+    ?`<span class="sy-dpe">${e(d.dpe_etiquette)}</span> DPE${d.dpe_ges?' · GES <b>'+e(d.dpe_ges)+'</b>':''}${d.dpe_conso?' · '+e(String(d.dpe_conso))+' kWh/m²/an':''}${d.dpe_date?' · établi le '+fmtD(d.dpe_date):''}${d.dpe_numero?' · n° '+e(d.dpe_numero):''}`
+    :'<span class="sy-grey">DPE non renseigné</span>';
+  const bienL2=[TYPE_PROJET_LABELS[d.type_projet],USAGE_LABELS[usageChoice(d)]].filter(Boolean);
+  const bienL3=[TYPE_ACQ_LABELS[d.type_acquisition],d.type_logement,d.surface_habitable?e(String(d.surface_habitable))+' m²':'',d.nb_logements?d.nb_logements+' logement(s)':''].filter(Boolean);
+  const bienL4=[TYPE_PROP_LABELS[d.type_propriete],MODE_OCC_LABELS[modeOcc(d)]?'Occupé par : '+MODE_OCC_LABELS[modeOcc(d)].toLowerCase():'',d.date_fin_construction?'Fin de construction : '+fmtD(d.date_fin_construction):''].filter(Boolean);
+
+  // Plan de financement (la somme des lignes donne exactement le montant financé)
+  const plan=[];
+  const add=(l,v,cls)=>plan.push(`<tr class="${cls||''}"><td>${l}</td><td class="r">${v}</td></tr>`);
+  add('Acquisition'+(num(d.dont_mobilier_financable)>0?' <span class="sy-grey">(dont mobilier '+mm(d.dont_mobilier_financable)+')</span>':''),mm(d.montant_acquisition));
+  add('Frais de notaire',mm(d.frais_notaire));
+  if(num(d.frais_negociation)+num(d.frais_agence)>0) add('Frais de négociation',mm(num(d.frais_negociation)+num(d.frais_agence)));
+  add('Montant du projet',mm(getCoutProjet(d)),'tot');
+  if(num(d.frais_divers)>0) add('+ Frais divers',mm(d.frais_divers));
+  if(num(d.tva_financee)>0) add('+ TVA financée',mm(d.tva_financee));
+  if(d.frais_midi_epargne==1&&num(d.montant_midi_epargne)>0) add('+ Frais Midi Épargne',mm(d.montant_midi_epargne));
+  if(num(d.garantie_montant)>0||d.garantie_type) add('+ Garantie '+e(d.garantie_type||''),mm(d.garantie_montant));
+  if(c.fraisDossier>0) add('+ Frais de dossier',mm(c.fraisDossier));
+  add('− Apport',mm(d.apport));
+  if(ptzMontant(d)>0) add('− PTZ',mm(ptzMontant(d)));
+  if(ecoMontant(d)>0) add('− EcoPTZ',mm(ecoMontant(d)));
+  add('Montant financé',mm(c.totalFin-num(d.apport)-ptzMontant(d)-ecoMontant(d)),'tot');
+
+  const ligneRows=c.lignes.map((l,i)=>[l,i]);
+  const creditRows=cap(ligneRows,6,([l,i])=>`<tr><td>${e(ligneNom(i))}${l.doublissimo&&!/doublissimo/i.test(ligneNom(i))?' <span class="sy-grey">(Doublissimo)</span>':''}</td><td class="r">${mm(l.montant)}</td><td class="r">${parseInt(l.duree)||0} m</td><td class="r">${num(l.taux).toFixed(2).replace('.',',')} %</td><td class="r">${fmt(c.sch[i].mens)}</td><td class="r"><b>${fmt(c.sch[i].mens+ligneAssuranceMensuelle(c,i))}</b></td><td class="r">${taegTxt(c.taegLignes[i])}</td></tr>`,'autres lignes',7)
+    +(d.ptz_actif==1?`<tr><td>PTZ</td><td class="r">${mm(d.ptz_montant)}</td><td class="r">${parseInt(d.ptz_duree)||0} m</td><td class="r">0 %</td><td class="r">${fmt(c.mensPTZ)}</td><td class="r"><b>${fmt(c.mensPTZ)}</b></td><td class="r">—</td></tr>`:'')
+    +(d.ecoptz_actif==1?`<tr><td>EcoPTZ</td><td class="r">${mm(d.ecoptz_montant)}</td><td class="r">${parseInt(d.ecoptz_duree)||0} m</td><td class="r">0 %</td><td class="r">${fmt(c.mensEco)}</td><td class="r"><b>${fmt(c.mensEco)}</b></td><td class="r">—</td></tr>`:'');
+
+  const assRows=c.assRaw.map((a,k)=>({a,k})).filter(x=>num(x.a.taux)>0||(x.a.couverture||[]).length||num(x.a.cout_total)>0);
+  const assHtml=assRows.length?`<table class="sy-t" style="margin-top:3px"><thead><tr><th colspan="6">Assurance emprunteur</th><th class="r">€/mois</th></tr></thead><tbody>
+    ${cap(assRows,8,({a,k})=>`<tr><td>${e(ligneNom(a.ligne??0))}</td><td>${e(nomEmp(a.emp??0))}</td><td class="r">${a.taux!==''&&a.taux!=null?num(a.taux).toFixed(3).replace('.',',')+' %':'—'} ${a.base==='CI'?'CI':'CRD'}</td><td class="r">${num(a.quotite)||100} %</td><td colspan="2">${e([(a.couverture||[]).join('/'),a.type,a.franchise,a.ipp].filter(Boolean).join(' · ')||'—')}</td><td class="r">${fmt(c.ass[k].monthly)}</td></tr>`,'autres assurances',7)}
+    </tbody></table>`:'';
+
+  const mrhOpts=parseArr(d.mrh_options_json);
+  const mrh=(d.mrh_formule||num(d.mrh_montant_devis)>0||mrhOpts.length)
+    ?`<div class="sy-sec"><div class="sy-body"><b>MRH</b> : ${num(d.mrh_montant_devis)>0?'devis '+mm(d.mrh_montant_devis)+' · ':''}formule ${e(d.mrh_formule||'—')}${mrhOpts.length?' · options : '+mrhOpts.slice(0,8).map(e).join(', ')+(mrhOpts.length>8?'…':''):''}</div></div>`:'';
+
+  document.getElementById('printArea').innerHTML=`<div class="sy-wrap">
+    <div class="sy-head">
+      <img src="https://www.img.caisse-epargne.fr/app/uploads/sites/16/2021/05/31152836/ce-logo-midi-pyrennees.png" class="sy-logo" alt="Caisse d'Épargne">
+      <div class="sy-title">SYNTHÈSE CRÉDIT IMMOBILIER</div>
+      <div class="sy-meta">Dossier N° <b>${e(d.numero_personne)}</b><br>Édité le ${new Date().toLocaleDateString('fr-FR')}</div>
+    </div>
+
+    <div class="sy-sec"><div class="sy-sec-t">1 · EMPRUNTEURS</div><div class="sy-body">
+      <div class="sy-cols">${c.emps.map((em,i)=>`<div class="sy-col">${empCard(em,i)}</div>`).join('')}</div>
+      <div class="sy-small" style="margin-top:3px">Foyer : <b>${foyerN}</b> personne(s) · Enfants : <b>${d.nb_enfants??0}</b>${ages.length?' ('+ages.map(a=>e(String(a))).join(', ')+' ans)':''}${num(d.nb_personnes_charge_supp)>0?' · À charge : '+d.nb_personnes_charge_supp:''} · Primo accédant : <b>${e(PRIMO_LABELS[primoStatut(d)]||'—')}</b> · Occupation actuelle : <b>${e(OCC_LABELS[d.statut_occupation]||'—')}</b></div>
+      <div class="sy-kpi">
+        <div>Revenus / mois<b>${mm(c.revenus)}</b></div><div>Charges retenues<b>${mm(c.charges)}</b></div>
+        <div>Taux d'endettement<b>${pct2(c.te)}</b></div><div>Reste à vivre<b>${mm(c.reste)}</b>${c.restePers===null?'':'<span>'+mm(c.restePers)+' / pers.</span>'}</div>
+      </div>
+    </div></div>
+
+    <div class="sy-sec"><div class="sy-sec-t">2 · BIEN FINANCÉ</div><div class="sy-body">
+      <div><b>${e(d.adresse_bien||'Adresse non renseignée')}</b></div>
+      ${bienL2.length?`<div>${bienL2.map(e).join(' · ')}</div>`:''}
+      ${bienL3.length?`<div>${bienL3.join(' · ')}</div>`:''}
+      ${bienL4.length?`<div>${bienL4.map(e).join(' · ')}</div>`:''}
+      <div style="margin-top:3px">${dpeBloc}</div>
+    </div></div>
+
+    <div class="sy-sec"><div class="sy-sec-t">3 · FINANCEMENT</div><div class="sy-body"><div class="sy-cols">
+      <div class="sy-col" style="flex:0 0 38%"><table class="sy-t"><tbody>${plan.join('')}</tbody></table></div>
+      <div class="sy-col">
+        <table class="sy-t"><thead><tr><th>Ligne</th><th class="r">Montant</th><th class="r">Durée</th><th class="r">Taux</th><th class="r">Mens. hors ass.</th><th class="r">Mens. avec ass.</th><th class="r">TAEG</th></tr></thead><tbody>${creditRows}</tbody></table>
+        ${assHtml}
+        <table class="sy-t" style="margin-top:3px"><tbody>
+          <tr class="tot"><td>Mensualité tout inclus</td><td class="r">${fmt(c.mensTout)} €</td></tr>
+          <tr><td>dont assurance</td><td class="r">${fmt(c.mensAssur)} €</td></tr>
+          <tr><td>TAEG global</td><td class="r">${taegTxt(c.taegGlobal)}</td></tr>
+          <tr class="tot"><td>Coût total du crédit <span class="sy-grey">(intérêts, assurances, frais, garantie)</span></td><td class="r">${fmt(c.coutCredit)} €</td></tr>
+        </tbody></table>
+      </div>
+    </div></div></div>
+
+    ${mrh}
+    <div class="sy-foot">Document confidentiel — Caisse d'Épargne</div>
+  </div>`;
+  printWhenReady();
+}
