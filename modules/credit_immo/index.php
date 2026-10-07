@@ -330,6 +330,32 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='delete') {
     header('Location: index.php'); exit;
 }
 
+// ── POST DUPLICATION (copie d'un dossier pour tester un autre scénario) ──────
+if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='duplicate') {
+    $id = (int)$_POST['id'];
+    $s = $db->prepare("SELECT * FROM credit_immobilier WHERE id=? AND user_id=?");
+    $s->execute([$id, $userId]);
+    $row = $s->fetch(PDO::FETCH_ASSOC);
+    $newId = 0;
+    if ($row) {
+        // Suivi administratif, pièces et dates repartent à zéro (valeur par défaut de la colonne)
+        $defaults = [];
+        foreach ($db->query("SHOW COLUMNS FROM credit_immobilier")->fetchAll(PDO::FETCH_ASSOC) as $col) $defaults[$col['Field']] = $col['Default'];
+        $reset = fn($k) => preg_match('/^(suivi_|doc_|eco_)/', $k) || in_array($k, ['ade_envoyee_le','ade_retour_le','ade_reponse','date_prelevement','date_signature_notaire_prev']);
+        foreach (['id','created_at','updated_at','date_ajout','user_id'] as $k) unset($row[$k]);
+        foreach ($row as $k => $v) if ($reset($k)) $row[$k] = $defaults[$k] ?? null;
+        $row['workflow_status'] = 'etude';
+        $row['numero_personne'] = mb_substr((string)$row['numero_personne'], 0, 88) . ' (copie)';
+        try {
+            $db->prepare('INSERT INTO credit_immobilier (user_id, date_ajout, ' . implode(', ', array_keys($row)) . ') VALUES (?, CURDATE(), ' . implode(', ', array_fill(0, count($row), '?')) . ')')
+               ->execute(array_merge([$userId], array_values($row)));
+            $newId = $db->lastInsertId();
+        } catch (Exception $e) { error_log('[ci] DUPLICATE:' . $e->getMessage()); }
+    }
+    header('Location: index.php' . ($newId ? '?open=' . $newId : ''));
+    exit;
+}
+
 // ── LISTE ────────────────────────────────────────────────────────────────────
 $stmt = $db->prepare("SELECT * FROM credit_immobilier WHERE user_id=? ORDER BY created_at DESC");
 $stmt->execute([$userId]);
@@ -359,11 +385,17 @@ $cRefusees = count(array_filter($dossiers, fn($d) => ($d['workflow_status']??'')
     <div class="col-md-2"><div class="stat-card" style="border-left-color:#0d6efd;"><div class="stat-number"><?= $cEnCours ?></div><div class="stat-label">En cours</div></div></div>
     <div class="col-md-2"><div class="stat-card stat-success"><div class="stat-number"><?= $cSignees ?></div><div class="stat-label">Signées/Terminées</div></div></div>
     <div class="col-md-2"><div class="stat-card" style="border-left-color:#dc3545;"><div class="stat-number"><?= $cRefusees ?></div><div class="stat-label">Refusées</div></div></div>
-    <div class="col-md-4 d-flex align-items-center gap-2">
+    <div class="col-md-2"><div class="stat-card" style="border-left-color:#fd7e14;"><div class="stat-number" id="kpiRelances">–</div><div class="stat-label">À relancer</div></div></div>
+    <div class="col-12 d-flex align-items-center gap-2">
         <button class="btn btn-ce" onclick="openAddModal()"><i class="fas fa-plus"></i> Nouveau dossier</button>
         <button class="btn btn-ce-outline" onclick="showCompareSelect()"><i class="fas fa-balance-scale"></i> Comparer</button>
+        <button class="btn btn-ce-outline" onclick="toggleDash()"><i class="fas fa-chart-column"></i> Tableau de bord</button>
     </div>
 </div>
+<div id="ciDash" class="card mb-4" style="display:none"><div class="card-header d-flex justify-content-between align-items-center">
+    <strong><i class="fas fa-chart-column"></i> Tableau de bord crédit</strong>
+    <select id="ciDashPeriode" class="form-select form-select-sm w-auto" onchange="ciDashboard()"><option value="all">Toute la période</option><option value="30">30 derniers jours</option><option value="90">90 derniers jours</option><option value="365">12 derniers mois</option></select>
+</div><div class="card-body" id="ciDashBody"></div></div>
 
 <!-- ── TABLEAU ───────────────────────────────────────────────────────────── -->
 <div class="data-table-container">
@@ -374,7 +406,7 @@ $cRefusees = count(array_filter($dossiers, fn($d) => ($d['workflow_status']??'')
     <table class="data-table" id="tableDossiers">
         <thead><tr>
             <th>Date</th><th>N° dossier</th><th>N° personne emprunteur(s)</th><th>Usage</th><th>Capital emprunté</th><th>Lignes</th>
-            <th>Mensualité tout inclus</th><th>Endettement</th><th>Statut</th><th>Actions</th>
+            <th>Mensualité tout inclus</th><th>Endettement</th><th>Alertes</th><th>Statut</th><th>Actions</th>
         </tr></thead>
         <tbody>
         <?php foreach ($dossiers as $d):
@@ -388,6 +420,7 @@ $cRefusees = count(array_filter($dossiers, fn($d) => ($d['workflow_status']??'')
                 <td id="nl_<?= $d['id'] ?>">—</td>
                 <td id="mens_<?= $d['id'] ?>">—</td>
                 <td id="tend_<?= $d['id'] ?>">—</td>
+                <td id="al_<?= $d['id'] ?>">—</td>
                 <td><span class="badge bg-<?= $wfI[1] ?>"><?= $wfI[0] ?></span></td>
                 <td class="actions">
                     <button class="btn btn-sm btn-ce-outline" onclick="showDetail(<?= $d['id'] ?>)" title="Voir"><i class="fas fa-eye"></i></button>
@@ -396,6 +429,10 @@ $cRefusees = count(array_filter($dossiers, fn($d) => ($d['workflow_status']??'')
                     <button class="btn btn-sm btn-ce-outline" onclick="showSimulation(<?= $d['id'] ?>)" title="Simulation"><i class="fas fa-calculator"></i></button>
                     <button class="btn btn-sm btn-ce-outline" onclick="printSynthese(<?= $d['id'] ?>)" title="Fiche synthèse (1 page, à agrafer sur la sous-chemise)"><i class="fas fa-file-alt"></i></button>
                     <button class="btn btn-sm btn-ce-outline" onclick="printDossier(<?= $d['id'] ?>)" title="Dossier complet (impression détaillée)"><i class="fas fa-print"></i></button>
+                    <form method="POST" class="d-inline" onsubmit="return confirm('Dupliquer ce dossier pour tester un autre scénario ? (le suivi et les pièces repartent à zéro)')">
+                        <input type="hidden" name="action" value="duplicate"><input type="hidden" name="id" value="<?= $d['id'] ?>">
+                        <button class="btn btn-sm btn-ce-outline" title="Dupliquer (autre scénario)"><i class="fas fa-copy"></i></button>
+                    </form>
                     <form method="POST" class="d-inline" onsubmit="return confirm('Supprimer ce dossier ?')">
                         <input type="hidden" name="action" value="delete">
                         <input type="hidden" name="id" value="<?= $d['id'] ?>">
@@ -454,6 +491,7 @@ const conseillerData = <?= json_encode(['nom' => $currentUser['nom'] ?? '', 'pre
 const workflowSteps  = ['etude','dossier_complet','synthese_envoyee','controle','edition_offres','envoi_signature','offre_signee','deblocage','termine'];
 </script>
 <script src="ci.js?v=<?= (int)@filemtime(__DIR__ . '/ci.js') ?>"></script>
+<script src="ci_extra.js?v=<?= (int)@filemtime(__DIR__ . '/ci_extra.js') ?>"></script>
 <script>
 // Auto-ouverture du dossier après enregistrement ou depuis la recherche globale
 const urlParams = new URLSearchParams(window.location.search);
@@ -519,6 +557,8 @@ table.sy-t{width:100%;border-collapse:collapse}
 table.sy-t td,table.sy-t th{padding:1px 3px;font-size:7.6pt;vertical-align:top}
 table.sy-t th{text-align:left;border-bottom:1px solid #000;font-weight:700}
 table.sy-t .r{text-align:right;white-space:nowrap}
+table.sy-cmp td,table.sy-cmp th{font-size:8.5pt;padding:2px 5px}
+table.sy-cmp td.sy-best{font-weight:700;background:#e9e9e9}
 table.sy-t td.sy-sub{font-weight:700;border-bottom:1px solid #bbb;padding-top:3px}
 table.sy-t tr.tot td{border-top:1px solid #000;font-weight:700}
 .sy-grey{color:#555;font-style:italic}

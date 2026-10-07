@@ -1577,7 +1577,7 @@ function ficheKit(d){
 // ── FICHE SYNTHÈSE ─────────────────────────────────────────────────────────────
 function printSynthese(id){
   const d=dossiersData.find(x=>x.id==id);
-  if(!d) return;
+  if(!d||!ciConfirmPrint(d)) return;
   const K=ficheKit(d), {c,e,mm,ages,foyerN}=K;
   const bienL2=[TYPE_PROJET_LABELS[d.type_projet],USAGE_LABELS[usageChoice(d)]].filter(Boolean);
   const bienL3=[TYPE_ACQ_LABELS[d.type_acquisition],d.type_logement,d.surface_habitable?e(String(d.surface_habitable))+' m²':'',d.nb_logements?d.nb_logements+' logement(s)':''].filter(Boolean);
@@ -1625,7 +1625,7 @@ function printSynthese(id){
 // ── DOSSIER COMPLET : toutes les informations du dossier sur 1 page A4 (petits caractères) ──
 async function printDossier(id){
   const d=dossiersData.find(x=>x.id==id);
-  if(!d) return;
+  if(!d||!ciConfirmPrint(d)) return;
   let notes=[];
   try{const r=await fetch('index.php?ajax=notes&dossier_id='+id); const j=await r.json(); notes=Array.isArray(j)?j:[];}catch(err){}
   const K=ficheKit(d), {c,e,mm,cap,ages,foyerN,nomEmp,ligneNom}=K;
