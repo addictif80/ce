@@ -871,6 +871,16 @@ function getPublicToolsCatalog() {
             'description' => 'Vérifiez l\'éligibilité au prêt à taux zéro et estimez son montant, sa durée et son différé.',
             'note' => 'Les calculs se font dans votre navigateur : rien n\'est envoyé ni conservé.',
         ],
+        'relais' => [
+            'label' => 'Prêt relais', 'icon' => 'fa-house-circle-check', 'url' => 'relais.php', 'default' => true,
+            'description' => 'Estimez le montant d\'un prêt relais, son coût et ce qu\'il reste après la vente du bien.',
+            'note' => 'Les calculs se font dans votre navigateur : rien n\'est envoyé ni conservé.',
+        ],
+        'rachat' => [
+            'label' => 'Rachat de crédits', 'icon' => 'fa-layer-group', 'url' => 'rachat.php', 'default' => true,
+            'description' => 'Simulez le regroupement de vos crédits : indemnités de remboursement anticipé, nouvelle mensualité et coût global.',
+            'note' => 'Les calculs se font dans votre navigateur : rien n\'est envoyé ni conservé.',
+        ],
         'courrier' => [
             'label' => 'Générateur de courrier', 'icon' => 'fa-envelope-open-text', 'url' => 'courrier.php', 'default' => true,
             'description' => 'Rédigez un courrier mis en forme, avec variables, puis imprimez-le ou enregistrez-le en PDF.',
