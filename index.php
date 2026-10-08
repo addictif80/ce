@@ -152,4 +152,8 @@ $proceduresEnAvant = $stmtProc->fetchAll();
 
 <?php endif; ?>
 
+<?php
+// Popups d'information de l'administrateur (hors affichage embarqué dans une fenêtre)
+if (empty($_GET['embedded'])) { require_once __DIR__ . '/includes/popups.php'; renderPopups('dashboard'); }
+?>
 <?php require_once __DIR__ . '/templates/footer.php'; ?>

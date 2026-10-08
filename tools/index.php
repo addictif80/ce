@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/_layout.php';
 require_once __DIR__ . '/../includes/agences.php';
+require_once __DIR__ . '/../includes/popups.php';
 
 $catalog = getPublicToolsCatalog();
 $status = getPublicToolsStatus();
@@ -161,4 +162,5 @@ toolsHeader('Outils en libre accès');
   if(list.children.length) document.getElementById('recentBar').style.display='';
 })();
 </script>
+<?php renderPopups('tools'); // popups de l'administrateur, après validation du code d'accès éventuel ?>
 <?php toolsFooter();
