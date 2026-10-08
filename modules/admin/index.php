@@ -393,6 +393,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         exit;
     }
 
+    if ($action === 'save_tools_access_cta') {
+        setToolsSetting('access_cta_enabled', isset($_POST['access_cta_enabled']) ? '1' : '0');
+        setToolsSetting('access_cta_title', mb_substr(trim($_POST['access_cta_title'] ?? ''), 0, 150));
+        setToolsSetting('access_cta_text', mb_substr(trim($_POST['access_cta_text'] ?? ''), 0, 1500));
+        $mail = trim($_POST['access_cta_email'] ?? '');
+        setToolsSetting('access_cta_email', filter_var($mail, FILTER_VALIDATE_EMAIL) ? $mail : '');
+        header('Location: index.php?tab=outils_publics&msg=tools_cta_saved');
+        exit;
+    }
+
     if ($action === 'save_tools_protection') {
         setToolsSetting('protection_enabled', isset($_POST['protection_enabled']) ? '1' : '0');
         header('Location: index.php?tab=outils_publics&msg=tools_protection_saved');
@@ -629,6 +639,7 @@ try {
         'feedback_read' => 'Retour marqué comme lu.',
         'tools_templates_saved' => 'Modèles de courrier de /tools enregistrés.',
         'tools_message_saved' => 'Message de /tools enregistré.',
+        'tools_cta_saved' => 'Appel à action de demande d\'accès enregistré.',
         'tools_protection_saved' => 'Protection de /tools enregistrée.',
         'tools_code_added' => 'Code d\'accès créé.',
         'tools_code_updated' => 'Code d\'accès mis à jour.',
@@ -2039,6 +2050,31 @@ $allTemplates = $db->query("SELECT m.id, m.nom_modele, m.objet, m.public_tools, 
             <button type="submit" class="btn btn-ce mt-2"><i class="fas fa-save"></i> Enregistrer</button>
         </form>
         <?php endif; ?>
+    </div>
+</div>
+
+<?php $cta = getAccessCtaSettings(); $ctaMailSaved = trim(getToolsSetting('access_cta_email', '')); ?>
+<div class="data-table-container mb-4">
+    <div class="data-table-header">
+        <h3><i class="fas fa-user-plus"></i> Appel à action « Demander un accès au portail »</h3>
+    </div>
+    <div class="p-3">
+        <p class="small text-muted">Affiché sur /tools aux visiteurs non connectés. Le formulaire (nom, prénom, téléphone, numéro interne, e-mail, agence) génère dans leur navigateur un fichier .eml adressé à l'administrateur, objet « Demande d'accès au portail d'activité » : rien n'est enregistré sur le serveur.</p>
+        <form method="post">
+            <input type="hidden" name="action" value="save_tools_access_cta">
+            <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" name="access_cta_enabled" id="access_cta_enabled" <?= $cta['enabled'] ? 'checked' : '' ?>>
+                <label class="form-check-label" for="access_cta_enabled">Afficher l'appel à action sur /tools</label>
+            </div>
+            <div class="row g-3">
+                <div class="col-12"><label class="form-label">Titre</label><input type="text" name="access_cta_title" class="form-control" maxlength="150" value="<?= e($cta['title']) ?>"></div>
+                <div class="col-12"><label class="form-label">Texte</label><textarea name="access_cta_text" class="form-control" rows="4" maxlength="1500"><?= e($cta['text']) ?></textarea></div>
+                <div class="col-md-6"><label class="form-label">Adresse e-mail de l'administrateur (destinataire des demandes)</label>
+                    <input type="email" name="access_cta_email" class="form-control" maxlength="150" placeholder="Vide : e-mail du premier administrateur" value="<?= e($ctaMailSaved) ?>">
+                    <div class="form-text"><?= $cta['email'] !== '' ? 'Adresse utilisée actuellement : <strong>' . e($cta['email']) . '</strong>' : '<span class="text-danger">Aucune adresse disponible : l\'appel à action restera masqué tant qu\'aucune adresse n\'est renseignée ici ou sur un compte administrateur.</span>' ?></div></div>
+            </div>
+            <button class="btn btn-ce mt-3"><i class="fas fa-save"></i> Enregistrer</button>
+        </form>
     </div>
 </div>
 

@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/_layout.php';
+require_once __DIR__ . '/../includes/agences.php';
 
 $catalog = getPublicToolsCatalog();
 $status = getPublicToolsStatus();
@@ -9,6 +10,9 @@ $message = getToolsMessageForVisitor();
 $procCounts = (isset($status['procedures']) && $status['procedures']['state'] !== 'masque') ? getPublicProcedureCategoryCounts() : [];
 $isNew = fn($k) => !empty($catalog[$k]['added']) && strtotime($catalog[$k]['added']) >= strtotime('-60 days');
 $newKeys = array_values(array_filter($visible, $isNew));
+$cta = (!toolsVisitorIsLoggedIn()) ? getAccessCtaSettings() : null;
+$showCta = $cta && $cta['enabled'] && $cta['email'] !== '';
+$agences = $showCta ? getAgences() : [];
 toolsHeader('Outils en libre accès');
 ?>
 <div class="container my-4">
@@ -67,6 +71,65 @@ toolsHeader('Outils en libre accès');
         </div>
         <?php endforeach; ?>
     </div>
+    <?php endif; ?>
+
+    <?php if ($showCta): ?>
+    <div class="card border-0 shadow-sm mt-5" style="border-left:6px solid #e4002b!important">
+        <div class="card-body d-md-flex align-items-center justify-content-between gap-4 p-4">
+            <div>
+                <h2 class="h4 mb-2"><i class="fas fa-user-plus text-danger me-2"></i><?= e($cta['title']) ?></h2>
+                <div class="mb-0 text-muted"><?= nl2br(e($cta['text'])) ?></div>
+            </div>
+            <button type="button" class="btn btn-danger btn-lg flex-shrink-0 mt-3 mt-md-0" data-bs-toggle="modal" data-bs-target="#accessModal"><i class="fas fa-key me-2"></i>Demander un accès</button>
+        </div>
+    </div>
+
+    <div class="modal fade" id="accessModal" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
+        <form id="accessForm" novalidate>
+            <div class="modal-header"><h5 class="modal-title"><i class="fas fa-user-plus me-2"></i>Demande d'accès au portail d'activité</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-6"><label class="form-label">Nom <span class="text-danger">*</span></label><input id="ar_nom" class="form-control" required maxlength="100" autocomplete="family-name"></div>
+                    <div class="col-md-6"><label class="form-label">Prénom <span class="text-danger">*</span></label><input id="ar_prenom" class="form-control" required maxlength="100" autocomplete="given-name"></div>
+                    <div class="col-md-6"><label class="form-label">Numéro de téléphone <span class="text-danger">*</span></label><input id="ar_tel" type="tel" class="form-control" required maxlength="30" autocomplete="tel"></div>
+                    <div class="col-md-6"><label class="form-label">Numéro interne <span class="text-danger">*</span></label><input id="ar_interne" class="form-control" required maxlength="30"></div>
+                    <div class="col-md-6"><label class="form-label">Adresse e-mail <span class="text-danger">*</span></label><input id="ar_email" type="email" class="form-control" required maxlength="150" autocomplete="email"></div>
+                    <div class="col-md-6"><label class="form-label">Agence de rattachement <span class="text-danger">*</span></label>
+                        <select id="ar_agence" class="form-select" required><option value="">Sélectionner une agence…</option>
+                            <?php foreach ($agences as $ag): ?><option><?= e($ag) ?></option><?php endforeach; ?></select></div>
+                    <div class="col-12"><div class="alert alert-info small mb-0"><i class="fas fa-info-circle me-1"></i>Le bouton ci-dessous crée, sur votre ordinateur, un fichier de message (.eml) adressé à l'administrateur. Ouvrez-le avec votre messagerie et envoyez-le. Rien n'est transmis ni conservé par ce site.</div></div>
+                    <div class="col-12 text-danger small d-none" id="ar_err"></div>
+                </div>
+            </div>
+            <div class="modal-footer"><button type="submit" class="btn btn-danger"><i class="fas fa-download me-1"></i>Télécharger la demande (.eml)</button></div>
+        </form>
+    </div></div></div>
+    <script>
+    (function() {
+        const TO = <?= json_encode($cta['email']) ?>, SUBJECT = "Demande d'accès au portail d'activité";
+        const v = id => document.getElementById(id).value.replace(/[\r\n]+/g, ' ').trim();
+        const b64 = s => btoa(unescape(encodeURIComponent(s)));
+        const wrap = s => s.replace(/(.{76})/g, '$1\r\n');
+        document.getElementById('accessForm').addEventListener('submit', e => {
+            e.preventDefault();
+            const err = document.getElementById('ar_err');
+            const need = ['ar_nom', 'ar_prenom', 'ar_tel', 'ar_interne', 'ar_email', 'ar_agence'];
+            if (need.some(id => !v(id))) { err.textContent = 'Tous les champs sont obligatoires.'; err.classList.remove('d-none'); return; }
+            if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v('ar_email'))) { err.textContent = 'Adresse e-mail invalide.'; err.classList.remove('d-none'); return; }
+            err.classList.add('d-none');
+            const body = ["Bonjour,", "", "Je souhaite obtenir un compte sur le portail d'activité. Voici mes informations :", "",
+                "Nom : " + v('ar_nom'), "Prénom : " + v('ar_prenom'), "Téléphone : " + v('ar_tel'), "Numéro interne : " + v('ar_interne'),
+                "Adresse e-mail : " + v('ar_email'), "Agence de rattachement : " + v('ar_agence'), "", "Cordialement,", v('ar_prenom') + " " + v('ar_nom')].join("\r\n");
+            const eml = ["To: " + TO, "Subject: =?UTF-8?B?" + b64(SUBJECT) + "?=", "X-Unsent: 1", "MIME-Version: 1.0",
+                "Content-Type: text/plain; charset=UTF-8", "Content-Transfer-Encoding: base64", "", wrap(b64(body)), ""].join("\r\n");
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([eml], {type: 'message/rfc822'}));
+            a.download = "Demande d'acces au portail d'activite.eml";
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+        });
+    })();
+    </script>
     <?php endif; ?>
 
     <div class="text-center mt-5">
