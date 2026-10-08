@@ -20,10 +20,12 @@ ksort($ntDeps);
         <select class="form-select" id="nt_type"><option value="ancien">Ancien</option><option value="neuf">Neuf (moins de 5 ans, VEFA)</option></select></div>
       <div class="col-6"><label class="form-label small mb-0"><?= $ntDeps ? 'Département du bien (ancien)' : 'Droits départementaux (ancien)' ?></label>
         <select class="form-select" id="nt_dep">
-        <?php if ($ntDeps): foreach ($ntDeps as $code => $dep): ?><option value="<?= e((string)$dep['taux']) ?>"><?= e($code . ' – ' . ($dep['nom'] ?? '') . ' (' . str_replace('.', ',', rtrim(rtrim(number_format((float)$dep['taux'], 2, '.', ''), '0'), '.')) . ' %)') ?></option><?php endforeach; ?>
-        <option value="<?= e((string)$ntData['taux_departemental_defaut']) ?>">Autre département (<?= e(str_replace('.', ',', (string)$ntData['taux_departemental_defaut'])) ?> %)</option>
-        <?php else: ?><option value="4.5">4,50 % (cas général)</option><option value="5">5,00 % (départements ayant relevé le taux)</option><option value="3.8">3,80 % (taux réduit)</option><?php endif; ?>
+        <?php if ($ntDeps): foreach ($ntDeps as $code => $dep): $tx = (float)$dep['taux']; $tp = (float)($dep['taux_primo'] ?? $dep['taux']); ?>
+            <option value="<?= e((string)$code) ?>" data-taux="<?= $tx ?>" data-primo="<?= $tp ?>"><?= e($code . ' – ' . ($dep['nom'] ?? '') . ' (' . str_replace('.', ',', rtrim(rtrim(number_format($tx, 2, '.', ''), '0'), '.')) . ' %)') ?></option><?php endforeach; ?>
+        <option value="autre" data-taux="<?= (float)$ntData['taux_departemental_defaut'] ?>" data-primo="<?= (float)$ntData['taux_departemental_defaut'] ?>">Autre département (<?= e(str_replace('.', ',', (string)$ntData['taux_departemental_defaut'])) ?> %)</option>
+        <?php else: ?><option value="4.5" data-taux="4.5" data-primo="4.5">4,50 % (cas général)</option><option value="5" data-taux="5" data-primo="5">5,00 % (départements ayant relevé le taux)</option><option value="3.8" data-taux="3.8" data-primo="3.8">3,80 % (taux réduit)</option><?php endif; ?>
         </select></div>
+      <?php if ($ntDeps): ?><div class="col-6 d-flex align-items-end"><div class="form-check"><input class="form-check-input" type="checkbox" id="nt_primo"><label class="form-check-label small" for="nt_primo">Primo-accédant (résidence principale)</label></div></div><?php endif; ?>
       <div class="col-12"><label class="form-label small mb-0">Débours et formalités estimés (€)</label><input type="number" min="0" step="any" class="form-control" id="nt_deb" value="1200"></div>
     </div>
     <div class="form-text">Le taux départemental dépend du département du bien : vérifiez-le auprès de l'étude notariale.</div>
@@ -44,21 +46,22 @@ ksort($ntDeps);
 (function(){
   const $=id=>document.getElementById(id), n=id=>parseFloat($(id).value)||0;
   const eur=v=>(Math.round(v*100)/100).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
-  const IDS=['prix','mob','type','dep','deb'];
+  const IDS=['prix','mob','type','dep','deb','primo'];
   // Barème dégressif des émoluments du notaire (HT)
   const BAR=<?= json_encode($ntData) ?>;
   const TRANCHES=BAR.emoluments.map(t=>[t[0]===null?Infinity:t[0],t[1]]);
   function emoluments(base){let r=0,prev=0;for(const [max,t] of TRANCHES){if(base>prev){r+=(Math.min(base,max)-prev)*t/100;}prev=max;}return r;}
   function calc(p){
     const base=Math.max(0,p.prix-p.mob);
+    const opt=$('nt_dep').selectedOptions[0]||{dataset:{}}, tdep=parseFloat((p.primo&&opt.dataset.primo!==undefined)?opt.dataset.primo:opt.dataset.taux)||0;
     let droits,lib;
     if(p.type==='neuf'){droits=base*BAR.droits_neuf/100;lib='Droits et taxes (neuf, '+String(BAR.droits_neuf).replace('.',',')+' %)';}
-    else{const dep=base*p.dep/100,comm=base*BAR.taxe_communale/100,assiette=dep*BAR.frais_assiette/100;droits=dep+comm+assiette;lib='Droits de mutation (départ. '+String(p.dep).replace('.',',')+' % + commune '+String(BAR.taxe_communale).replace('.',',')+' % + frais d\'assiette)';}
+    else{const dep=base*tdep/100,comm=base*BAR.taxe_communale/100,assiette=dep*BAR.frais_assiette/100;droits=dep+comm+assiette;lib='Droits de mutation (départ. '+String(tdep).replace('.',',')+' % + commune '+String(BAR.taxe_communale).replace('.',',')+' % + frais d\'assiette)';}
     const emol=emoluments(base), tva=emol*BAR.tva/100, csi=Math.max(15,base*BAR.csi/100);
     const tot=droits+emol+tva+csi+p.deb;
     return {base,droits,lib,emol,tva,csi,deb:p.deb,tot};
   }
-  function params(){const p={};IDS.forEach(k=>p[k]=(k==='type')?$('nt_type').value:n('nt_'+k));return p;}
+  function params(){const p={};IDS.forEach(k=>{const el=$('nt_'+k);p[k]=!el?false:(k==='type'||k==='dep')?el.value:(k==='primo')?el.checked:n('nt_'+k);});return p;}
   function run(){
     const p=params(), r=calc(p);
     $('nr_tot').textContent=eur(r.tot);
@@ -67,10 +70,10 @@ ksort($ntDeps);
       .map(x=>`<tr><td>${x[0]}</td><td class="text-end">${eur(x[1])}</td></tr>`).join('');
     return {p,r};
   }
-  IDS.forEach(k=>$('nt_'+k).addEventListener('input',run));
+  IDS.forEach(k=>{const el=$('nt_'+k);if(el){el.addEventListener('input',run);el.addEventListener('change',run);}});
   window.ntPrepare=function(f){const x=run();f.params.value=JSON.stringify(x.p);f.resultat.value=JSON.stringify({frais:Math.round(x.r.tot*100)/100,prix:x.p.prix,pct:x.r.base>0?Math.round(x.r.tot/x.r.base*10000)/100:0});return true;};
   const load=<?= json_encode($capLoad ? json_decode($capLoad['params'] ?? '{}', true) : null) ?>;
-  if(load) IDS.forEach(k=>{if(load[k]!==undefined) $('nt_'+k).value=load[k];});
+  if(load) IDS.forEach(k=>{const el=$('nt_'+k);if(!el||load[k]===undefined) return; if(k==='primo') el.checked=!!load[k]; else el.value=load[k];});
   run();
 })();
 </script>
