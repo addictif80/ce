@@ -16,71 +16,31 @@ $agences = $showCta ? getAgences() : [];
 toolsHeader('Outils en libre accès');
 ?>
 <div class="container my-4">
-    <div class="privacy-banner d-flex align-items-center gap-3 mb-4" style="padding:22px 26px;">
-        <i class="fas fa-user-shield" style="font-size:2.4rem"></i>
-        <div>
-            <div class="h4 mb-1">Aucune donnée n'est enregistrée</div>
-            <div>Ces outils sont accessibles sans connexion ni création de compte. Rien de ce que vous saisissez n'est stocké par ce portail :
-                tout reste dans votre navigateur et disparaît à la fermeture de la page.
-                <span class="small d-block mt-1">Seules exceptions, volontaires : envoyer un retour à l'administrateur, ou proposer un ajout ou une modification (procédures, codes utiles, contacts utiles), qui est transmis pour validation.</span></div>
+    <div class="privacy-banner mb-4" style="padding:22px 26px;">
+        <div class="d-flex align-items-center gap-3">
+            <i class="fas fa-user-shield" style="font-size:2.4rem"></i>
+            <div>
+                <div class="h4 mb-1">Aucune donnée n'est enregistrée</div>
+                <div>Ces outils sont accessibles sans connexion ni création de compte. Rien de ce que vous saisissez n'est stocké par ce portail :
+                    tout reste dans votre navigateur et disparaît à la fermeture de la page.
+                    <span class="small d-block mt-1">Seules exceptions, volontaires : envoyer un retour à l'administrateur, ou proposer un ajout ou une modification (procédures, codes utiles, contacts utiles), qui est transmis pour validation.</span></div>
+            </div>
         </div>
+        <?php if ($message !== ''): ?>
+        <hr style="border-color:#2e7d32;opacity:.5;margin:18px 0">
+        <div class="tools-message"><?= $message /* HTML assaini à l'enregistrement par l'admin */ ?></div>
+        <style>.tools-message > :last-child{margin-bottom:0}.tools-message h2,.tools-message h3{font-size:1.15rem}</style>
+        <?php endif; ?>
     </div>
-
-    <?php if ($message !== ''): ?>
-    <div class="alert alert-info border-2 mb-4 tools-message"><?= $message /* HTML assaini à l'enregistrement par l'admin */ ?></div>
-    <style>.tools-message > :last-child{margin-bottom:0}.tools-message h2,.tools-message h3{font-size:1.15rem}</style>
-    <?php endif; ?>
-
-    <?php if ($newKeys): ?>
-    <div class="mb-3 small"><i class="fas fa-sparkles text-danger me-1"></i><strong>Récemment ajoutés :</strong>
-        <?php foreach ($newKeys as $k): ?><a href="<?= e($catalog[$k]['url']) ?>" class="badge text-bg-light border text-decoration-none me-1"><i class="fas <?= e($catalog[$k]['icon']) ?> me-1"></i><?= e($catalog[$k]['label']) ?></a><?php endforeach; ?></div>
-    <?php endif; ?>
-    <div id="recentBar" class="mb-3 small" style="display:none"><i class="fas fa-clock-rotate-left text-secondary me-1"></i><strong>Utilisés récemment :</strong> <span id="recentList"></span></div>
-    <div id="favSection" class="mb-4" style="display:none"><h2 class="h5 mb-3"><i class="fas fa-star text-warning me-1"></i>Mes favoris</h2><div class="row g-4" id="favRow"></div><hr class="mt-4"></div>
-    <?php if (!$visible): ?>
-        <div class="alert alert-info">Aucun outil n'est disponible pour le moment.</div>
-    <?php else: ?>
-    <div class="row g-4">
-        <?php foreach ($visible as $key): $t = $catalog[$key]; $off = $status[$key]['state'] === 'indisponible'; ?>
-        <div class="col-md-6 col-lg-4 tool-col" data-key="<?= e($key) ?>">
-            <<?= $off ? 'div' : 'a href="' . e($t['url']) . '"' ?> class="text-decoration-none text-dark d-block h-100" <?= $off ? 'aria-disabled="true"' : '' ?>>
-                <div class="card h-100 shadow-sm border-0" style="<?= $off ? 'opacity:.6;filter:grayscale(1);cursor:not-allowed' : '' ?>">
-                    <div class="card-body">
-                        <div class="mb-3 d-flex justify-content-between align-items-start">
-                            <span style="color:#e4002b;font-size:2rem"><i class="fas <?= e($t['icon']) ?>"></i></span>
-                            <span>
-                            <?php if ($off): ?><span class="badge bg-secondary">Indisponible</span><?php endif; ?>
-                            <?php if (!$off && $isNew($key)): ?><span class="badge bg-danger">Nouveau</span><?php endif; ?>
-                            <button type="button" class="btn btn-link p-0 ms-1 fav-btn text-secondary" title="Ajouter aux favoris" aria-label="Ajouter aux favoris" aria-pressed="false"><i class="far fa-star"></i></button>
-                            </span>
-                        </div>
-                        <h2 class="h5"><?= e($t['label']) ?></h2>
-                        <p class="text-muted mb-2"><?= e($t['description']) ?></p>
-                        <?php if ($key === 'procedures' && $procCounts): ?>
-                            <div class="mb-2"><div class="small text-muted mb-1"><?= array_sum(array_column($procCounts, 'nb')) ?> procédure(s) :</div>
-                            <?php foreach ($procCounts as $pc): ?><span class="badge bg-light text-dark border me-1 mb-1"><?= e($pc['nom']) ?> <strong>(<?= (int)$pc['nb'] ?>)</strong></span><?php endforeach; ?></div>
-                        <?php endif; ?>
-                        <?php if ($off): ?>
-                            <p class="small mb-0 fw-semibold"><i class="fas fa-ban me-1"></i><?= nl2br(e($status[$key]['motif'] !== '' ? $status[$key]['motif'] : 'Temporairement indisponible.')) ?></p>
-                        <?php else: ?>
-                            <p class="small text-success mb-0"><i class="fas fa-check-circle me-1"></i><?= e($t['note']) ?></p>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </<?= $off ? 'div' : 'a' ?>>
-        </div>
-        <?php endforeach; ?>
-    </div>
-    <?php endif; ?>
 
     <?php if ($showCta): ?>
-    <div class="card border-0 shadow-sm mt-5" style="border-left:6px solid #e4002b!important">
-        <div class="card-body d-md-flex align-items-center justify-content-between gap-4 p-4">
+    <div class="card border-0 shadow mb-4" style="background:linear-gradient(135deg,#e4002b 0%,#b30022 100%);color:#fff">
+        <div class="card-body d-md-flex align-items-center justify-content-between gap-4 p-4 p-md-5">
             <div>
-                <h2 class="h4 mb-2"><i class="fas fa-user-plus text-danger me-2"></i><?= e($cta['title']) ?></h2>
-                <div class="mb-0 text-muted"><?= nl2br(e($cta['text'])) ?></div>
+                <h2 class="h3 mb-2 fw-bold"><i class="fas fa-user-plus me-2"></i><?= e($cta['title']) ?></h2>
+                <div class="mb-0 fs-6" style="opacity:.95"><?= nl2br(e($cta['text'])) ?></div>
             </div>
-            <button type="button" class="btn btn-danger btn-lg flex-shrink-0 mt-3 mt-md-0" data-bs-toggle="modal" data-bs-target="#accessModal"><i class="fas fa-key me-2"></i>Demander un accès</button>
+            <button type="button" class="btn btn-light btn-lg flex-shrink-0 mt-3 mt-md-0 fw-bold px-4" style="color:#b30022" data-bs-toggle="modal" data-bs-target="#accessModal"><i class="fas fa-key me-2"></i>Demander un accès</button>
         </div>
     </div>
 
@@ -130,6 +90,49 @@ toolsHeader('Outils en libre accès');
         });
     })();
     </script>
+    <?php endif; ?>
+
+
+    <?php if ($newKeys): ?>
+    <div class="mb-3 small"><i class="fas fa-sparkles text-danger me-1"></i><strong>Récemment ajoutés :</strong>
+        <?php foreach ($newKeys as $k): ?><a href="<?= e($catalog[$k]['url']) ?>" class="badge text-bg-light border text-decoration-none me-1"><i class="fas <?= e($catalog[$k]['icon']) ?> me-1"></i><?= e($catalog[$k]['label']) ?></a><?php endforeach; ?></div>
+    <?php endif; ?>
+    <div id="recentBar" class="mb-3 small" style="display:none"><i class="fas fa-clock-rotate-left text-secondary me-1"></i><strong>Utilisés récemment :</strong> <span id="recentList"></span></div>
+    <div id="favSection" class="mb-4" style="display:none"><h2 class="h5 mb-3"><i class="fas fa-star text-warning me-1"></i>Mes favoris</h2><div class="row g-4" id="favRow"></div><hr class="mt-4"></div>
+    <?php if (!$visible): ?>
+        <div class="alert alert-info">Aucun outil n'est disponible pour le moment.</div>
+    <?php else: ?>
+    <div class="row g-4">
+        <?php foreach ($visible as $key): $t = $catalog[$key]; $off = $status[$key]['state'] === 'indisponible'; ?>
+        <div class="col-md-6 col-lg-4 tool-col" data-key="<?= e($key) ?>">
+            <<?= $off ? 'div' : 'a href="' . e($t['url']) . '"' ?> class="text-decoration-none text-dark d-block h-100" <?= $off ? 'aria-disabled="true"' : '' ?>>
+                <div class="card h-100 shadow-sm border-0" style="<?= $off ? 'opacity:.6;filter:grayscale(1);cursor:not-allowed' : '' ?>">
+                    <div class="card-body">
+                        <div class="mb-3 d-flex justify-content-between align-items-start">
+                            <span style="color:#e4002b;font-size:2rem"><i class="fas <?= e($t['icon']) ?>"></i></span>
+                            <span>
+                            <?php if ($off): ?><span class="badge bg-secondary">Indisponible</span><?php endif; ?>
+                            <?php if (!$off && $isNew($key)): ?><span class="badge bg-danger">Nouveau</span><?php endif; ?>
+                            <button type="button" class="btn btn-link p-0 ms-1 fav-btn text-secondary" title="Ajouter aux favoris" aria-label="Ajouter aux favoris" aria-pressed="false"><i class="far fa-star"></i></button>
+                            </span>
+                        </div>
+                        <h2 class="h5"><?= e($t['label']) ?></h2>
+                        <p class="text-muted mb-2"><?= e($t['description']) ?></p>
+                        <?php if ($key === 'procedures' && $procCounts): ?>
+                            <div class="mb-2"><div class="small text-muted mb-1"><?= array_sum(array_column($procCounts, 'nb')) ?> procédure(s) :</div>
+                            <?php foreach ($procCounts as $pc): ?><span class="badge bg-light text-dark border me-1 mb-1"><?= e($pc['nom']) ?> <strong>(<?= (int)$pc['nb'] ?>)</strong></span><?php endforeach; ?></div>
+                        <?php endif; ?>
+                        <?php if ($off): ?>
+                            <p class="small mb-0 fw-semibold"><i class="fas fa-ban me-1"></i><?= nl2br(e($status[$key]['motif'] !== '' ? $status[$key]['motif'] : 'Temporairement indisponible.')) ?></p>
+                        <?php else: ?>
+                            <p class="small text-success mb-0"><i class="fas fa-check-circle me-1"></i><?= e($t['note']) ?></p>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </<?= $off ? 'div' : 'a' ?>>
+        </div>
+        <?php endforeach; ?>
+    </div>
     <?php endif; ?>
 
     <div class="text-center mt-5">
