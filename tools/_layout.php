@@ -60,6 +60,9 @@ function toolsFooter() {
     if ($key) { ?>
 <script>try{const k=<?= json_encode($key) ?>;let r=JSON.parse(localStorage.getItem('toolsRecent')||'[]').filter(x=>x!==k);r.unshift(k);localStorage.setItem('toolsRecent',JSON.stringify(r.slice(0,8)));}catch(e){}</script>
 <?php }
+    if ($key) { ?>
+<div class="container text-center small my-3 no-print" style="color:#8a5a00"><i class="fas fa-triangle-exclamation me-1"></i>Outil d'aide : il ne se substitue pas aux outils internes du groupe BPCE. Vérifiez les résultats avant toute communication à un client.</div>
+<?php }
     if (!empty($GLOBALS['toolsNoFeedbackLink'])) { echo "</body>\n</html>\n"; return; } ?>
 <div class="container text-center text-muted small my-4 no-print">
     <a href="feedback.php<?= $key ? '?tool=' . urlencode($key) : '' ?>" class="text-muted"><i class="fas fa-comment-dots me-1"></i>Un problème, une idée ? Envoyer un retour à l'administrateur</a>

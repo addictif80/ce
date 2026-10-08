@@ -651,6 +651,7 @@ try {
         'event_updated'  => 'Événement modifié avec succès.',
         'event_deleted'  => 'Événement supprimé.',
         'popup_saved' => 'Popup enregistrée.',
+        'terms_saved' => 'Conditions d\'utilisation enregistrées.',
         'bareme_saved' => 'Barème enregistré.', 'bareme_reset' => 'Barème remis aux valeurs par défaut.',
         'bareme_invalide' => 'Barème refusé : voir le message sous le barème concerné.', 'bareme_inconnu' => 'Barème inconnu.',
         'pieces_saved' => 'Modèle de pièces enregistré.', 'pieces_deleted' => 'Modèle de pièces supprimé.',
@@ -689,6 +690,9 @@ try {
     </li>
     <li class="nav-item">
         <a class="nav-link <?= $activeTab === 'outils_publics' ? 'active' : '' ?>" href="?tab=outils_publics"><i class="fas fa-globe"></i> Outils publics</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link <?= $activeTab === 'conditions' ? 'active' : '' ?>" href="?tab=conditions"><i class="fas fa-scale-balanced"></i> Conditions</a>
     </li>
     <li class="nav-item">
         <a class="nav-link <?= $activeTab === 'popups' ? 'active' : '' ?>" href="?tab=popups"><i class="fas fa-window-restore"></i> Popups</a>
@@ -2295,6 +2299,8 @@ $feedbackTypes = ['bug' => 'Problème', 'suggestion' => 'Suggestion', 'question'
     </div>
 </div>
 
+<?php elseif ($activeTab === 'conditions'): ?>
+<?php require __DIR__ . '/tab_conditions.php'; ?>
 <?php elseif ($activeTab === 'popups'): ?>
 <?php require __DIR__ . '/tab_popups.php'; ?>
 <?php elseif ($activeTab === 'baremes'): ?>

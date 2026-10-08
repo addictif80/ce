@@ -44,16 +44,17 @@ function baremeRenderForm($cle, array $d) {
         </tbody></table>
 
         <?= bfTitle(3, 'Droits de mutation par département (ancien)') ?>
-        <?= bfHelp('Facultatif : si vous renseignez des départements, le simulateur propose une liste de choix par département. Sinon il propose les taux usuels. Le taux « autre département » sert pour ceux qui ne sont pas listés.') ?>
+        <?= bfHelp('Le simulateur propose la liste des départements. « Taux » = taux départemental appliqué (5 % dans les départements qui ont voté la hausse de 2025) ; « Taux primo-accédant » = taux de droit commun, appliqué aux primo-accédants qui achètent leur résidence principale (le tableau d\'impots.gouv.fr indique que le taux majoré est « hors primo-accédant »). Si vous videz la liste, le simulateur propose les taux usuels.') ?>
         <div class="mb-2">Taux des autres départements (%) : <?= bfNum('[taux_departemental_defaut]', $d['taux_departemental_defaut'], 'any', 80) ?></div>
-        <table class="table table-sm align-middle w-auto" id="bfDep"><thead><tr><th>Code</th><th>Département</th><th>Taux (%)</th><th></th></tr></thead><tbody>
+        <table class="table table-sm align-middle w-auto" id="bfDep"><thead><tr><th>Code</th><th>Département</th><th>Taux (%)</th><th>Taux primo-accédant (%)</th><th></th></tr></thead><tbody>
         <?php $i = 0; foreach ((array)$d['departements'] as $code => $dep): ?>
             <tr><td><input name="d[dep][<?= $i ?>][code]" value="<?= e((string)$code) ?>" maxlength="4" class="form-control form-control-sm" style="width:70px"></td>
                 <td><input name="d[dep][<?= $i ?>][nom]" value="<?= e($dep['nom'] ?? '') ?>" maxlength="60" class="form-control form-control-sm" style="width:200px"></td>
                 <td><input type="number" step="any" name="d[dep][<?= $i ?>][taux]" value="<?= e((string)$dep['taux']) ?>" class="form-control form-control-sm text-end" style="width:90px"></td>
+                <td><input type="number" step="any" name="d[dep][<?= $i ?>][taux_primo]" value="<?= e((string)($dep['taux_primo'] ?? $dep['taux'])) ?>" class="form-control form-control-sm text-end" style="width:90px"></td>
                 <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove()"><i class="fas fa-xmark"></i></button></td></tr>
         <?php $i++; endforeach; ?></tbody></table>
-        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="bfAddRow('bfDep','dep',[['code','70',''],['nom','200',''],['taux','90','']])"><i class="fas fa-plus"></i> Ajouter un département</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="bfAddRow('bfDep','dep',[['code','70',''],['nom','200',''],['taux','90',''],['taux_primo','90','']])"><i class="fas fa-plus"></i> Ajouter un département</button>
     <?php } else { /* ptz */ $zl = BF_ZONES; ?>
         <?= bfTitle(1, 'Coefficient familial') ?>
         <?= bfHelp('Sert à déterminer la tranche de revenus : revenu retenu ÷ coefficient. Il dépend du nombre de personnes qui occuperont le logement.') ?>
@@ -117,7 +118,7 @@ function baremeCollect($cle, array $p) {
         foreach ((array)($p['dep'] ?? []) as $dep) {
             $code = mb_substr(trim((string)($dep['code'] ?? '')), 0, 4);
             if ($code === '' || trim((string)($dep['taux'] ?? '')) === '') continue;
-            $deps[$code] = ['nom' => mb_substr(trim((string)($dep['nom'] ?? '')), 0, 60), 'taux' => $n($dep['taux'])];
+            $deps[$code] = ['nom' => mb_substr(trim((string)($dep['nom'] ?? '')), 0, 60), 'taux' => $n($dep['taux']), 'taux_primo' => trim((string)($dep['taux_primo'] ?? '')) === '' ? $n($dep['taux']) : $n($dep['taux_primo'])];
         }
         ksort($deps, SORT_NATURAL);
         return ['emoluments' => $emol, 'droits_neuf' => $n($p['droits_neuf'] ?? 0), 'taxe_communale' => $n($p['taxe_communale'] ?? 0), 'frais_assiette' => $n($p['frais_assiette'] ?? 0),

@@ -1,4 +1,5 @@
 <?php if (empty($_GET['embedded'])): ?>
+        <div class="text-center small mt-4 mb-2 no-print"><a href="#" class="text-muted" data-bs-toggle="modal" data-bs-target="#termsModal"><i class="fas fa-scale-balanced me-1"></i>Conditions d'utilisation</a></div>
         </div><!-- /#page-content-main -->
         </div><!-- /#win-content-wrapper -->
     </div><!-- /.main-content -->
@@ -6,6 +7,13 @@
     </div><!-- /.page-content embedded -->
 <?php endif; ?>
 
+<?php
+// Conditions d'utilisation : fenêtre bloquante tant que l'utilisateur ne les a pas acceptées (hors affichage embarqué)
+if (empty($_GET['embedded']) && function_exists('getCurrentUserId') && getCurrentUserId()) {
+    require_once __DIR__ . '/../includes/terms.php';
+    renderTermsModal($B . '/terms_accept.php', $B . '/logout.php', !termsAccepted(getCurrentUserId()));
+}
+?>
     <?php if (isset($extraJs)): foreach((array)$extraJs as $js): ?>
         <script src="<?= $js ?>"></script>
     <?php endforeach; endif; ?>
