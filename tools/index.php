@@ -27,9 +27,9 @@ toolsHeader('Outils en libre accès');
             </div>
         </div>
         <?php if ($message !== ''): ?>
-        <hr style="border-color:#2e7d32;opacity:.5;margin:18px 0">
+        <hr style="border-color:#2e7d32;opacity:.5;margin:16px 0">
         <div class="tools-message"><?= $message /* HTML assaini à l'enregistrement par l'admin */ ?></div>
-        <style>.tools-message > :last-child{margin-bottom:0}.tools-message h2,.tools-message h3{font-size:1.15rem}</style>
+        <style>.tools-message{background:#fff;color:#212529;border:1px solid #c8e6c9;border-radius:8px;padding:14px 18px}.tools-message a{color:#0d6efd}.tools-message > :last-child{margin-bottom:0}.tools-message h2,.tools-message h3{font-size:1.15rem}</style>
         <?php endif; ?>
     </div>
 
