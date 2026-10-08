@@ -83,3 +83,22 @@ if ($action === 'save_terms') {
     header('Location: index.php?tab=conditions&msg=terms_saved');
     exit;
 }
+
+if ($action === 'import_zonage' || $action === 'clear_zonage') {
+    require_once __DIR__ . '/../../includes/zonage.php';
+    if ($action === 'clear_zonage') {
+        zonageEnsureSchema();
+        $db->exec("DELETE FROM zonage_communes");
+        setToolsSetting('zonage_date', ''); setToolsSetting('zonage_source', ''); setToolsSetting('zonage_libelle', '');
+        header('Location: index.php?tab=baremes&msg=zonage_vide#zonage-card');
+        exit;
+    }
+    $f = $_FILES['zonage'] ?? null;
+    if (!$f || $f['error'] !== UPLOAD_ERR_OK || $f['size'] > 8 * 1048576) {
+        $_SESSION['zonage_res'] = ['ok' => false, 'message' => 'Aucun fichier reçu, ou fichier trop volumineux (8 Mo maximum).'];
+    } else {
+        $_SESSION['zonage_res'] = zonageImport($f['tmp_name'], $f['name'], isset($_POST['remplacer']));
+    }
+    header('Location: index.php?tab=baremes#zonage-card');
+    exit;
+}

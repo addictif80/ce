@@ -873,8 +873,8 @@ function getPublicToolsCatalog() {
         'ptz' => [
             'added' => '2026-10-06',
             'label' => 'Simulateur PTZ', 'icon' => 'fa-percent', 'url' => 'ptz.php', 'default' => true,
-            'description' => 'Vérifiez l\'éligibilité au prêt à taux zéro et estimez son montant, sa durée et son différé.',
-            'note' => 'Les calculs se font dans votre navigateur : rien n\'est envoyé ni conservé.',
+            'description' => 'Vérifiez l\'éligibilité au prêt à taux zéro et estimez son montant, sa durée et son différé ; la zone se déduit de la commune.',
+            'note' => 'Les calculs se font dans votre navigateur. Seule la liste des communes d\'un département est demandée à ce portail : rien de ce que vous saisissez n\'est conservé.',
         ],
         'relais' => [
             'added' => '2026-10-07',

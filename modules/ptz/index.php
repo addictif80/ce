@@ -10,6 +10,7 @@ $saved = simList('ptz');
 $capLoad = simLoad($saved);
 $capSave = true;
 $ptzBareme = ptzGetBareme();
+$ptzZonageUrl = '../../tools/zonage.php';
 ?>
 <div class="mb-3">
     <h4 class="mb-1"><i class="fas fa-percent"></i> Simulateur PTZ</h4>

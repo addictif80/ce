@@ -650,7 +650,7 @@ try {
         'event_added'    => 'Événement ajouté avec succès.',
         'event_updated'  => 'Événement modifié avec succès.',
         'event_deleted'  => 'Événement supprimé.',
-        'popup_saved' => 'Popup enregistrée.',
+        'popup_saved' => 'Popup enregistrée.', 'zonage_vide' => 'Liste des communes vidée.',
         'terms_saved' => 'Conditions d\'utilisation enregistrées.',
         'bareme_saved' => 'Barème enregistré.', 'bareme_reset' => 'Barème remis aux valeurs par défaut.',
         'bareme_invalide' => 'Barème refusé : voir le message sous le barème concerné.', 'bareme_inconnu' => 'Barème inconnu.',

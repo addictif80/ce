@@ -19,7 +19,14 @@ require __DIR__ . '/../_sim/style.php';
     </div></div>
   <div class="cap-card"><h2><i class="fas fa-house me-2 text-danger"></i>L'opération</h2>
     <div class="row g-2">
-      <div class="col-6"><label class="form-label small mb-0">Zone du logement</label>
+      <div class="col-12" id="pz_geo" style="display:none"><div class="row g-2">
+        <div class="col-6"><label class="form-label small mb-0">Département du logement</label>
+          <select class="form-select" id="pz_dep" data-noshare><option value="">Choisir…</option></select></div>
+        <div class="col-6"><label class="form-label small mb-0">Commune</label>
+          <input type="text" class="form-control" id="pz_commune" data-noshare list="pz_communes" autocomplete="off" placeholder="Tapez le nom de la commune" disabled>
+          <datalist id="pz_communes"></datalist></div>
+      </div></div>
+      <div class="col-6"><label class="form-label small mb-0">Zone du logement <span class="text-muted" id="pz_zinfo"></span></label>
         <select class="form-select" id="pz_zone"><option value="A">A bis / A</option><option value="B1">B1</option><option value="B2">B2</option><option value="C">C</option></select></div>
       <div class="col-6"><label class="form-label small mb-0">Type de bien</label>
         <select class="form-select" id="pz_type"><?php foreach ($ptzBareme['types'] as $k => $t): ?><option value="<?= e($k) ?>"><?= e($t['label']) ?></option><?php endforeach; ?></select></div>
@@ -74,7 +81,43 @@ require __DIR__ . '/../_sim/style.php';
     out.d=B.durees[tr]; out.mens=out.mont>0&&out.d.total>out.d.differe?out.mont/((out.d.total-out.d.differe)*12):0;
     return out;
   }
-  function params(){return {pers:n('pz_pers'),rfr:n('pz_rfr'),primo:$('pz_primo').checked,rp:$('pz_rp').checked,zone:$('pz_zone').value,type:$('pz_type').value,cout:n('pz_cout')};}
+  // ── Zone déduite du département et de la commune (si la liste a été importée par l'administrateur) ──
+  const ZURL=<?= json_encode($ptzZonageUrl ?? null) ?>;
+  let communes=new Map(), pending=null;
+  const ZMAP={Abis:'A',A:'A',B1:'B1',B2:'B2',C:'C'}, ZLIB={Abis:'A bis',A:'A',B1:'B1',B2:'B2',C:'C'};
+  async function jget(u){const r=await fetch(u,{credentials:'same-origin'});if(!r.ok)throw new Error(r.status);return r.json();}
+  async function loadDeps(){
+    if(!ZURL) return;
+    try{
+      const j=await jget(ZURL); if(!j.available) return;
+      $('pz_dep').innerHTML='<option value="">Choisir…</option>'+j.departements.map(d=>`<option value="${d[0]}">${d[0]} – ${d[1]||''}</option>`).join('');
+      $('pz_geo').style.display='';
+      if(pending){applyPending();}
+    }catch(e){}
+  }
+  async function loadCommunes(dep){
+    communes=new Map(); $('pz_communes').innerHTML=''; $('pz_commune').value=''; $('pz_zinfo').textContent='';
+    $('pz_commune').disabled=!dep; if(!dep) return;
+    try{
+      const j=await jget(ZURL+(ZURL.includes('?')?'&':'?')+'dep='+encodeURIComponent(dep));
+      (j.communes||[]).forEach(c=>communes.set(c[1].toLowerCase(),c));
+      $('pz_communes').innerHTML=(j.communes||[]).map(c=>`<option value="${String(c[1]).replace(/"/g,'&quot;')}">`).join('');
+    }catch(e){}
+  }
+  function pickCommune(){
+    const c=communes.get($('pz_commune').value.trim().toLowerCase());
+    if(c){$('pz_zone').value=ZMAP[c[2]]||'C'; $('pz_zinfo').textContent='(déduite : '+ZLIB[c[2]]+')'; run();}
+    else $('pz_zinfo').textContent='';
+  }
+  async function applyPending(){
+    const g=pending; pending=null; if(!g||!g.dep) return;
+    $('pz_dep').value=g.dep; await loadCommunes(g.dep); if(g.commune){$('pz_commune').value=g.commune; pickCommune();}
+  }
+  $('pz_dep').addEventListener('change',()=>loadCommunes($('pz_dep').value));
+  $('pz_commune').addEventListener('input',pickCommune);
+  $('pz_zone').addEventListener('change',()=>{$('pz_zinfo').textContent='';});
+  window.toolsShare={get:()=>({dep:$('pz_dep').value,commune:$('pz_commune').value}),set:o=>{pending=o;if($('pz_geo').style.display!=='none')applyPending();}};
+  function params(){return {dep:$('pz_dep').value,commune:$('pz_commune').value,pers:n('pz_pers'),rfr:n('pz_rfr'),primo:$('pz_primo').checked,rp:$('pz_rp').checked,zone:$('pz_zone').value,type:$('pz_type').value,cout:n('pz_cout')};}
   function run(){
     const p=params(), r=calc(p);
     $('pr_mont').textContent=eur(r.mont);
@@ -91,8 +134,8 @@ require __DIR__ . '/../_sim/style.php';
   ['pers','rfr','primo','rp','zone','type','cout'].forEach(k=>$('pz_'+k).addEventListener('input',run));
   window.pzPrepare=function(f){const x=run();f.params.value=JSON.stringify(x.p);f.resultat.value=JSON.stringify({ptz:x.r.mont,eligible:x.r.errs.length===0,tranche:x.r.tr+1,duree:x.r.d.total*12,differe:x.r.d.differe*12});return true;};
   const load=<?= json_encode($capLoad ? json_decode($capLoad['params'] ?? '{}', true) : null) ?>;
-  if(load){NUM.forEach(k=>{if(load[k]!==undefined)$('pz_'+k).value=load[k];});['zone','type'].forEach(k=>{if(load[k])$('pz_'+k).value=load[k];});if('primo' in load)$('pz_primo').checked=!!load.primo;if('rp' in load)$('pz_rp').checked=!!load.rp;}
-  run();
+  if(load){NUM.forEach(k=>{if(load[k]!==undefined)$('pz_'+k).value=load[k];});['zone','type'].forEach(k=>{if(load[k])$('pz_'+k).value=load[k];});if('primo' in load)$('pz_primo').checked=!!load.primo;if('rp' in load)$('pz_rp').checked=!!load.rp;if(load.dep)pending={dep:load.dep,commune:load.commune||''};}
+  run(); loadDeps();
 })();
 </script>
 <?php require __DIR__ . '/../_sim/common_js.php'; ?>
