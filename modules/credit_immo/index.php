@@ -331,6 +331,23 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='delete') {
     header('Location: index.php'); exit;
 }
 
+// ── POST PASSERELLE : création d'un dossier à partir d'une simulation enregistrée (capacité, notaire, PTZ) ──
+if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='from_sim') {
+    require_once __DIR__ . '/from_sim.php';
+    $newId = 0;
+    try {
+        $form = ciFormFromSimulation($db, $userId, (int)($_POST['id'] ?? 0));
+        if ($form) {
+            $cols = ciCollect($form);
+            $db->prepare('INSERT INTO credit_immobilier (user_id, date_ajout, ' . implode(', ', array_keys($cols)) . ') VALUES (?, CURDATE(), ' . implode(', ', array_fill(0, count($cols), '?')) . ')')
+               ->execute(array_merge([$userId], array_values($cols)));
+            $newId = $db->lastInsertId();
+        }
+    } catch (Exception $e) { error_log('[ci] FROM_SIM:' . $e->getMessage()); }
+    header('Location: index.php' . ($newId ? '?open=' . $newId : ''));
+    exit;
+}
+
 // ── POST DUPLICATION (copie d'un dossier pour tester un autre scénario) ──────
 if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='duplicate') {
     $id = (int)$_POST['id'];

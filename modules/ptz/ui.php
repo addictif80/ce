@@ -80,7 +80,7 @@ require __DIR__ . '/../_sim/style.php';
     return {p,r};
   }
   ['pers','rfr','primo','rp','zone','type','cout'].forEach(k=>$('pz_'+k).addEventListener('input',run));
-  window.pzPrepare=function(f){const x=run();f.params.value=JSON.stringify(x.p);f.resultat.value=JSON.stringify({ptz:x.r.mont,eligible:x.r.errs.length===0,tranche:x.r.tr+1});return true;};
+  window.pzPrepare=function(f){const x=run();f.params.value=JSON.stringify(x.p);f.resultat.value=JSON.stringify({ptz:x.r.mont,eligible:x.r.errs.length===0,tranche:x.r.tr+1,duree:x.r.d.total*12,differe:x.r.d.differe*12});return true;};
   const load=<?= json_encode($capLoad ? json_decode($capLoad['params'] ?? '{}', true) : null) ?>;
   if(load){NUM.forEach(k=>{if(load[k]!==undefined)$('pz_'+k).value=load[k];});['zone','type'].forEach(k=>{if(load[k])$('pz_'+k).value=load[k];});if('primo' in load)$('pz_primo').checked=!!load.primo;if('rp' in load)$('pz_rp').checked=!!load.rp;}
   run();

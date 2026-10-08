@@ -13,6 +13,7 @@ $capSave = true;
     <p class="text-muted mb-0">Estimez le capital et le budget d'achat d'un client, puis enregistrez la simulation.</p>
 </div>
 <?php if (isset($_GET['saved'])): ?><div class="alert alert-success py-2">Simulation enregistrée.</div><?php endif; ?>
+<?php if ($capLoad): ?><div class="mb-3"><?= simDossierButton($capLoad, true) ?></div><?php endif; ?>
 <?php require __DIR__ . '/ui.php'; ?>
-<?php simTable($saved, [['Capital', fn($r) => isset($r['capital']) ? simEur($r['capital']) : '–'], ['Budget d\'achat', fn($r) => isset($r['budget']) ? simEur($r['budget']) : '–'], ['Mensualité max', fn($r) => isset($r['mensualite']) ? simEur($r['mensualite'], 2) : '–']]); ?>
+<?php simTable($saved, [['Capital', fn($r) => isset($r['capital']) ? simEur($r['capital']) : '–'], ['Budget d\'achat', fn($r) => isset($r['budget']) ? simEur($r['budget']) : '–'], ['Mensualité max', fn($r) => isset($r['mensualite']) ? simEur($r['mensualite'], 2) : '–']], fn($s) => simDossierButton($s)); ?>
 <?php require_once __DIR__ . '/../../templates/footer.php'; ?>
