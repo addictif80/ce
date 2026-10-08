@@ -38,13 +38,19 @@ $produits = [
 $produitsIndex = [];
 foreach ($produits as $p) $produitsIndex[$p['libelle']] = $p;
 
-// Ajout
+// Ajout : un RDV peut comporter plusieurs ventes (une ligne de suivi par vente, même date de RDV)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add') {
-    $libelle = $_POST['produit_vendu'] ?? '';
-    $eaiCle = $produitsIndex[$libelle]['eai_cle'] ?? '';
-    $categorie = in_array($_POST['categorie'] ?? '', $categoriesProduction, true) ? $_POST['categorie'] : '';
     $stmt = $db->prepare("INSERT INTO suivi_production (user_id, date_rdv, categorie, produit_vendu, eai_cle, montant_nombre, details) VALUES (?, ?, ?, ?, ?, ?, ?)");
-    $stmt->execute([$userId, $_POST['date_rdv'] ?: null, $categorie, $libelle, $eaiCle, $_POST['montant_nombre'], $_POST['details']]);
+    $lib = (array)($_POST['produit_vendu'] ?? []);
+    foreach (array_slice(array_keys($lib), 0, 30) as $i) {
+        $libelle = (string)$lib[$i];
+        if ($libelle === '') continue; // ligne laissée vide
+        $cat = (string)(((array)($_POST['categorie'] ?? []))[$i] ?? '');
+        $categorie = in_array($cat, $categoriesProduction, true) ? $cat : '';
+        $eaiCle = $produitsIndex[$libelle]['eai_cle'] ?? '';
+        $stmt->execute([$userId, $_POST['date_rdv'] ?: null, $categorie, $libelle, $eaiCle,
+            mb_substr((string)(((array)($_POST['montant_nombre'] ?? []))[$i] ?? ''), 0, 100), (string)(((array)($_POST['details'] ?? []))[$i] ?? '')]);
+    }
     header('Location: index.php');
     exit;
 }
@@ -90,6 +96,7 @@ $stmt->execute([$userId]);
 $productions = $stmt->fetchAll();
 ?>
 
+<style>#tableProduction tr.rdv-head td{background:#f1f3f5;border-top:2px solid #dee2e6}</style>
 <!-- Stats -->
 <div class="row g-3 mb-4">
     <div class="col-md-4">
@@ -131,9 +138,28 @@ $productions = $stmt->fetchAll();
             </tr>
         </thead>
         <tbody>
-        <?php foreach ($productions as $prod): ?>
-            <tr>
-                <td><?= formatDateTime($prod['date_rdv']) ?></td>
+        <?php
+        // Regroupement par RDV (même date et heure) : en-tête avec le nombre de ventes et le total des montants en €
+        $groupes = [];
+        foreach ($productions as $prod) $groupes[$prod['date_rdv'] ?? ''][] = $prod;
+        $unites = array_column($produits, 'unite', 'libelle');
+        foreach ($groupes as $dateRdv => $ventes):
+            $euros = 0.0; $nbEuros = 0;
+            foreach ($ventes as $v) {
+                if (($unites[$v['produit_vendu']] ?? '') === '€') { $euros += (float)str_replace([' ', ','], ['', '.'], (string)$v['montant_nombre']); $nbEuros++; }
+            }
+            $gid = md5((string)$dateRdv);
+        ?>
+            <tr class="rdv-head" data-rdv="<?= $gid ?>">
+                <td colspan="6">
+                    <i class="fas fa-calendar-day me-1"></i><strong><?= formatDateTime($dateRdv) ?></strong>
+                    <span class="badge ms-2" style="background:#e4002b"><?= count($ventes) ?> vente<?= count($ventes) > 1 ? 's' : '' ?></span>
+                    <?php if ($nbEuros): ?><span class="ms-2 text-muted small">dont <?= number_format($euros, 2, ',', ' ') ?> € de volume</span><?php endif; ?>
+                </td>
+            </tr>
+        <?php foreach ($ventes as $prod): ?>
+            <tr data-rdv="<?= $gid ?>">
+                <td class="text-muted small ps-4"><?= formatDateTime($prod['date_rdv']) ?></td>
                 <td><?= !empty($prod['categorie']) ? '<span class="badge bg-secondary">' . e($prod['categorie']) . '</span>' : '<span class="text-muted">—</span>' ?></td>
                 <td><strong><?= e($prod['produit_vendu']) ?></strong></td>
                 <td><?= e($prod['montant_nombre']) ?></td>
@@ -149,6 +175,7 @@ $productions = $stmt->fetchAll();
                 </td>
             </tr>
         <?php endforeach; ?>
+        <?php endforeach; ?>
         </tbody>
     </table>
 </div>
@@ -162,38 +189,20 @@ $productions = $stmt->fetchAll();
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <form method="POST">
+                <form method="POST" onsubmit="if (![...this.querySelectorAll('[name=\'produit_vendu[]\']')].some(s => s.value)) { alert('Choisissez au moins un produit vendu.'); return false; }">
                     <input type="hidden" name="action" value="add">
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label">Date du RDV</label>
                             <input type="datetime-local" name="date_rdv" class="form-control" required>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Produit vendu <span class="text-danger">*</span></label>
-                            <select name="produit_vendu" class="form-select" required onchange="updateMontantLabel(this, 'addMontantLabel')">
-                                <option value="">-- Choisir --</option>
-                                <?php foreach ($produits as $p): ?>
-                                    <option value="<?= e($p['libelle']) ?>" data-unite="<?= $p['unite'] ?>"><?= e($p['libelle']) ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Catégorie</label>
-                            <select name="categorie" class="form-select">
-                                <option value="">-- Choisir --</option>
-                                <?php foreach ($categoriesProduction as $cat): ?>
-                                    <option value="<?= e($cat) ?>"><?= e($cat) ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label" id="addMontantLabel">Montant / Nombre</label>
-                            <input type="text" name="montant_nombre" class="form-control">
-                        </div>
                         <div class="col-12">
-                            <label class="form-label">Détails</label>
-                            <textarea name="details" class="form-control" rows="5"></textarea>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label class="form-label mb-0 fw-semibold">Ventes réalisées lors de ce RDV <span class="text-danger">*</span></label>
+                                <button type="button" class="btn btn-sm btn-ce-outline" onclick="addVenteRow()"><i class="fas fa-plus"></i> Ajouter une vente</button>
+                            </div>
+                            <div id="ventesList"></div>
+                            <div class="form-text">Une ligne par vente : chacune est enregistrée séparément avec la date du RDV. Les lignes sans produit sont ignorées.</div>
                         </div>
                         <div class="col-12">
                             <button type="submit" class="btn btn-ce"><i class="fas fa-save"></i> Enregistrer</button>
@@ -234,7 +243,19 @@ $productions = $stmt->fetchAll();
 </div>
 
 <script>
-filterTable('searchProduction', 'tableProduction');
+// Recherche : les lignes de vente sont filtrées, l'en-tête d'un RDV reste visible tant qu'une de ses ventes l'est
+document.getElementById('searchProduction').addEventListener('keyup', function () {
+    const f = this.value.toLowerCase();
+    const visible = new Set();
+    document.querySelectorAll('#tableProduction tbody tr:not(.rdv-head)').forEach(row => {
+        const ok = row.textContent.toLowerCase().includes(f);
+        row.style.display = ok ? '' : 'none';
+        if (ok) visible.add(row.dataset.rdv);
+    });
+    document.querySelectorAll('#tableProduction tbody tr.rdv-head').forEach(row => {
+        row.style.display = (f === '' || visible.has(row.dataset.rdv)) ? '' : 'none';
+    });
+});
 
 const productionsData = <?= json_encode($productions) ?>;
 const produitsData = <?= json_encode($produits) ?>;
@@ -277,6 +298,39 @@ function buildProduitsOptions(selected) {
         `<option value="${p.libelle}" data-unite="${p.unite}" ${p.libelle === selected ? 'selected' : ''}>${p.libelle}</option>`
     ).join('');
 }
+
+// Ajout : plusieurs ventes pour un même RDV
+function addVenteRow() {
+    const list = document.getElementById('ventesList');
+    const last = list.lastElementChild;
+    const row = document.createElement('div');
+    row.className = 'border rounded p-2 mb-2 vente-row';
+    row.innerHTML = `<div class="row g-2 align-items-end">
+        <div class="col-md-4"><label class="form-label small mb-0">Produit vendu</label>
+            <select name="produit_vendu[]" class="form-select form-select-sm" onchange="updateVenteLabel(this)"><option value="">-- Choisir --</option>${buildProduitsOptions('')}</select></div>
+        <div class="col-md-3"><label class="form-label small mb-0">Catégorie</label>
+            <select name="categorie[]" class="form-select form-select-sm">${buildCategoriesOptions(last ? last.querySelector('[name="categorie[]"]').value : '')}</select></div>
+        <div class="col-md-2"><label class="form-label small mb-0 montant-label">Nombre</label>
+            <input type="text" name="montant_nombre[]" class="form-control form-control-sm"></div>
+        <div class="col-md-2"><label class="form-label small mb-0">Détails</label>
+            <input type="text" name="details[]" class="form-control form-control-sm"></div>
+        <div class="col-md-1 text-end"><button type="button" class="btn btn-sm btn-outline-danger" title="Retirer cette vente" onclick="removeVenteRow(this)"><i class="fas fa-xmark"></i></button></div>
+    </div>`;
+    list.appendChild(row);
+}
+function updateVenteLabel(selectEl) {
+    const opt = selectEl.options[selectEl.selectedIndex];
+    const unite = opt ? opt.dataset.unite : '';
+    selectEl.closest('.vente-row').querySelector('.montant-label').textContent = unite === '€' ? 'Montant (€)' : 'Nombre';
+}
+function removeVenteRow(btn) {
+    const list = document.getElementById('ventesList');
+    if (list.children.length > 1) btn.closest('.vente-row').remove();
+}
+document.getElementById('addModal').addEventListener('show.bs.modal', () => {
+    document.getElementById('ventesList').innerHTML = '';
+    addVenteRow();
+});
 
 function showDetail(id) {
     const prod = productionsData.find(p => p.id == id);
