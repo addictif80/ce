@@ -56,6 +56,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'detail') {
 $pageTitle = 'Administration';
 require_once __DIR__ . '/../../templates/header.php';
 requireAdmin();
+require_once __DIR__ . '/../../includes/baremes.php';
 $db = getDB();
 $adminUserId = getCurrentUserId();
 
@@ -308,6 +309,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         header('Location: index.php?tab=approbations&msg=' . ($action === 'approve_tools_proposal' ? 'approved' : 'rejected'));
         exit;
     }
+
+    require __DIR__ . '/extra_actions.php';
 
     if ($action === 'save_tools_templates') {
         ensurePublicTemplatesColumn();
@@ -636,6 +639,10 @@ try {
         'event_added'    => 'Événement ajouté avec succès.',
         'event_updated'  => 'Événement modifié avec succès.',
         'event_deleted'  => 'Événement supprimé.',
+        'bareme_saved' => 'Barème enregistré.', 'bareme_reset' => 'Barème remis aux valeurs par défaut.',
+        'bareme_invalide' => 'Barème refusé : voir le message sous le barème concerné.', 'bareme_inconnu' => 'Barème inconnu.',
+        'pieces_saved' => 'Modèle de pièces enregistré.', 'pieces_deleted' => 'Modèle de pièces supprimé.',
+        'pieces_invalide' => 'Un nom et au moins une pièce (« Groupe ; Libellé ») sont requis.',
     ];
     echo $msgs[$_GET['msg']] ?? 'Opération effectuée.';
     ?>
@@ -670,6 +677,13 @@ try {
     </li>
     <li class="nav-item">
         <a class="nav-link <?= $activeTab === 'outils_publics' ? 'active' : '' ?>" href="?tab=outils_publics"><i class="fas fa-globe"></i> Outils publics</a>
+    </li>
+    <li class="nav-item">
+        <?php $nbBar = baremesAReviser(); ?>
+        <a class="nav-link <?= $activeTab === 'baremes' ? 'active' : '' ?>" href="?tab=baremes"><i class="fas fa-scale-balanced"></i> Barèmes<?php if ($nbBar): ?> <span class="badge bg-warning text-dark"><?= $nbBar ?></span><?php endif; ?></a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link <?= $activeTab === 'pieces' ? 'active' : '' ?>" href="?tab=pieces"><i class="fas fa-list-check"></i> Pièces justificatives</a>
     </li>
     <li class="nav-item">
         <a class="nav-link <?= $activeTab === 'smtp' ? 'active' : '' ?>" href="?tab=smtp"><i class="fas fa-envelope"></i> Emails</a>
@@ -2241,6 +2255,10 @@ $feedbackTypes = ['bug' => 'Problème', 'suggestion' => 'Suggestion', 'question'
     </div>
 </div>
 
+<?php elseif ($activeTab === 'baremes'): ?>
+<?php require __DIR__ . '/tab_baremes.php'; ?>
+<?php elseif ($activeTab === 'pieces'): ?>
+<?php require __DIR__ . '/tab_pieces.php'; ?>
 <?php elseif ($activeTab === 'smtp'): ?>
 <!-- =============== CONFIGURATION SMTP =============== -->
 <div class="row g-4">

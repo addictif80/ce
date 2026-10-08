@@ -54,7 +54,7 @@ function simList($type) {
 
 /** Formulaire « Enregistrer » commun ; les champs params/resultat sont remplis par la fonction JS $prepareFn(form). */
 function simSaveForm($capLoad, $prepareFn) { ?>
-  <form method="post" class="cap-card" onsubmit="return <?= $prepareFn ?>(this)">
+  <form method="post" class="cap-card no-print" onsubmit="return <?= $prepareFn ?>(this)">
     <h2><i class="fas fa-save me-2 text-danger"></i>Enregistrer cette simulation</h2>
     <input type="hidden" name="action" value="save"><input type="hidden" name="id" value="<?= (int)($capLoad['id'] ?? 0) ?>">
     <input type="hidden" name="params"><input type="hidden" name="resultat">
@@ -64,7 +64,7 @@ function simSaveForm($capLoad, $prepareFn) { ?>
 <?php }
 
 /** Tableau des simulations enregistrées ; $cols = [ [titre, fn($resultat)=>texte], … ] */
-function simTable(array $saved, array $cols) { ?>
+function simTable(array $saved, array $cols, $extra = null) { ?>
 <div class="card mt-3"><div class="card-header fw-semibold">Mes simulations enregistrées</div>
 <div class="table-responsive"><table class="table table-sm table-hover mb-0 align-middle">
     <thead><tr><th>Nom</th><?php foreach ($cols as $c): ?><th class="text-end"><?= e($c[0]) ?></th><?php endforeach; ?><th>Mise à jour</th><th></th></tr></thead>
@@ -73,7 +73,7 @@ function simTable(array $saved, array $cols) { ?>
         <tr><td><a href="?load=<?= (int)$s['id'] ?>"><?= e($s['nom']) ?></a></td>
             <?php foreach ($cols as $c): ?><td class="text-end"><?= e($c[1]($r)) ?></td><?php endforeach; ?>
             <td><?= e(date('d/m/Y', strtotime($s['updated_at']))) ?></td>
-            <td class="text-end"><form method="post" onsubmit="return confirm('Supprimer cette simulation ?')" class="d-inline"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= (int)$s['id'] ?>"><button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button></form></td></tr>
+            <td class="text-end"><?= $extra ? $extra($s) : '' ?> <form method="post" onsubmit="return confirm('Supprimer cette simulation ?')" class="d-inline"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= (int)$s['id'] ?>"><button class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button></form></td></tr>
     <?php endforeach; if (!$saved): ?><tr><td colspan="<?= count($cols) + 3 ?>" class="text-muted text-center py-3">Aucune simulation enregistrée.</td></tr><?php endif; ?>
     </tbody></table></div></div>
 <?php }
@@ -83,3 +83,10 @@ function simLoad(array $saved) {
     return null;
 }
 function simEur($v, $d = 0) { return number_format((float)$v, $d, ',', ' ') . ' €'; }
+
+/** Bouton « Créer un dossier crédit » : envoie la simulation enregistrée vers le module crédit immobilier (capacité, notaire, PTZ). */
+function simDossierButton(array $sim, $label = false) {
+    return '<form method="post" action="../credit_immo/index.php" class="d-inline" onsubmit="return confirm(\'Créer un dossier crédit pré-rempli à partir de cette simulation ?\')">'
+        . '<input type="hidden" name="action" value="from_sim"><input type="hidden" name="id" value="' . (int)$sim['id'] . '">'
+        . '<button class="btn btn-sm btn-outline-primary" title="Créer un dossier crédit à partir de cette simulation"><i class="fas fa-house-chimney me-1"></i>' . ($label ? 'Créer un dossier crédit' : 'Dossier') . '</button></form>';
+}

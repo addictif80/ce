@@ -7,6 +7,7 @@ require __DIR__ . '/../_sim/style.php';
 <?php if (empty($ptzBareme['valide'])): ?>
 <div class="alert alert-warning py-2"><i class="fas fa-triangle-exclamation me-1"></i><strong>Barème provisoire.</strong> Les plafonds et quotités n'ont pas encore été validés : résultat à confirmer avant toute communication au client.</div>
 <?php endif; ?>
+<?php require __DIR__ . '/../_sim/actions.php'; ?>
 <div class="row g-3">
  <div class="col-lg-6">
   <div class="cap-card"><h2><i class="fas fa-users me-2 text-danger"></i>Le foyer</h2>
@@ -29,7 +30,7 @@ require __DIR__ . '/../_sim/style.php';
   <?php if ($capSave) simSaveForm($capLoad, 'pzPrepare'); ?>
  </div>
  <div class="col-lg-6">
-  <div class="cap-res">
+  <div class="cap-res js-result">
     <div class="lbl">Montant du PTZ estimé</div><div class="big" id="pr_mont">–</div>
     <div class="mt-2" id="pr_stat"></div>
     <div class="row mt-3 g-3">
@@ -79,9 +80,10 @@ require __DIR__ . '/../_sim/style.php';
     return {p,r};
   }
   ['pers','rfr','primo','rp','zone','type','cout'].forEach(k=>$('pz_'+k).addEventListener('input',run));
-  window.pzPrepare=function(f){const x=run();f.params.value=JSON.stringify(x.p);f.resultat.value=JSON.stringify({ptz:x.r.mont,eligible:x.r.errs.length===0,tranche:x.r.tr+1});return true;};
+  window.pzPrepare=function(f){const x=run();f.params.value=JSON.stringify(x.p);f.resultat.value=JSON.stringify({ptz:x.r.mont,eligible:x.r.errs.length===0,tranche:x.r.tr+1,duree:x.r.d.total*12,differe:x.r.d.differe*12});return true;};
   const load=<?= json_encode($capLoad ? json_decode($capLoad['params'] ?? '{}', true) : null) ?>;
   if(load){NUM.forEach(k=>{if(load[k]!==undefined)$('pz_'+k).value=load[k];});['zone','type'].forEach(k=>{if(load[k])$('pz_'+k).value=load[k];});if('primo' in load)$('pz_primo').checked=!!load.primo;if('rp' in load)$('pz_rp').checked=!!load.rp;}
   run();
 })();
 </script>
+<?php require __DIR__ . '/../_sim/common_js.php'; ?>

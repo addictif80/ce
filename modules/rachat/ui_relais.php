@@ -4,6 +4,7 @@
 $capLoad = $capLoad ?? null;
 require __DIR__ . '/../_sim/style.php';
 ?>
+<?php if (empty($simBarDone)) require __DIR__ . '/../_sim/actions.php'; ?>
 <div class="row g-3">
   <div class="col-lg-6"><div class="cap-card"><h2><i class="fas fa-house me-2 text-danger"></i>Bien à vendre</h2><div class="row g-2">
       <div class="col-6"><label class="form-label small mb-0">Valeur estimée (€)</label><input type="number" min="0" step="any" class="form-control" id="rl_val" value="250000"></div>
@@ -17,7 +18,7 @@ require __DIR__ . '/../_sim/style.php';
       <div class="col-6"><label class="form-label small mb-0">Frais de dossier (€)</label><input type="number" min="0" step="any" class="form-control" id="rl_fd" value="500"></div>
       <div class="col-12"><label class="form-label small mb-0">Montant du relais souhaité (€, vide = maximum)</label><input type="number" min="0" step="any" class="form-control" id="rl_mont" placeholder="Maximum autorisé"></div>
       <div class="col-12"><div class="form-check"><input class="form-check-input" type="checkbox" id="rl_capi"><label class="form-check-label" for="rl_capi" >Intérêts différés (remboursés avec le capital à la vente)</label></div></div></div></div></div>
-  <div class="col-lg-6"><div class="cap-res">
+  <div class="col-lg-6"><div class="cap-res js-result">
       <div class="lbl">Montant du prêt relais</div><div class="big" id="rlr_mont">–</div><div class="small mt-1" id="rlr_max"></div>
       <div class="row mt-3 g-3">
         <div class="col-6"><div class="lbl" id="rlr_intl">Intérêts mensuels</div><div class="fs-5 fw-bold" id="rlr_int">–</div></div>
@@ -66,3 +67,4 @@ require __DIR__ . '/../_sim/style.php';
   runRelais();
 })();
 </script>
+<?php require __DIR__ . '/../_sim/common_js.php'; ?>

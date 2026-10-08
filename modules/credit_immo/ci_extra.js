@@ -1,5 +1,5 @@
 // ── RELANCES, CONTRÔLES DE COHÉRENCE ET TABLEAU DE BORD (module crédit immobilier) ─────────────
-const CI_SEUILS={ade:7,cegc:7,conformite:5,ar:10,inactif:15,tauxMax:35}; // délais en jours, endettement max en %
+const CI_SEUILS={ade:7,cegc:7,conformite:5,ar:10,inactif:15,tauxMax:(typeof ciBaremes!=='undefined'&&ciBaremes.tauxEndettementMax)||35}; // délais en jours, endettement max en %
 const CI_DOCS={doc_ji:"Justificatif d'identité",doc_jd:'Justificatif de domicile',doc_ir:'Justificatif de revenus',doc_contrat_travail:'Contrat de travail',doc_bulletins_salaire:'Bulletins de salaire',doc_justif_propriete:'Justif. patrimoine immobilier',doc_releves_externes:'Relevés externes',doc_epargnes_externes:'Épargnes externes',doc_devis:'Devis'};
 const CI_WF_ORDER=['etude','dossier_complet','synthese_envoyee','controle','edition_offres','envoi_signature','offre_signee','deblocage','termine'];
 const ciTs=s=>{if(!s)return null;const t=new Date(String(s).replace(' ','T'));return isNaN(t)?null:t;};

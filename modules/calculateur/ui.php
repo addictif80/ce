@@ -23,6 +23,7 @@ $bval = function ($field) use ($budget) {
     @media(max-width:768px){.b-field{flex-wrap:wrap}.b-field label{flex:1 1 100%}.b-field input{width:100%}}
     @media print{body{background:#fff}.b-card,.b-result{box-shadow:none}}
 </style>
+<?php require __DIR__ . '/../_sim/actions.php'; ?>
 <?php if ($budgetSave): ?><form method="POST" id="budgetForm"><input type="hidden" name="action" value="save"><?php endif; ?>
     <div class="b-card d-flex align-items-center gap-3 no-print">
         <input type="checkbox" id="avec_conjoint" <?= $budgetSave ? 'name="avec_conjoint" value="1"' : '' ?> class="form-check-input m-0" style="width:20px;height:20px" <?= $avec_conjoint ? 'checked' : '' ?>>
@@ -47,7 +48,7 @@ $bval = function ($field) use ($budget) {
 
         <div class="col-lg-4">
             <div style="position:sticky;top:20px">
-                <div class="b-result">
+                <div class="b-result js-result">
                     <h2 class="h5 mb-3"><i class="fas fa-chart-pie me-2" style="color:#ffd700"></i>Résultat</h2>
                     <div class="b-row"><span>Total revenus</span><span class="pos" id="r-revenus">0,00 €</span></div>
                     <div class="b-row"><span>Total charges fixes</span><span style="color:#fbbf24" id="r-fixes">0,00 €</span></div>
@@ -103,3 +104,4 @@ $bval = function ($field) use ($budget) {
     toggleConj();
 })();
 </script>
+<?php require __DIR__ . '/../_sim/common_js.php'; ?>

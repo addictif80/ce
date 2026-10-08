@@ -3,7 +3,8 @@
 // Variables attendues : $capSave (bool : affiche le bouton « Enregistrer »), $capLoad (array|null : simulation à recharger).
 $capLoad = $capLoad ?? null;
 ?>
-<?php require __DIR__ . '/../_sim/style.php'; ?>
+<?php require __DIR__ . '/../_sim/style.php'; require_once __DIR__ . '/../../includes/baremes.php'; $hcsf = baremeGet('hcsf')['data']; ?>
+<?php require __DIR__ . '/../_sim/actions.php'; ?>
 <div class="row g-3">
  <div class="col-lg-6">
   <div class="cap-card"><h2><i class="fas fa-wallet me-2 text-danger"></i>Ressources et charges (par mois)</h2>
@@ -11,7 +12,7 @@ $capLoad = $capLoad ?? null;
       <div class="col-6"><label class="form-label small mb-0">Revenus nets du foyer</label><input type="number" min="0" step="any" class="form-control" id="cp_rev" value="3500"></div>
       <div class="col-6"><label class="form-label small mb-0">Charges de crédit en cours</label><input type="number" min="0" step="any" class="form-control" id="cp_chg" value="0"></div>
       <div class="col-6"><label class="form-label small mb-0">Loyer conservé après achat</label><input type="number" min="0" step="any" class="form-control" id="cp_loyer" value="0"></div>
-      <div class="col-6"><label class="form-label small mb-0">Taux d'endettement maximum (%)</label><input type="number" min="1" max="60" step="any" class="form-control" id="cp_te" value="35"></div>
+      <div class="col-6"><label class="form-label small mb-0">Taux d'endettement maximum (%)</label><input type="number" min="1" max="60" step="any" class="form-control" id="cp_te" value="<?= (float)$hcsf['taux_endettement_max'] ?>"></div>
       <div class="col-6"><label class="form-label small mb-0">Personnes dans le foyer</label><input type="number" min="1" step="1" class="form-control" id="cp_pers" value="2"></div>
       <div class="col-6"><label class="form-label small mb-0">Apport (€)</label><input type="number" min="0" step="any" class="form-control" id="cp_apport" value="20000"></div>
     </div></div>
@@ -28,7 +29,7 @@ $capLoad = $capLoad ?? null;
   <?php if ($capSave) simSaveForm($capLoad, 'capPrepare'); ?>
  </div>
  <div class="col-lg-6">
-  <div class="cap-res">
+  <div class="cap-res js-result">
     <div class="lbl">Capital empruntable</div><div class="big" id="cr_cap">–</div>
     <div class="row mt-3 g-3">
       <div class="col-6"><div class="lbl">Budget d'achat (frais inclus)</div><div class="fs-4 fw-bold" id="cr_prix">–</div></div>
@@ -41,7 +42,7 @@ $capLoad = $capLoad ?? null;
   <div class="cap-card"><h2>Selon la durée</h2>
     <table class="table table-sm mb-0"><thead><tr><th>Durée</th><th class="text-end">Capital</th><th class="text-end">Budget d'achat</th></tr></thead><tbody id="cr_dur"></tbody></table>
   </div>
-  <p class="small text-muted">Simulation indicative, sans valeur contractuelle : l'accord de prêt dépend de l'étude complète du dossier. Le plafond de 35 % d'endettement est la référence du Haut Conseil de stabilité financière.</p>
+  <p class="small text-muted">Simulation indicative, sans valeur contractuelle : l'accord de prêt dépend de l'étude complète du dossier. Le plafond d'endettement de <?= (float)$hcsf['taux_endettement_max'] ?> % est la référence du Haut Conseil de stabilité financière ; durée maximale recommandée : <?= (int)$hcsf['duree_max_annees'] ?> ans (<?= (int)$hcsf['duree_max_annees_neuf'] ?> ans pour le neuf).</p>
  </div>
 </div>
 <script>
@@ -80,3 +81,4 @@ $capLoad = $capLoad ?? null;
   run();
 })();
 </script>
+<?php require __DIR__ . '/../_sim/common_js.php'; ?>

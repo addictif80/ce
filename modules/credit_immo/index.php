@@ -1,6 +1,7 @@
 <?php
 $pageTitle = 'Crédit immobilier';
 require_once __DIR__ . '/../../templates/header.php';
+require_once __DIR__ . '/../../includes/baremes.php';
 $db = getDB();
 $userId = getCurrentUserId();
 
@@ -330,6 +331,23 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='delete') {
     header('Location: index.php'); exit;
 }
 
+// ── POST PASSERELLE : création d'un dossier à partir d'une simulation enregistrée (capacité, notaire, PTZ) ──
+if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='from_sim') {
+    require_once __DIR__ . '/from_sim.php';
+    $newId = 0;
+    try {
+        $form = ciFormFromSimulation($db, $userId, (int)($_POST['id'] ?? 0));
+        if ($form) {
+            $cols = ciCollect($form);
+            $db->prepare('INSERT INTO credit_immobilier (user_id, date_ajout, ' . implode(', ', array_keys($cols)) . ') VALUES (?, CURDATE(), ' . implode(', ', array_fill(0, count($cols), '?')) . ')')
+               ->execute(array_merge([$userId], array_values($cols)));
+            $newId = $db->lastInsertId();
+        }
+    } catch (Exception $e) { error_log('[ci] FROM_SIM:' . $e->getMessage()); }
+    header('Location: index.php' . ($newId ? '?open=' . $newId : ''));
+    exit;
+}
+
 // ── POST DUPLICATION (copie d'un dossier pour tester un autre scénario) ──────
 if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='duplicate') {
     $id = (int)$_POST['id'];
@@ -488,6 +506,7 @@ $cRefusees = count(array_filter($dossiers, fn($d) => ($d['workflow_status']??'')
 const dossiersData   = <?= json_encode(array_values($dossiers)) ?>;
 const workflowLabels = <?= json_encode($workflowLabels) ?>;
 const conseillerData = <?= json_encode(['nom' => $currentUser['nom'] ?? '', 'prenom' => $currentUser['prenom'] ?? '', 'email' => $currentUser['email_pro'] ?? '', 'tel' => $currentUser['tel_pro'] ?? ''], JSON_UNESCAPED_UNICODE) ?>;
+const ciBaremes = <?= json_encode(['tauxEndettementMax' => (float)baremeGet('hcsf')['data']['taux_endettement_max']]) ?>;
 const workflowSteps  = ['etude','dossier_complet','synthese_envoyee','controle','edition_offres','envoi_signature','offre_signee','deblocage','termine'];
 </script>
 <script src="ci.js?v=<?= (int)@filemtime(__DIR__ . '/ci.js') ?>"></script>

@@ -4,6 +4,7 @@
 $capLoad = $capLoad ?? null;
 require __DIR__ . '/../_sim/style.php';
 ?>
+<?php if (empty($simBarDone)) require __DIR__ . '/../_sim/actions.php'; ?>
 <div class="row g-3">
   <div class="col-lg-7"><div class="cap-card"><h2><i class="fas fa-list me-2 text-danger"></i>Crédits à regrouper</h2>
       <div id="rc_list"></div>
@@ -17,7 +18,7 @@ require __DIR__ . '/../_sim/style.php';
       <div class="col-4"><label class="form-label small mb-0">Garantie (% capital)</label><input type="number" min="0" step="0.01" class="form-control" id="rc_gar" value="1.2"></div>
       <div class="col-4"><label class="form-label small mb-0">Revenus mensuels du foyer (€)</label><input type="number" min="0" step="any" class="form-control" id="rc_rev" value="4000"></div>
       <div class="col-12"><label class="form-label small mb-0">Trésorerie complémentaire demandée (€)</label><input type="number" min="0" step="any" class="form-control" id="rc_tres" value="0"></div></div></div></div>
-  <div class="col-lg-5"><div class="cap-res">
+  <div class="col-lg-5"><div class="cap-res js-result">
       <div class="lbl">Capital du nouveau prêt</div><div class="big" id="rcr_cap">–</div>
       <div class="small mt-1" id="rcr_det"></div>
       <div class="row mt-3 g-3">
@@ -86,6 +87,8 @@ require __DIR__ . '/../_sim/style.php';
   window.rcPrepare=function(f){const r=runRachat();f.params.value=JSON.stringify({mode:'rachat',credits,rc:r.p});f.resultat.value=JSON.stringify({mode:'rachat',montant:Math.round(r.cap),cle:'Mensualité '+eur2(r.mAp)+' (avant '+eur2(r.mAv)+')'});return true;};
   const load=<?= json_encode($capLoad ? json_decode($capLoad['params'] ?? '{}', true) : null) ?>;
   if(load&&load.credits){credits=load.credits;RC.forEach(k=>{if(load.rc&&load.rc[k]!==undefined)$('rc_'+k).value=load.rc[k];});}
+  window.toolsShare={get:()=>({credits}),set:o=>{if(Array.isArray(o.credits)){credits=o.credits;drawList();runRachat();}}};
   drawList(); runRachat();
 })();
 </script>
+<?php require __DIR__ . '/../_sim/common_js.php'; ?>
