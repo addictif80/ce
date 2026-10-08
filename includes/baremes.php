@@ -9,12 +9,24 @@ function baremeCatalog() {
     return [
         'ptz' => [
             'label' => 'Prêt à taux zéro (PTZ)', 'icon' => 'fa-percent',
-            'help' => 'Plafonds de ressources et de prix par zone, quotités par tranche et type de bien, durées et différés.',
+            'help' => 'Conditions de ressources, plafonds de coût, part financée et durées du prêt à taux zéro.',
+            'sources' => [
+                ['Service-public.fr – Prêt à taux zéro (PTZ)', 'https://www.service-public.fr/particuliers/vosdroits/F10871', 'Tableaux « Montant auquel votre revenu doit être inférieur… », « Déterminer la tranche de revenus », « Coût maximum de l\'opération » et « Part maximum du PTZ » (choisir « Offre de prêt émise à partir d\'avril 2025 »).'],
+                ['ANIL – Outils de calcul', 'https://www.anil.org/outils/outils-de-calcul/ptz/', 'Simulateur officiel pour comparer un cas concret avec le résultat de notre simulateur.'],
+            ],
+            'verifie' => ['date' => '08/10/2026', 'source' => 'Service-public.fr',
+                'ok' => 'coefficients familiaux, revenus maximaux, limites de tranches, coûts maximaux, parts financées (offres émises à partir d\'avril 2025)',
+                'ko' => 'durées et différés par tranche (la page indique seulement : 25 ans maximum et différé d\'au moins 2 ans) — à confirmer'],
             'default' => ptzDefaultBareme(),
         ],
         'notaire' => [
             'label' => 'Frais de notaire', 'icon' => 'fa-scale-balanced',
-            'help' => 'Émoluments (tranches), droits de mutation, taxes. « departements » (facultatif) : {"31": {"nom": "Haute-Garonne", "taux": 4.5}} ajoute un choix par département dans le simulateur.',
+            'help' => 'Émoluments du notaire (tranches), droits de mutation et taxes, taux par département.',
+            'sources' => [
+                ['Notaires de France – Frais de notaire', 'https://www.notaires.fr/', 'Rubrique « Immobilier » › « Frais de notaire » : barème des émoluments et droits de mutation.'],
+                ['Service-public.fr – recherche « frais de notaire »', 'https://www.service-public.fr/particuliers/recherche?keyword=frais+de+notaire', 'Fiche sur les frais d\'acquisition d\'un logement : taux des droits départementaux.'],
+            ],
+            'verifie' => ['date' => null, 'source' => null, 'ok' => '', 'ko' => 'aucune valeur n\'a pu être contrôlée en ligne : valeurs reprises du barème habituel (émoluments 2021, droits à 4,5 %…), à confirmer'],
             'default' => [
                 'emoluments' => [[6500, 3.870], [17000, 1.596], [60000, 1.064], [null, 0.799]], // [borne haute, taux %] (null = au-delà)
                 'droits_neuf' => 0.715, 'taxe_communale' => 1.2, 'frais_assiette' => 2.37, 'tva' => 20, 'csi' => 0.1,
@@ -24,6 +36,11 @@ function baremeCatalog() {
         'hcsf' => [
             'label' => 'Plafonds HCSF (endettement et durée)', 'icon' => 'fa-gauge-high',
             'help' => 'Taux d\'endettement maximal et durées maximales recommandées pour les crédits immobiliers.',
+            'sources' => [
+                ['HCSF – Haut Conseil de stabilité financière', 'https://www.economie.gouv.fr/hcsf', 'Décision relative aux conditions d\'octroi de crédits immobiliers : 35 % d\'endettement, 25 ans (27 ans pour le neuf ou avec travaux).'],
+                ['Banque de France – crédits immobiliers', 'https://www.banque-france.fr/', 'Rechercher « HCSF crédit immobilier » pour la dernière décision en vigueur.'],
+            ],
+            'verifie' => ['date' => null, 'source' => null, 'ok' => '', 'ko' => 'non contrôlé en ligne : règles habituelles (35 % / 25 ans / 27 ans), à confirmer'],
             'default' => ['taux_endettement_max' => 35, 'duree_max_annees' => 25, 'duree_max_annees_neuf' => 27],
         ],
     ];
