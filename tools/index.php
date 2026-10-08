@@ -57,11 +57,18 @@ toolsHeader('Outils en libre accès');
                     <div class="col-md-6"><label class="form-label">Agence de rattachement <span class="text-danger">*</span></label>
                         <select id="ar_agence" class="form-select" required><option value="">Sélectionner une agence…</option>
                             <?php foreach ($agences as $ag): ?><option><?= e($ag) ?></option><?php endforeach; ?></select></div>
-                    <div class="col-12"><div class="alert alert-info small mb-0"><i class="fas fa-info-circle me-1"></i>Le bouton ci-dessous crée, sur votre ordinateur, un fichier de message (.eml) adressé à l'administrateur. Ouvrez-le avec votre messagerie et envoyez-le. Rien n'est transmis ni conservé par ce site.</div></div>
+                    <div class="col-12"><div class="alert alert-info small mb-0"><i class="fas fa-info-circle me-1"></i>Les boutons ci-dessous préparent, sur votre poste, un message adressé à l'administrateur : soit un brouillon ouvert dans votre messagerie, soit un fichier .eml à ouvrir, soit le texte à coller. Si le navigateur bloque le téléchargement, utilisez « Ouvrir dans ma messagerie » ou « Copier le texte ». Rien n'est transmis ni conservé par ce site.</div></div>
                     <div class="col-12 text-danger small d-none" id="ar_err"></div>
                 </div>
             </div>
-            <div class="modal-footer"><button type="submit" class="btn btn-danger"><i class="fas fa-download me-1"></i>Télécharger la demande (.eml)</button></div>
+            <div class="modal-footer flex-wrap justify-content-between gap-2">
+                <div class="small text-muted">Choisissez ce qui fonctionne sur votre poste :</div>
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="button" class="btn btn-danger" id="ar_mailto"><i class="fas fa-envelope me-1"></i>Ouvrir dans ma messagerie</button>
+                    <button type="submit" class="btn btn-outline-danger"><i class="fas fa-download me-1"></i>Télécharger (.eml)</button>
+                    <button type="button" class="btn btn-outline-secondary" id="ar_copy"><i class="fas fa-copy me-1"></i>Copier le texte</button>
+                </div>
+            </div>
         </form>
     </div></div></div>
     <script>
@@ -70,23 +77,46 @@ toolsHeader('Outils en libre accès');
         const v = id => document.getElementById(id).value.replace(/[\r\n]+/g, ' ').trim();
         const b64 = s => btoa(unescape(encodeURIComponent(s)));
         const wrap = s => s.replace(/(.{76})/g, '$1\r\n');
-        document.getElementById('accessForm').addEventListener('submit', e => {
-            e.preventDefault();
-            const err = document.getElementById('ar_err');
-            const need = ['ar_nom', 'ar_prenom', 'ar_tel', 'ar_interne', 'ar_email', 'ar_agence'];
-            if (need.some(id => !v(id))) { err.textContent = 'Tous les champs sont obligatoires.'; err.classList.remove('d-none'); return; }
-            if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v('ar_email'))) { err.textContent = 'Adresse e-mail invalide.'; err.classList.remove('d-none'); return; }
+        const err = document.getElementById('ar_err');
+        const fail = m => { err.textContent = m; err.classList.remove('d-none'); return null; };
+        // Valide le formulaire et renvoie le texte du message, ou null
+        function body() {
+            if (['ar_nom', 'ar_prenom', 'ar_tel', 'ar_interne', 'ar_email', 'ar_agence'].some(id => !v(id))) return fail('Tous les champs sont obligatoires.');
+            if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v('ar_email'))) return fail('Adresse e-mail invalide.');
             err.classList.add('d-none');
-            const body = ["Bonjour,", "", "Je souhaite obtenir un compte sur le portail d'activité. Voici mes informations :", "",
+            return ["Bonjour,", "", "Je souhaite obtenir un compte sur le portail d'activité. Voici mes informations :", "",
                 "Nom : " + v('ar_nom'), "Prénom : " + v('ar_prenom'), "Téléphone : " + v('ar_tel'), "Numéro interne : " + v('ar_interne'),
                 "Adresse e-mail : " + v('ar_email'), "Agence de rattachement : " + v('ar_agence'), "", "Cordialement,", v('ar_prenom') + " " + v('ar_nom')].join("\r\n");
+        }
+        // 1) Ouvrir directement un brouillon dans la messagerie (aucun téléchargement, donc rien à débloquer)
+        document.getElementById('ar_mailto').addEventListener('click', () => {
+            const m = body(); if (m === null) return;
+            const a = document.createElement('a');
+            a.href = 'mailto:' + encodeURIComponent(TO).replace('%40', '@') + '?subject=' + encodeURIComponent(SUBJECT) + '&body=' + encodeURIComponent(m);
+            document.body.appendChild(a); a.click(); a.remove();
+        });
+        // 2) Fichier .eml à télécharger
+        document.getElementById('accessForm').addEventListener('submit', e => {
+            e.preventDefault();
+            const m = body(); if (m === null) return;
             const eml = ["To: " + TO, "Subject: =?UTF-8?B?" + b64(SUBJECT) + "?=", "X-Unsent: 1", "MIME-Version: 1.0",
-                "Content-Type: text/plain; charset=UTF-8", "Content-Transfer-Encoding: base64", "", wrap(b64(body)), ""].join("\r\n");
+                "Content-Type: text/plain; charset=UTF-8", "Content-Transfer-Encoding: base64", "", wrap(b64(m)), ""].join("\r\n");
             const a = document.createElement('a');
             a.href = URL.createObjectURL(new Blob([eml], {type: 'message/rfc822'}));
-            a.download = "Demande d'acces au portail d'activite.eml";
+            a.download = 'demande-acces-portail.eml';
             document.body.appendChild(a); a.click(); a.remove();
-            setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+            setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+        });
+        // 3) Copier le texte pour le coller dans un message
+        document.getElementById('ar_copy').addEventListener('click', async e => {
+            const m = body(); if (m === null) return;
+            const txt = 'À : ' + TO + '\r\nObjet : ' + SUBJECT + '\r\n\r\n' + m;
+            let ok = false;
+            try { await navigator.clipboard.writeText(txt); ok = true; } catch (x) {
+                const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select();
+                try { ok = document.execCommand('copy'); } catch (y) {} ta.remove();
+            }
+            e.target.closest('button').innerHTML = ok ? '<i class="fas fa-check me-1"></i>Texte copié' : 'Copie impossible';
         });
     })();
     </script>
