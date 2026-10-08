@@ -4,6 +4,7 @@
 $capLoad = $capLoad ?? null;
 ?>
 <?php require __DIR__ . '/../_sim/style.php'; require_once __DIR__ . '/../../includes/baremes.php'; $hcsf = baremeGet('hcsf')['data']; ?>
+<?php require __DIR__ . '/../_sim/actions.php'; ?>
 <div class="row g-3">
  <div class="col-lg-6">
   <div class="cap-card"><h2><i class="fas fa-wallet me-2 text-danger"></i>Ressources et charges (par mois)</h2>
@@ -28,7 +29,7 @@ $capLoad = $capLoad ?? null;
   <?php if ($capSave) simSaveForm($capLoad, 'capPrepare'); ?>
  </div>
  <div class="col-lg-6">
-  <div class="cap-res">
+  <div class="cap-res js-result">
     <div class="lbl">Capital empruntable</div><div class="big" id="cr_cap">–</div>
     <div class="row mt-3 g-3">
       <div class="col-6"><div class="lbl">Budget d'achat (frais inclus)</div><div class="fs-4 fw-bold" id="cr_prix">–</div></div>
@@ -80,3 +81,4 @@ $capLoad = $capLoad ?? null;
   run();
 })();
 </script>
+<?php require __DIR__ . '/../_sim/common_js.php'; ?>

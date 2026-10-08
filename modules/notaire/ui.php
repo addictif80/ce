@@ -9,6 +9,7 @@ $ntData = $ntBar['data'];
 $ntDeps = (array)($ntData['departements'] ?? []);
 ksort($ntDeps);
 ?>
+<?php require __DIR__ . '/../_sim/actions.php'; ?>
 <div class="row g-3">
  <div class="col-lg-6">
   <div class="cap-card"><h2><i class="fas fa-house me-2 text-danger"></i>Le bien</h2>
@@ -31,7 +32,7 @@ ksort($ntDeps);
   <?php if ($capSave) simSaveForm($capLoad, 'ntPrepare'); ?>
  </div>
  <div class="col-lg-6">
-  <div class="cap-res">
+  <div class="cap-res js-result">
     <div class="lbl">Frais de notaire estimés</div><div class="big" id="nr_tot">–</div>
     <div class="lbl mt-1" id="nr_pct"></div>
     <table class="table table-sm table-borderless text-white mb-0 mt-3" style="--bs-table-color:#fff;--bs-table-bg:transparent"><tbody id="nr_det"></tbody></table>
@@ -73,3 +74,4 @@ ksort($ntDeps);
   run();
 })();
 </script>
+<?php require __DIR__ . '/../_sim/common_js.php'; ?>

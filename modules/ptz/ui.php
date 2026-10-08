@@ -7,6 +7,7 @@ require __DIR__ . '/../_sim/style.php';
 <?php if (empty($ptzBareme['valide'])): ?>
 <div class="alert alert-warning py-2"><i class="fas fa-triangle-exclamation me-1"></i><strong>Barème provisoire.</strong> Les plafonds et quotités n'ont pas encore été validés : résultat à confirmer avant toute communication au client.</div>
 <?php endif; ?>
+<?php require __DIR__ . '/../_sim/actions.php'; ?>
 <div class="row g-3">
  <div class="col-lg-6">
   <div class="cap-card"><h2><i class="fas fa-users me-2 text-danger"></i>Le foyer</h2>
@@ -29,7 +30,7 @@ require __DIR__ . '/../_sim/style.php';
   <?php if ($capSave) simSaveForm($capLoad, 'pzPrepare'); ?>
  </div>
  <div class="col-lg-6">
-  <div class="cap-res">
+  <div class="cap-res js-result">
     <div class="lbl">Montant du PTZ estimé</div><div class="big" id="pr_mont">–</div>
     <div class="mt-2" id="pr_stat"></div>
     <div class="row mt-3 g-3">
@@ -85,3 +86,4 @@ require __DIR__ . '/../_sim/style.php';
   run();
 })();
 </script>
+<?php require __DIR__ . '/../_sim/common_js.php'; ?>

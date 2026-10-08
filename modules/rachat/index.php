@@ -21,6 +21,7 @@ $loadRachat = $loadMode === 'rachat' ? $capLoad : null;
     <li class="nav-item"><a class="nav-link <?= $loadMode === 'rachat' ? '' : 'active' ?>" data-bs-toggle="tab" href="#tRelais" id="tabRelais"><i class="fas fa-house-circle-check me-1"></i>Prêt relais</a></li>
     <li class="nav-item"><a class="nav-link <?= $loadMode === 'rachat' ? 'active' : '' ?>" data-bs-toggle="tab" href="#tRachat" id="tabRachat"><i class="fas fa-layer-group me-1"></i>Rachat de crédits</a></li>
 </ul>
+<?php require __DIR__ . '/../_sim/actions.php'; $simBarDone = true; ?>
 <div class="tab-content">
 <div class="tab-pane fade <?= $loadMode === 'rachat' ? '' : 'show active' ?>" id="tRelais"><?php $capLoad = $loadRelais; require __DIR__ . '/ui_relais.php'; ?></div>
 <div class="tab-pane fade <?= $loadMode === 'rachat' ? 'show active' : '' ?>" id="tRachat"><?php $capLoad = $loadRachat; require __DIR__ . '/ui_rachat.php'; ?></div>

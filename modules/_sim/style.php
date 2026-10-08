@@ -6,4 +6,5 @@
     .cap-res .big{font-size:1.9rem;font-weight:700;line-height:1.1}
     .cap-res .lbl{opacity:.75;font-size:.85rem}
     .cap-ko{color:#f87171}
+    @media print{.no-print{display:none!important}.cap-card,.cap-res{box-shadow:none;break-inside:avoid}}
 </style>

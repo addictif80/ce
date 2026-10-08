@@ -54,7 +54,7 @@ function simList($type) {
 
 /** Formulaire « Enregistrer » commun ; les champs params/resultat sont remplis par la fonction JS $prepareFn(form). */
 function simSaveForm($capLoad, $prepareFn) { ?>
-  <form method="post" class="cap-card" onsubmit="return <?= $prepareFn ?>(this)">
+  <form method="post" class="cap-card no-print" onsubmit="return <?= $prepareFn ?>(this)">
     <h2><i class="fas fa-save me-2 text-danger"></i>Enregistrer cette simulation</h2>
     <input type="hidden" name="action" value="save"><input type="hidden" name="id" value="<?= (int)($capLoad['id'] ?? 0) ?>">
     <input type="hidden" name="params"><input type="hidden" name="resultat">
