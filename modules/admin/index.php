@@ -2059,7 +2059,7 @@ $allTemplates = $db->query("SELECT m.id, m.nom_modele, m.objet, m.public_tools, 
         <h3><i class="fas fa-user-plus"></i> Appel à action « Demander un accès au portail »</h3>
     </div>
     <div class="p-3">
-        <p class="small text-muted">Affiché sur /tools aux visiteurs non connectés. Le formulaire (nom, prénom, téléphone, numéro interne, e-mail, agence) génère dans leur navigateur un fichier .eml adressé à l'administrateur, objet « Demande d'accès au portail d'activité » : rien n'est enregistré sur le serveur.</p>
+        <p class="small text-muted">Affiché sur /tools aux visiteurs non connectés. Le formulaire (nom, prénom, téléphone, numéro interne, e-mail, agence) génère un fichier .eml (comme les autres modules du portail) adressé à l'administrateur, objet « Demande d'accès au portail d'activité ». Les informations saisies servent uniquement à fabriquer le fichier : rien n'est enregistré.</p>
         <form method="post">
             <input type="hidden" name="action" value="save_tools_access_cta">
             <div class="form-check form-switch mb-3">
