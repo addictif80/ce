@@ -27,6 +27,7 @@
     });
   }
   function resultText(){
+    if(window.toolsResultText) return window.toolsResultText();
     const title=(document.querySelector('h1,h4')||{}).textContent||document.title;
     const parts=[...document.querySelectorAll('.js-result')].map(el=>el.innerText.trim()).filter(Boolean);
     return title.trim()+'\n\n'+parts.join('\n\n');
