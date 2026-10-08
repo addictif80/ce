@@ -56,31 +56,14 @@ require __DIR__ . '/../_sim/style.php';
   <p class="small text-muted"><strong>Cas non pris en compte</strong> : location-accession (PSLA), bail réel solidaire (BRS), logement social, TVA à taux réduit (QPV, ANRU), transformation d'un local en logement : les règles diffèrent (voir <a href="https://www.service-public.fr/particuliers/vosdroits/F10871" target="_blank" rel="noopener noreferrer">service-public.fr</a>). Pour connaître la zone d'une commune : <a href="https://www.anil.org/outils/outils-de-calcul/votre-pret-a-taux-zero/" target="_blank" rel="noopener noreferrer">simulateur de l'ANIL</a> (la zone est déduite de la commune saisie).</p>
  </div>
 </div>
+<script><?php readfile(__DIR__ . '/../../assets/js/ptz-calc.js'); ?></script>
 <script>
 (function(){
   const B=<?= json_encode($ptzBareme) ?>;
   const $=id=>document.getElementById(id), n=id=>parseFloat($(id).value)||0;
   const eur=v=>Math.round(v).toLocaleString('fr-FR')+' €', eur2=v=>(Math.round(v*100)/100).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
   const NUM=['pers','rfr','cout'];
-  function calc(p){
-    const np=Math.max(1,Math.round(p.pers)), z=p.zone, t=B.types[p.type];
-    const coeff=B.coeff_familial[Math.min(np,5)-1];
-    const revenu=Math.max(p.rfr,p.cout/B.diviseur_cout);          // revenu retenu : le plus élevé du RFR et du coût / 9
-    const maxRev=B.plafonds_ressources[z][Math.min(np,8)-1];
-    const lim=B.tranches[z], rpc=revenu/coeff;                     // revenu par unité de coefficient familial
-    let tr=lim.findIndex(l=>rpc<=l); if(tr<0) tr=3;
-    const po=B.plafonds_operation[z][Math.min(np,5)-1];
-    const out={coeff,revenu,rpc,maxRev,lim,po,errs:[]};
-    if(!p.primo) out.errs.push("le PTZ est réservé aux primo-accédants");
-    if(!p.rp) out.errs.push("le logement doit être la résidence principale");
-    if(!t||!t.zones.includes(z)) out.errs.push("ce type de logement n'est pas éligible dans cette zone");
-    if(revenu>maxRev) out.errs.push("revenus retenus ("+eur(revenu)+") supérieurs au plafond de la zone ("+eur(maxRev)+")");
-    if(rpc>lim[3]) out.errs.push("revenus au-delà de la tranche 4");
-    out.tr=tr; out.q=t?t.quotites[tr]:0;
-    out.prix=Math.min(p.cout,po); out.mont=out.errs.length?0:Math.round(out.prix*out.q/100);
-    out.d=B.durees[tr]; out.mens=out.mont>0&&out.d.total>out.d.differe?out.mont/((out.d.total-out.d.differe)*12):0;
-    return out;
-  }
+  const calc=p=>window.ptzCalc(B,p);
   // ── Zone déduite du département et de la commune (si la liste a été importée par l'administrateur) ──
   const ZURL=<?= json_encode($ptzZonageUrl ?? null) ?>;
   let communes=new Map(), pending=null;

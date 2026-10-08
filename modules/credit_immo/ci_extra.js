@@ -61,6 +61,17 @@ function ciControles(d){
     if(miss.length) al('Pièces non cochées ('+miss.length+') : '+miss.map(k=>CI_DOCS[k]).slice(0,4).join(', ')+(miss.length>4?'…':''));
   }
   if(d.garantie_type==='CEGC'&&ciWfIdx(d)>=CI_WF_ORDER.indexOf('edition_offres')&&d.suivi_cegc_accord!=1) al('Garantie CEGC : accord non enregistré alors que le dossier est au stade « édition des offres »');
+  if(d.ptz_actif==1){
+    const r=ciPtzMaxFor(d);
+    if(!r.indispo){
+      if(r.errs.length) err('PTZ saisi mais non accessible : '+r.errs.join(' ; '));
+      else{
+        if(num(d.ptz_montant)>r.mont+0.5) err('PTZ de '+fmt(d.ptz_montant)+' € supérieur au maximum de '+fmt(r.mont)+' €');
+        if((parseInt(d.ptz_duree)||0)>r.d.total*12) al('Durée du PTZ supérieure au maximum de '+r.d.total*12+' mois');
+        if(ptzDiffere(d)>r.d.differe*12) al('Différé du PTZ supérieur au maximum de '+r.d.differe*12+' mois');
+      }
+    } else if(r.indispo.indexOf('zone')>=0) al('PTZ : '+r.indispo);
+  }
   if(d.ade_reponse==='REFUS'||d.ade_reponse==='Refus') al('Réponse ADE : refus');
   return out;
 }
@@ -224,4 +235,48 @@ function printComparatif(ids){
     <div class="sy-foot">Simulation à titre indicatif, sans valeur contractuelle : l'octroi du crédit reste soumis à l'accord de la Caisse d'Épargne après étude du dossier. Un crédit vous engage et doit être remboursé.</div>
   </div>`;
   printWhenReady();
+}
+
+// ── PTZ : maximum autorisé (même calcul que le simulateur PTZ), zone ABC déduite de l'adresse ──────────────
+const CI_PTZ_TYPES={NEUF_VEFA:'collectif_neuf',CONSTRUCTION_CCMI:'maison_neuve',CONSTRUCTION_SANS_CCMI:'maison_neuve',ANCIEN_AVEC_TRAVAUX:'ancien_travaux'};
+// Renvoie le résultat de ptzCalc pour le dossier d, ou {indispo: 'raison'}
+function ciPtzMaxFor(d){
+  if(typeof ptzCalc==='undefined'||typeof ciPtzBareme==='undefined') return {indispo:'barème PTZ indisponible'};
+  const type=CI_PTZ_TYPES[d.type_projet];
+  if(!type) return {indispo:d.type_projet?"un PTZ n'est possible que pour le neuf, la construction ou l'ancien avec travaux":'type de projet non renseigné'};
+  if(!d.zone_abc) return {indispo:"zone ABC du bien à renseigner (elle se déduit de l'adresse)"};
+  const c=computeAll(d), ps=primoStatut(d);
+  return ptzCalc(ciPtzBareme,{pers:Math.max(1,c.nbPers||1),rfr:c.rfr,cout:getCoutProjet(d),zone:d.zone_abc,type,primo:ps!==''&&ps!=='NON',rp:usageChoice(d)==='RP'});
+}
+function ciPtzMaxHtml(d,px){
+  const r=ciPtzMaxFor(d);
+  if(r.indispo) return `<div class="alert alert-secondary py-1 small mb-0"><i class="fas fa-circle-info"></i> Maximum PTZ non calculé : ${escapeHtml(r.indispo)}.</div>`;
+  if(r.errs.length) return `<div class="alert alert-warning py-1 small mb-0"><i class="fas fa-triangle-exclamation"></i> <strong>PTZ non accessible</strong> : ${escapeHtml(r.errs.join(' ; '))}.</div>`;
+  const dur=r.d.total*12, dif=r.d.differe*12, over=num(d.ptz_montant)>r.mont+0.5||(parseInt(d.ptz_duree)||0)>dur||ptzDiffere(d)>dif;
+  return `<div class="alert alert-${over?'danger':'info'} py-1 small mb-0 d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <span><i class="fas fa-calculator"></i> <strong>PTZ maximum : ${fmt(r.mont)} €</strong> · ${dur} mois maximum · différé ${dif} mois maximum <span class="text-muted">(tranche ${r.tr+1}, ${r.q} % de ${fmt(r.prix)} € ; revenu retenu ${fmt(r.revenu)} € ÷ ${String(r.coeff).replace('.',',')})</span>${over?' — <strong>les valeurs saisies dépassent le maximum</strong>':''}</span>
+    ${px?`<button type="button" class="btn btn-sm btn-outline-primary" onclick="ciApplyPtz('${px}')">Appliquer ces valeurs</button>`:''}</div>`;
+}
+function ciUpdatePtzMax(px,d){
+  const box=document.getElementById(px+'_ptz_max'); if(!box) return;
+  d=d||readForm(px);
+  box.innerHTML=d.ptz_actif==1?ciPtzMaxHtml(d,px):'';
+}
+function ciApplyPtz(px){
+  const d=readForm(px), r=ciPtzMaxFor(d); if(r.indispo||r.errs.length) return;
+  document.getElementById(px+'_ptz_mt').value=r.mont;
+  document.getElementById(px+'_ptz_dur').value=r.d.total*12;
+  document.getElementById(px+'_ptz_diff').value=r.d.differe*12;
+  onFormChange(px);
+}
+// Zone ABC du bien : déduite du code commune de l'adresse (liste importée par l'administrateur), modifiable à la main
+async function ciDeduireZone(px){
+  const ins=(document.getElementById(px+'_bien_insee')||{}).value, sel=document.getElementById(px+'_zone_abc'), info=document.getElementById(px+'_zone_info');
+  if(!ins||!sel||typeof ciZonageUrl==='undefined') return;
+  try{
+    const r=await fetch(ciZonageUrl+'?insee='+encodeURIComponent(ins),{credentials:'same-origin'}), j=await r.json();
+    if(j&&j.zone){sel.value=({Abis:'A'})[j.zone]||j.zone; if(info) info.textContent='(déduite : '+(j.zone==='Abis'?'A bis':j.zone)+' – '+j.commune+')';}
+    else if(info) info.textContent='(commune non trouvée : à saisir)';
+    onFormChange(px);
+  }catch(e){}
 }

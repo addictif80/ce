@@ -44,7 +44,9 @@ function totalHorsDossier(d){
 }
 function ptzMontant(d){return d.ptz_actif==1?num(d.ptz_montant):0;}
 function ecoMontant(d){return d.ecoptz_actif==1?num(d.ecoptz_montant):0;}
-function getMensPTZ(d){return d.ptz_actif==1&&num(d.ptz_duree)>0?num(d.ptz_montant)/parseInt(d.ptz_duree):0;}
+// PTZ : durée totale et différé en mois ; mensualité de la seconde période (0 € pendant le différé)
+function ptzDiffere(d){return d.ptz_actif==1?Math.max(0,parseInt(d.ptz_differe)||0):0;}
+function getMensPTZ(d){const n=(parseInt(d.ptz_duree)||0)-ptzDiffere(d);return d.ptz_actif==1&&n>0?num(d.ptz_montant)/n:0;}
 function getMensEcoPTZ(d){return d.ecoptz_actif==1&&num(d.ecoptz_duree)>0?num(d.ecoptz_montant)/parseInt(d.ecoptz_duree):0;}
 
 function getLignes(d){
@@ -158,7 +160,7 @@ function computeAll(d){
   const N=Math.max(0,nPtz,nEco,...lignes.map(l=>parseInt(l.duree)||0));
   const flows=Array(N).fill(0);
   lignes.forEach((l,i)=>{const n=parseInt(l.duree)||0; for(let k=0;k<n;k++) flows[k]+=sch[i].mens+taegIns[i];});
-  for(let k=0;k<nPtz;k++) flows[k]+=mensPTZ;
+  for(let k=ptzDiffere(d);k<nPtz;k++) flows[k]+=mensPTZ;
   for(let k=0;k<nEco;k++) flows[k]+=mensEco;
   const taegGlobal=calcTaeg(lignes.reduce((t,l)=>t+num(l.montant),0)+ptzMontant(d)+ecoMontant(d)-fraisDossier-garantie,flows);
   return {lignes,sch,emps,ass,assRaw,taegLignes,taegGlobal,taegIns,lineIns,mensLignes,mensPTZ,mensEco,mensHorsAssur,mensAssur,mensTout,totAssur,
@@ -519,6 +521,7 @@ function onFormChange(px){
   const d=readForm(px), c=computeAll(d);
   // Cumul des revenus fiscaux de référence
   const rfr=document.getElementById(px+'_rfr_total'); if(rfr) rfr.textContent=fmt(c.rfr)+' €';
+  if(typeof ciUpdatePtzMax==='function') ciUpdatePtzMax(px,d);
   // Mensualité et coût par ligne / par assurance
   document.querySelectorAll(`#${px}_lignes_list .ci-ligne`).forEach((row,i)=>{
     const s=c.sch[i], el=row.querySelector('.ci-ligne-mens'); if(!el||!s) return;
@@ -588,6 +591,7 @@ function buildFormTabs(px,d){
     ${d.id?`<input type="hidden" name="id" value="${d.id}">`:''}
     <!-- Champs cachés (listes JSON) -->
     ${['emprunteurs_json','revenus_json','charges_json','epargne_json','lignes_credit_json','ade_json','enfants_ages_json','mrh_options_json'].map(n=>`<input type="hidden" id="${px}_${n}" name="${n}" value="">`).join('')}
+    <input type="hidden" name="bien_insee" id="${px}_bien_insee" value="${fn('bien_insee')}">
     <input type="hidden" name="bien_lat" id="${px}_bien_lat" value="${fn('bien_lat')}">
     <input type="hidden" name="bien_lon" id="${px}_bien_lon" value="${fn('bien_lon')}">
     <input type="hidden" name="dpe_ges" id="${px}_dpe_ges" value="${fn('dpe_ges')}">
@@ -721,6 +725,10 @@ function buildFormTabs(px,d){
             <div id="${px}_ptz_wrap" class="row g-2 mt-1 ms-3" style="${d.ptz_actif==1?'':'display:none'}">
               <div class="col-md-3"><label class="form-label small">Montant PTZ (€)</label><input type="number" step="0.01" name="ptz_montant" id="${px}_ptz_mt" class="form-control form-control-sm" value="${d.ptz_montant||0}" oninput="onFormChange('${px}')"></div>
               <div class="col-md-3"><label class="form-label small">Durée PTZ (mois)</label><input type="number" name="ptz_duree" id="${px}_ptz_dur" class="form-control form-control-sm" value="${d.ptz_duree||0}" oninput="onFormChange('${px}')"></div>
+              <div class="col-md-3"><label class="form-label small">dont différé (mois)</label><input type="number" min="0" name="ptz_differe" id="${px}_ptz_diff" class="form-control form-control-sm" value="${d.ptz_differe||0}" oninput="onFormChange('${px}')"></div>
+              <div class="col-md-3"><label class="form-label small">Zone ABC du bien <span class="text-muted" id="${px}_zone_info"></span></label>
+                <select name="zone_abc" id="${px}_zone_abc" class="form-select form-select-sm" onchange="onFormChange('${px}')">${['','A','B1','B2','C'].map(z=>`<option value="${z}" ${d.zone_abc===z?'selected':''}>${z||'À déterminer'}</option>`).join('')}</select></div>
+              <div class="col-12" id="${px}_ptz_max"></div>
             </div>
           </div>
           <div class="col-12">
@@ -923,6 +931,8 @@ function setupAddress(px){
             input.value=f.properties.label; box.style.display='none';
             document.getElementById(px+'_bien_lon').value=f.geometry.coordinates[0];
             document.getElementById(px+'_bien_lat').value=f.geometry.coordinates[1];
+            const ins=document.getElementById(px+'_bien_insee'); if(ins) ins.value=f.properties.citycode||'';
+            if(typeof ciDeduireZone==='function') ciDeduireZone(px);
             dpeSearch(px);
           };
           box.appendChild(b);
@@ -1184,7 +1194,7 @@ function showDetail(id){
       <tr><td>Reste à financer</td><td>${money(c.resteAFin)}</td></tr>
       ${d.doublissimo==1?'<tr><td>Doublissimo</td><td>Oui</td></tr>':''}
     </tbody></table>
-    ${d.ptz_actif==1?`<div class="alert alert-info py-1">PTZ : ${money(num(d.ptz_montant))} / ${d.ptz_duree} mois → mensualité : ${money(c.mensPTZ)}</div>`:''}
+    ${d.ptz_actif==1?`<div class="alert alert-info py-1">PTZ : ${money(num(d.ptz_montant))} / ${d.ptz_duree} mois${ptzDiffere(d)?' dont '+ptzDiffere(d)+' mois de différé (0 € pendant le différé)':''} → mensualité : ${money(c.mensPTZ)}</div>`:''}
     ${d.ecoptz_actif==1?`<div class="alert alert-info py-1">EcoPTZ : ${money(num(d.ecoptz_montant))} / ${d.ecoptz_duree} mois → mensualité : ${money(c.mensEco)}</div>`:''}
     </div><div class="col-md-7">
       <h6>Lignes de crédit</h6>
@@ -1340,7 +1350,12 @@ function deleteNote(nid,dossierId,px){
 function allScheduleLines(d){
   const c=computeAll(d);
   const lines=c.lignes.map((l,i)=>({label:l.libelle||('Ligne '+(i+1)),s:c.sch[i],ligneIdx:i,montant:num(l.montant)}));
-  if(d.ptz_actif==1&&num(d.ptz_duree)>0) lines.push({label:'PTZ',s:scheduleLine(num(d.ptz_montant),0,d.ptz_duree),ligneIdx:null,montant:num(d.ptz_montant)});
+  if(d.ptz_actif==1&&num(d.ptz_duree)>0){
+    const df=ptzDiffere(d), n=parseInt(d.ptz_duree)||0, mt=num(d.ptz_montant), sp=scheduleLine(mt,0,Math.max(1,n-df));
+    // pendant le différé : aucune échéance (capital restant dû constant), puis amortissement linéaire
+    const rows=[...Array(df).keys()].map(()=>({crd:mt,interet:0,capital:0})).concat(sp.rows);
+    lines.push({label:'PTZ',s:{mens:sp.mens,rows,interets:0,differe:df},ligneIdx:null,montant:mt});
+  }
   if(d.ecoptz_actif==1&&num(d.ecoptz_duree)>0) lines.push({label:'EcoPTZ',s:scheduleLine(num(d.ecoptz_montant),0,d.ecoptz_duree),ligneIdx:null,montant:num(d.ecoptz_montant)});
   return {c,lines};
 }
@@ -1551,7 +1566,7 @@ function ficheKit(d){
     const row=([l,i])=>`<tr><td>${e(ligneNom(i))}${l.doublissimo&&!/doublissimo/i.test(ligneNom(i))?' <span class="sy-grey">(Doublissimo)</span>':''}</td><td class="r">${mm(l.montant)}</td><td class="r">${parseInt(l.duree)||0} m</td><td class="r">${taux2(l.taux)}</td>${full?`<td class="r">${mm(l.frais_dossier)}</td>`:''}<td class="r">${fmt(c.sch[i].mens)}</td><td class="r"><b>${fmt(c.sch[i].mens+ligneAssuranceMensuelle(c,i))}</b></td><td class="r">${taegTxt(c.taegLignes[i])}</td>${full?`<td class="r">${mm(c.sch[i].interets)}</td>`:''}</tr>`;
     const zero=(lab,mt,du,mens)=>`<tr><td>${lab}</td><td class="r">${mm(mt)}</td><td class="r">${parseInt(du)||0} m</td><td class="r">0 %</td>${full?'<td class="r">—</td>':''}<td class="r">${fmt(mens)}</td><td class="r"><b>${fmt(mens)}</b></td><td class="r">—</td>${full?'<td class="r">0 €</td>':''}</tr>`;
     return cap(c.lignes.map((l,i)=>[l,i]),max,row,'autres lignes',nc)
-      +(d.ptz_actif==1?zero('PTZ',d.ptz_montant,d.ptz_duree,c.mensPTZ):'')
+      +(d.ptz_actif==1?zero('PTZ'+(ptzDiffere(d)?' <span class="sy-grey">(différé '+ptzDiffere(d)+' m)</span>':''),d.ptz_montant,d.ptz_duree,c.mensPTZ):'')
       +(d.ecoptz_actif==1?zero('EcoPTZ'+(d.ecoptz_performance_globale==1?' <span class="sy-grey">(perf. globale)</span>':(d.ecoptz_bouquets==1?' <span class="sy-grey">('+(d.ecoptz_nb_bouquets||1)+' bouquet(s))</span>':'')),d.ecoptz_montant,d.ecoptz_duree,c.mensEco):'');
   };
   const creditHead=full=>`<thead><tr><th>Ligne</th><th class="r">Montant</th><th class="r">Durée</th><th class="r">Taux</th>${full?'<th class="r">Frais doss.</th>':''}<th class="r">Mens. hors ass.</th><th class="r">Mens. avec ass.</th><th class="r">TAEG</th>${full?'<th class="r">Intérêts</th>':''}</tr></thead>`;
@@ -1664,7 +1679,7 @@ async function printDossier(id){
       <div class="sy-col" style="flex:0 0 30%"><table class="sy-t"><tbody>${K.planRows()}
         <tr><td colspan="2" class="sy-sub">Autres informations</td></tr>
         ${kv('Garantie',e(d.garantie_type||''))}${kv('Doublissimo',d.doublissimo==1?'Oui':'Non')}${kv('Reste à financer',mm(c.resteAFin))}
-        ${d.ptz_actif==1?kv('PTZ',mm(d.ptz_montant)+' / '+(parseInt(d.ptz_duree)||0)+' m'):''}
+        ${d.ptz_actif==1?kv('PTZ',mm(d.ptz_montant)+' / '+(parseInt(d.ptz_duree)||0)+' m'+(ptzDiffere(d)?' · différé '+ptzDiffere(d)+' m':'')):''}
         ${d.ecoptz_actif==1?kv('EcoPTZ',mm(d.ecoptz_montant)+' / '+(parseInt(d.ecoptz_duree)||0)+' m'+(d.ecoptz_performance_globale==1?' · perf. globale':(d.ecoptz_bouquets==1?' · '+(nbBq||1)+' bouquet(s)':''))):''}
       </tbody></table></div>
       <div class="sy-col">

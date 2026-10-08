@@ -112,3 +112,12 @@ function zonageCommunes($dep) {
     $st->execute([$dep]);
     return array_map('array_values', $st->fetchAll(PDO::FETCH_ASSOC));
 }
+
+/** Commune par code INSEE : [nom, zone] ou null */
+function zonageCommune($insee) {
+    zonageEnsureSchema();
+    $st = getDB()->prepare("SELECT commune, zone FROM zonage_communes WHERE code = ?");
+    $st->execute([$insee]);
+    $r = $st->fetch(PDO::FETCH_NUM);
+    return $r ?: null;
+}

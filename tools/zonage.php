@@ -12,6 +12,14 @@ header('Cache-Control: private, max-age=600');
 try {
     $st = zonageStats();
     if ($st['count'] === 0) { echo json_encode(['available' => false]); exit; }
+    // ?insee=31555 : zone d'une commune
+    if (isset($_GET['insee'])) {
+        $insee = strtoupper(trim($_GET['insee']));
+        if (!preg_match('/^(\d{5}|2[AB]\d{3})$/', $insee)) { http_response_code(400); echo json_encode(['error' => 'Code commune invalide.']); exit; }
+        $c = zonageCommune($insee);
+        echo json_encode($c ? ['available' => true, 'code' => $insee, 'commune' => $c[0], 'zone' => $c[1]] : ['available' => true, 'zone' => null], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
     $dep = strtoupper(trim($_GET['dep'] ?? ''));
     if ($dep === '') { echo json_encode(['available' => true, 'count' => $st['count'], 'date' => $st['date'], 'libelle' => $st['libelle'], 'departements' => zonageDepartements()], JSON_UNESCAPED_UNICODE); exit; }
     if (!preg_match('/^(\d{2,3}|2[AB])$/', $dep)) { http_response_code(400); echo json_encode(['error' => 'Département invalide.']); exit; }

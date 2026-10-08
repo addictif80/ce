@@ -2,6 +2,7 @@
 $pageTitle = 'Crédit immobilier';
 require_once __DIR__ . '/../../templates/header.php';
 require_once __DIR__ . '/../../includes/baremes.php';
+require_once __DIR__ . '/../ptz/bareme.php';
 $db = getDB();
 $userId = getCurrentUserId();
 
@@ -112,6 +113,9 @@ $migrations = [
     "ALTER TABLE credit_immobilier ADD COLUMN dpe_numero VARCHAR(30) DEFAULT NULL",
     "ALTER TABLE credit_immobilier ADD COLUMN dpe_date DATE DEFAULT NULL",
     "ALTER TABLE credit_immobilier ADD COLUMN dpe_conso DECIMAL(8,2) DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN ptz_differe INT DEFAULT 0",
+    "ALTER TABLE credit_immobilier ADD COLUMN zone_abc VARCHAR(4) DEFAULT NULL",
+    "ALTER TABLE credit_immobilier ADD COLUMN bien_insee VARCHAR(5) DEFAULT NULL",
     "ALTER TABLE credit_immobilier ADD COLUMN lignes_credit_json TEXT DEFAULT NULL",
     "ALTER TABLE credit_immobilier ADD COLUMN doublissimo TINYINT(1) DEFAULT 0",
     "ALTER TABLE credit_immobilier ADD COLUMN mrh_montant_devis DECIMAL(10,2) DEFAULT NULL",
@@ -270,7 +274,8 @@ function ciCollect($p) {
         'taux_emprunt' => min(99.999, (float)($l1['taux'] ?? 0)), 'duree_emprunt' => (int)($l1['duree'] ?? 0), 'frais_dossier' => $fraisDossier,
         'ade_json' => ciJsonList($p['ade_json'] ?? '[]'),
         'taeg_assurance' => $enum('taeg_assurance', ['MIN', 'ALL', 'EMP1', 'EMP2']) ?? 'MIN',
-        'ptz_actif' => $flag('ptz_actif'), 'ptz_montant' => d2n($p['ptz_montant'] ?? 0), 'ptz_duree' => (int)($p['ptz_duree'] ?? 0),
+        'ptz_actif' => $flag('ptz_actif'), 'ptz_montant' => d2n($p['ptz_montant'] ?? 0), 'ptz_duree' => (int)($p['ptz_duree'] ?? 0), 'ptz_differe' => max(0, (int)($p['ptz_differe'] ?? 0)),
+        'zone_abc' => $enum('zone_abc', ['A', 'B1', 'B2', 'C']), 'bien_insee' => preg_match('/^(\d{5}|2[AB]\d{3})$/', (string)($p['bien_insee'] ?? '')) ? $p['bien_insee'] : null,
         'ecoptz_actif' => $flag('ecoptz_actif'), 'ecoptz_montant' => d2n($p['ecoptz_montant'] ?? 0), 'ecoptz_duree' => (int)($p['ecoptz_duree'] ?? 0),
         'ecoptz_bouquets' => $flag('ecoptz_bouquets'), 'ecoptz_nb_bouquets' => (int)($p['ecoptz_nb_bouquets'] ?? 0),
         'ecoptz_performance_globale' => $flag('ecoptz_performance_globale'),
@@ -506,9 +511,12 @@ $cRefusees = count(array_filter($dossiers, fn($d) => ($d['workflow_status']??'')
 const dossiersData   = <?= json_encode(array_values($dossiers)) ?>;
 const workflowLabels = <?= json_encode($workflowLabels) ?>;
 const conseillerData = <?= json_encode(['nom' => $currentUser['nom'] ?? '', 'prenom' => $currentUser['prenom'] ?? '', 'email' => $currentUser['email_pro'] ?? '', 'tel' => $currentUser['tel_pro'] ?? ''], JSON_UNESCAPED_UNICODE) ?>;
+const ciPtzBareme = <?= json_encode(ptzGetBareme()) ?>;
+const ciZonageUrl = '../../tools/zonage.php';
 const ciBaremes = <?= json_encode(['tauxEndettementMax' => (float)baremeGet('hcsf')['data']['taux_endettement_max']]) ?>;
 const workflowSteps  = ['etude','dossier_complet','synthese_envoyee','controle','edition_offres','envoi_signature','offre_signee','deblocage','termine'];
 </script>
+<script src="../../assets/js/ptz-calc.js?v=<?= (int)@filemtime(__DIR__ . '/../../assets/js/ptz-calc.js') ?>"></script>
 <script src="ci.js?v=<?= (int)@filemtime(__DIR__ . '/ci.js') ?>"></script>
 <script src="ci_extra.js?v=<?= (int)@filemtime(__DIR__ . '/ci_extra.js') ?>"></script>
 <script>
