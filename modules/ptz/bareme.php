@@ -30,23 +30,14 @@ function ptzDefaultBareme() {
     ];
 }
 
-function ptzEnsureSchema() {
-    getDB()->exec("CREATE TABLE IF NOT EXISTS ptz_bareme (
-        id TINYINT PRIMARY KEY,
-        data MEDIUMTEXT NOT NULL,
-        updated_by INT DEFAULT NULL,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-}
-
+/** Barème PTZ en vigueur (géré dans l'administration, onglet « Barèmes ») ; « valide » = barème contrôlé. */
 function ptzGetBareme() {
-    try {
-        ptzEnsureSchema();
-        $row = getDB()->query("SELECT data FROM ptz_bareme WHERE id = 1")->fetchColumn();
-        $b = $row ? json_decode($row, true) : null;
-        if (is_array($b) && isset($b['coeff'], $b['plafonds_revenus'], $b['plafonds_operation'], $b['types'], $b['durees'])) return $b;
-    } catch (Exception $e) {}
-    return ptzDefaultBareme();
+    require_once __DIR__ . '/../../includes/baremes.php';
+    $m = baremeGet('ptz');
+    $b = $m['data'];
+    $b['valide'] = $m['valide'];
+    if ($m['date']) $b['millesime'] = 'au ' . date('d/m/Y', strtotime($m['date']));
+    return $b;
 }
 
 /** Valide la structure d'un barème saisi par l'administrateur ; renvoie un message d'erreur ou null. */

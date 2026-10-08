@@ -1,6 +1,7 @@
 <?php
 $pageTitle = 'Crédit immobilier';
 require_once __DIR__ . '/../../templates/header.php';
+require_once __DIR__ . '/../../includes/baremes.php';
 $db = getDB();
 $userId = getCurrentUserId();
 
@@ -488,6 +489,7 @@ $cRefusees = count(array_filter($dossiers, fn($d) => ($d['workflow_status']??'')
 const dossiersData   = <?= json_encode(array_values($dossiers)) ?>;
 const workflowLabels = <?= json_encode($workflowLabels) ?>;
 const conseillerData = <?= json_encode(['nom' => $currentUser['nom'] ?? '', 'prenom' => $currentUser['prenom'] ?? '', 'email' => $currentUser['email_pro'] ?? '', 'tel' => $currentUser['tel_pro'] ?? ''], JSON_UNESCAPED_UNICODE) ?>;
+const ciBaremes = <?= json_encode(['tauxEndettementMax' => (float)baremeGet('hcsf')['data']['taux_endettement_max']]) ?>;
 const workflowSteps  = ['etude','dossier_complet','synthese_envoyee','controle','edition_offres','envoi_signature','offre_signee','deblocage','termine'];
 </script>
 <script src="ci.js?v=<?= (int)@filemtime(__DIR__ . '/ci.js') ?>"></script>
