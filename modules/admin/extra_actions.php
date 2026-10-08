@@ -11,15 +11,16 @@ if ($action === 'save_bareme' || $action === 'reset_bareme') {
         header('Location: index.php?tab=baremes&msg=bareme_reset');
         exit;
     }
-    $data = json_decode($_POST['data'] ?? '', true);
-    $err = baremeCheck($cle, $data);
-    if ($err) { $_SESSION['bareme_err'] = [$cle, $err, $_POST['data'] ?? '']; header('Location: index.php?tab=baremes&msg=bareme_invalide'); exit; }
+    require_once __DIR__ . '/../../includes/baremes_forms.php';
+    $data = baremeCollect($cle, (array)($_POST['d'] ?? []));
+    $err = baremeCheck($cle, json_decode(json_encode($data), true));
+    if ($err) { $_SESSION['bareme_err'] = [$cle, $err, $data]; header('Location: index.php?tab=baremes&msg=bareme_invalide'); exit; }
     $date = preg_match('/^\d{4}-\d{2}-\d{2}$/', $_POST['date_reference'] ?? '') ? $_POST['date_reference'] : null;
-    baremeSave($cle, $data, isset($_POST['valide']), $date, $adminUserId);
+    baremeSave($cle, json_decode(json_encode($data), true), isset($_POST['valide']), $date, $adminUserId);
     header('Location: index.php?tab=baremes&msg=bareme_saved');
     exit;
 }
-if ($action === 'save_pieces_modele' || $action === 'delete_pieces_modele') {
+if (in_array($action, ['save_pieces_modele', 'delete_pieces_modele', 'duplicate_pieces_modele', 'move_pieces_modele'], true)) {
     require_once __DIR__ . '/../../includes/pieces.php';
     piecesEnsureSchema();
     $id = (int)($_POST['id'] ?? 0);
@@ -28,12 +29,42 @@ if ($action === 'save_pieces_modele' || $action === 'delete_pieces_modele') {
         header('Location: index.php?tab=pieces&msg=pieces_deleted');
         exit;
     }
+    if ($action === 'duplicate_pieces_modele') {
+        $db->prepare("INSERT INTO pieces_modeles (nom, lignes, actif, ordre) SELECT CONCAT(LEFT(nom, 135), ' (copie)'), lignes, 0, ordre + 1 FROM pieces_modeles WHERE id = ?")->execute([$id]);
+        header('Location: index.php?tab=pieces&msg=pieces_saved');
+        exit;
+    }
+    if ($action === 'move_pieces_modele') { // échange l'ordre avec le modèle voisin
+        $ids = $db->query("SELECT id FROM pieces_modeles ORDER BY ordre, nom, id")->fetchAll(PDO::FETCH_COLUMN);
+        $pos = array_search($id, array_map('intval', $ids), true);
+        $to = $pos === false ? false : $pos + (($_POST['dir'] ?? '') === 'up' ? -1 : 1);
+        if ($pos !== false && isset($ids[$to])) { [$ids[$pos], $ids[$to]] = [$ids[$to], $ids[$pos]]; }
+        $up = $db->prepare("UPDATE pieces_modeles SET ordre = ? WHERE id = ?");
+        foreach ($ids as $i => $mid) $up->execute([$i + 1, (int)$mid]);
+        header('Location: index.php?tab=pieces#m' . $id);
+        exit;
+    }
     $nom = mb_substr(trim($_POST['nom'] ?? ''), 0, 150);
-    $lignes = mb_substr((string)($_POST['lignes'] ?? ''), 0, 20000);
+    // Pièces saisies ligne à ligne (rubrique, pièce, précision, profil) -> format « Groupe ; Libellé ; Détail ; Profil »
+    $clean = fn($v) => trim(str_replace([';', "\r", "\n"], [',', ' ', ' '], (string)$v));
+    $profils = piecesProfils();
+    $lignes = [];
+    foreach ((array)($_POST['items'] ?? []) as $it) {
+        $lib = $clean($it['libelle'] ?? '');
+        if ($lib === '') continue;
+        $prof = isset($profils[$it['profil'] ?? '']) ? $it['profil'] : 'tous';
+        $lignes[] = implode(';', [$clean($it['groupe'] ?? '') ?: 'Divers', $lib, $clean($it['detail'] ?? ''), $prof]);
+    }
+    $lignes = implode("\n", $lignes);
     if ($nom === '' || !piecesParse($lignes)) { header('Location: index.php?tab=pieces&msg=pieces_invalide'); exit; }
-    $actif = isset($_POST['actif']) ? 1 : 0; $ordre = (int)($_POST['ordre'] ?? 0);
-    if ($id) $db->prepare("UPDATE pieces_modeles SET nom = ?, lignes = ?, actif = ?, ordre = ? WHERE id = ?")->execute([$nom, $lignes, $actif, $ordre, $id]);
-    else $db->prepare("INSERT INTO pieces_modeles (nom, lignes, actif, ordre) VALUES (?, ?, ?, ?)")->execute([$nom, $lignes, $actif, $ordre]);
-    header('Location: index.php?tab=pieces&msg=pieces_saved');
+    $actif = isset($_POST['actif']) ? 1 : 0;
+    if ($id) {
+        $db->prepare("UPDATE pieces_modeles SET nom = ?, lignes = ?, actif = ? WHERE id = ?")->execute([$nom, $lignes, $actif, $id]);
+    } else {
+        $ordre = (int)$db->query("SELECT COALESCE(MAX(ordre), 0) + 1 FROM pieces_modeles")->fetchColumn();
+        $db->prepare("INSERT INTO pieces_modeles (nom, lignes, actif, ordre) VALUES (?, ?, ?, ?)")->execute([$nom, $lignes, $actif, $ordre]);
+        $id = (int)$db->lastInsertId();
+    }
+    header('Location: index.php?tab=pieces&msg=pieces_saved#m' . $id);
     exit;
 }

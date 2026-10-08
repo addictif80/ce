@@ -52,16 +52,19 @@ require __DIR__ . '/../_sim/style.php';
   const eur=v=>Math.round(v).toLocaleString('fr-FR')+' €', eur2=v=>(Math.round(v*100)/100).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
   const NUM=['pers','rfr','cout'];
   function calc(p){
-    const np=Math.max(1,Math.min(8,Math.round(p.pers))), coeff=B.coeff[String(np)]||B.coeff['8'];
-    const t=B.types[p.type]; const th=B.plafonds_revenus[p.zone];
-    const bornes=th.map(v=>v*coeff), maxRev=bornes[3];
-    const po=B.plafonds_operation[p.zone][Math.min(np,5)-1];
-    const out={coeff,bornes,maxRev,po,errs:[]};
+    const np=Math.max(1,Math.round(p.pers)), z=p.zone, t=B.types[p.type];
+    const coeff=B.coeff_familial[Math.min(np,5)-1];
+    const revenu=Math.max(p.rfr,p.cout/B.diviseur_cout);          // revenu retenu : le plus élevé du RFR et du coût / 9
+    const maxRev=B.plafonds_ressources[z][Math.min(np,8)-1];
+    const lim=B.tranches[z], rpc=revenu/coeff;                     // revenu par unité de coefficient familial
+    let tr=lim.findIndex(l=>rpc<=l); if(tr<0) tr=3;
+    const po=B.plafonds_operation[z][Math.min(np,5)-1];
+    const out={coeff,revenu,rpc,maxRev,lim,po,errs:[]};
     if(!p.primo) out.errs.push("le PTZ est réservé aux primo-accédants");
     if(!p.rp) out.errs.push("le logement doit être la résidence principale");
-    if(!t||!t.zones.includes(p.zone)) out.errs.push("ce type de bien n'est pas éligible dans cette zone");
-    if(p.rfr>maxRev) out.errs.push("revenus supérieurs au plafond de la zone ("+eur(maxRev)+")");
-    let tr=bornes.findIndex(b=>p.rfr<=b); if(tr<0) tr=3;
+    if(!t||!t.zones.includes(z)) out.errs.push("ce type de logement n'est pas éligible dans cette zone");
+    if(revenu>maxRev) out.errs.push("revenus retenus ("+eur(revenu)+") supérieurs au plafond de la zone ("+eur(maxRev)+")");
+    if(rpc>lim[3]) out.errs.push("revenus au-delà de la tranche 4");
     out.tr=tr; out.q=t?t.quotites[tr]:0;
     out.prix=Math.min(p.cout,po); out.mont=out.errs.length?0:Math.round(out.prix*out.q/100);
     out.d=B.durees[tr]; out.mens=out.mont>0&&out.d.total>out.d.differe?out.mont/((out.d.total-out.d.differe)*12):0;
@@ -72,7 +75,7 @@ require __DIR__ . '/../_sim/style.php';
     const p=params(), r=calc(p);
     $('pr_mont').textContent=eur(r.mont);
     $('pr_stat').innerHTML=r.errs.length?'<span style="color:#f87171"><i class="fas fa-circle-xmark me-1"></i>Non éligible : '+r.errs.join(' ; ')+'.</span>':'<span style="color:#4ade80"><i class="fas fa-circle-check me-1"></i>Éligible sur la base des informations saisies.</span>';
-    $('pr_tr').textContent='Tranche '+(r.tr+1)+' (jusqu\'à '+eur(r.bornes[r.tr])+')';
+    $('pr_tr').textContent='Tranche '+(r.tr+1)+' (revenu retenu '+eur(r.revenu)+')';
     $('pr_q').textContent=r.q+' % du prix plafonné ('+eur(r.prix)+')';
     $('pr_d').textContent=r.d.total+' ans dont '+r.d.differe+' ans de différé';
     $('pr_m').textContent=r.mens>0?eur2(r.mens):'–';
