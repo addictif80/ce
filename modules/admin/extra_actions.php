@@ -68,3 +68,11 @@ if (in_array($action, ['save_pieces_modele', 'delete_pieces_modele', 'duplicate_
     header('Location: index.php?tab=pieces&msg=pieces_saved#m' . $id);
     exit;
 }
+
+if ($action === 'save_popup') {
+    require_once __DIR__ . '/../../includes/popups.php';
+    $slot = $_POST['slot'] ?? '';
+    if (isset(popupSlots()[$slot])) savePopupSettings($slot, $_POST);
+    header('Location: index.php?tab=popups&msg=popup_saved#' . urlencode($slot) . '-card');
+    exit;
+}
