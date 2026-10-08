@@ -62,7 +62,7 @@ $zres = $_SESSION['zonage_res'] ?? null; unset($_SESSION['zonage_res']);
             <div class="col-lg-7"><div class="border rounded p-3 h-100 bg-light">
                 <div class="fw-semibold mb-2"><i class="fas fa-magnifying-glass"></i> Où vérifier ces valeurs</div>
                 <?php foreach ($c['sources'] as [$lib, $url, $quoi]): ?>
-                    <div class="mb-2"><a href="<?= e($url) ?>" target="_blank" rel="noopener noreferrer"><?= e($lib) ?> <i class="fas fa-arrow-up-right-from-square small"></i></a><div class="small text-muted"><?= e($quoi) ?></div></div>
+                    <div class="mb-2"><?php if ($url !== ''): ?><a href="<?= e($url) ?>" target="_blank" rel="noopener noreferrer"><?= e($lib) ?> <i class="fas fa-arrow-up-right-from-square small"></i></a><?php else: ?><strong><?= e($lib) ?></strong><?php endif; ?><div class="small text-muted"><?= e($quoi) ?></div></div>
                 <?php endforeach; ?>
             </div></div>
             <div class="col-lg-5"><div class="border rounded p-3 h-100">

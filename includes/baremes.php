@@ -138,6 +138,18 @@ function baremeCatalog() {
                 ],
             ],
         ],
+        'doublissimo' => [
+            'label' => 'Doublissimo (prêt complémentaire des primo-accédants)', 'icon' => 'fa-clone',
+            'help' => 'Règles de la fiche produit : 20 % du financement total, plafond, durées et offre exceptionnelle (plafond doublé et taux préférentiel pendant la campagne).',
+            'sources' => [
+                ['Fiche produit Doublissimo (intranet / Easydoc) – mise à jour avril 2026', '', 'Fiche interne : montant (20 % du financement total CEMP, plafond 22 500 € hors campagne ; offre exceptionnelle du 1er avril au 30 juin : plafond 45 000 € pour le canal agence, 22 500 € pour la prescription immobilière, taux fixe 1,99 %), durée de 3 mois jusqu\'à la durée du prêt principal (300 mois maximum).'],
+            ],
+            'verifie' => ['date' => '08/10/2026', 'source' => 'la fiche produit interne (avril 2026)',
+                'ok' => 'pourcentage, plafonds, durées, dates et taux de la campagne',
+                'ko' => 'la fiche indique une campagne du 1er avril au 30 juin 2026, mais le logiciel interne applique encore le plafond de 45 000 € : la date de fin est donc laissée vide (campagne ouverte) ; renseignez-la quand la campagne s\'arrête'],
+            'default' => ['pourcentage' => 20, 'plafond' => 22500, 'duree_min_mois' => 3, 'duree_max_mois' => 300,
+                'campagne' => ['debut' => '2026-04-01', 'fin' => '', 'plafond_agence' => 45000, 'plafond_prescription' => 22500, 'taux' => 1.99]],
+        ],
         'hcsf' => [
             'label' => 'Plafonds HCSF (endettement et durée)', 'icon' => 'fa-gauge-high',
             'help' => 'Taux d\'endettement maximal et durées maximales recommandées pour les crédits immobiliers.',
@@ -173,6 +185,16 @@ function baremeCheck($cle, $d) {
         foreach ($d['emoluments'] as $t) if (!is_array($t) || count($t) !== 2 || !is_numeric($t[1])) return 'Émoluments : chaque tranche est [borne haute ou null, taux].';
         foreach (['droits_neuf', 'taxe_communale', 'frais_assiette', 'tva', 'csi', 'taux_departemental_defaut'] as $k) if (!isset($d[$k]) || !is_numeric($d[$k])) return "Valeur numérique manquante : $k";
         foreach ((array)($d['departements'] ?? []) as $dep) if (!is_array($dep) || !isset($dep['taux']) || !is_numeric($dep['taux']) || (isset($dep['taux_primo']) && !is_numeric($dep['taux_primo']))) return 'Départements : chaque ligne doit avoir un code et des taux numériques.';
+        return null;
+    }
+    if ($cle === 'doublissimo') {
+        foreach (['pourcentage', 'plafond', 'duree_min_mois', 'duree_max_mois'] as $k) if (!isset($d[$k]) || !is_numeric($d[$k]) || $d[$k] <= 0) return "Valeur positive manquante : $k";
+        $c = $d['campagne'] ?? null;
+        if (!is_array($c)) return 'Campagne : données manquantes.';
+        foreach (['plafond_agence', 'plafond_prescription', 'taux'] as $k) if (!isset($c[$k]) || !is_numeric($c[$k]) || $c[$k] < 0) return "Campagne : valeur manquante ($k).";
+        foreach (['debut', 'fin'] as $k) if (($c[$k] ?? '') !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$c[$k])) return "Campagne : date invalide ($k).";
+        if ($c['debut'] !== '' && $c['fin'] !== '' && $c['fin'] < $c['debut']) return 'Campagne : la date de fin précède la date de début.';
+        if ($d['duree_min_mois'] > $d['duree_max_mois']) return 'Durée minimale supérieure à la durée maximale.';
         return null;
     }
     if ($cle === 'hcsf') {

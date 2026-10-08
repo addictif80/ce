@@ -48,7 +48,7 @@ function ciControles(d){
       if(l.taux===''||l.taux==null) err(nomL(i)+' : taux manquant');
       if(!c.assRaw.some(a=>(a.ligne??0)===i&&(num(a.taux)>0||num(a.cout_total)>0))) al(nomL(i)+' : aucune assurance');
     }
-    if(l.doublissimo&&Math.abs(num(l.montant)-doublissimoMontant(d))>1) al(nomL(i)+' : montant différent du Doublissimo calculé ('+fmt(doublissimoMontant(d))+' €)');
+
   });
   c.assRaw.forEach(a=>{ if((a.ligne??0)>=c.lignes.length) err('Une assurance est rattachée à une ligne qui n\'existe plus'); if((a.emp??0)>=c.emps.length) err('Une assurance est rattachée à un emprunteur qui n\'existe plus'); });
   c.lignes.forEach((l,i)=>{const b=new Set(c.assRaw.filter(a=>(a.ligne??0)===i&&num(a.taux)>0).map(a=>a.base)); if(b.size>1) al(nomL(i)+' : assurances sur des bases différentes (CI et CRD)');});
@@ -61,6 +61,17 @@ function ciControles(d){
     if(miss.length) al('Pièces non cochées ('+miss.length+') : '+miss.map(k=>CI_DOCS[k]).slice(0,4).join(', ')+(miss.length>4?'…':''));
   }
   if(d.garantie_type==='CEGC'&&ciWfIdx(d)>=CI_WF_ORDER.indexOf('edition_offres')&&d.suivi_cegc_accord!=1) al('Garantie CEGC : accord non enregistré alors que le dossier est au stade « édition des offres »');
+  c.lignes.forEach((l,i)=>{
+    if(!l.doublissimo) return;
+    const pl=doublissimoPlafond(d), p=dblParams(), princ=c.lignes.find(x=>!x.doublissimo&&parseInt(x.duree)>0), ps=primoStatut(d);
+    if(num(l.montant)>pl+0.5) err(nomL(i)+' (Doublissimo) : '+fmt(l.montant)+' € supérieur au plafond de '+fmt(pl)+' €');
+    if(num(l.montant)>doublissimoMontant(d)+0.5) al(nomL(i)+' (Doublissimo) : supérieur à '+p.pourcentage+' % du financement total ('+fmt(doublissimoMontant(d))+' €)');
+    const dur=parseInt(l.duree)||0;
+    if(dur>0&&dur<num(p.duree_min_mois)) al(nomL(i)+' (Doublissimo) : durée inférieure au minimum de '+p.duree_min_mois+' mois');
+    if(dur>num(p.duree_max_mois)||(princ&&dur>parseInt(princ.duree))) al(nomL(i)+' (Doublissimo) : durée supérieure à celle du prêt principal ('+(princ?princ.duree:p.duree_max_mois)+' mois, '+p.duree_max_mois+' maximum)');
+    if(ps===''||ps==='NON') al('Doublissimo réservé aux primo-accédants (statut non renseigné ou « Non »)');
+    if(usageChoice(d)!=='RP') al('Doublissimo réservé au financement de la résidence principale');
+  });
   if(d.ptz_actif==1){
     const r=ciPtzMaxFor(d);
     if(!r.indispo){

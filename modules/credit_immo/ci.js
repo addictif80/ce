@@ -63,7 +63,19 @@ function getCoutProjet(d){return num(d.montant_acquisition)+num(d.frais_notaire)
 function getResteAFinancer(d){
   return getTotalFinancement(d)-num(d.apport)-ptzMontant(d)-ecoMontant(d)-getLignes(d).reduce((t,l)=>t+num(l.montant),0);
 }
-function doublissimoMontant(d){return Math.max(0,0.2*(getCoutProjet(d)-num(d.apport)));}
+// Doublissimo (fiche produit) : pourcentage du financement total (coût du projet − apport), plafonné ; plafond relevé et taux préférentiel pendant la campagne
+const DBL_DEF={pourcentage:20,plafond:22500,duree_min_mois:3,duree_max_mois:300,campagne:{debut:'',fin:'',plafond_agence:45000,plafond_prescription:22500,taux:0}};
+function dblParams(){return (typeof ciDoublissimo!=='undefined'&&ciDoublissimo)||DBL_DEF;}
+function dblCampagneActive(){
+  const c=dblParams().campagne||{}, t=new Date().toISOString().slice(0,10);
+  return !!(c.debut&&t>=c.debut&&(!c.fin||t<=c.fin));
+}
+function doublissimoPlafond(d){
+  const p=dblParams(), c=p.campagne||{};
+  if(dblCampagneActive()) return d&&d.canal_origine==='PRESCRIPTION'?num(c.plafond_prescription):num(c.plafond_agence);
+  return num(p.plafond);
+}
+function doublissimoMontant(d){return Math.max(0,Math.min(num(dblParams().pourcentage)/100*(getCoutProjet(d)-num(d.apport)),doublissimoPlafond(d)));}
 
 // Échéancier d'une ligne : mensualité, capital restant dû avant chaque échéance, intérêts
 function scheduleLine(montant,taux,duree){
@@ -419,7 +431,11 @@ function removeLigne(btn,px){
 function onDoublissimo(px){
   const on=document.getElementById(px+'_dbl_cb').checked;
   let list=readLignes(px);
-  if(on&&!list.some(l=>l.doublissimo)) list.push({libelle:'Doublissimo',montant:0,duree:'',taux:'',frais_dossier:0,doublissimo:true});
+  if(on&&!list.some(l=>l.doublissimo)){
+    const princ=list.find(l=>!l.doublissimo&&parseInt(l.duree)>0), p=dblParams();
+    const duree=princ?Math.min(parseInt(princ.duree),num(p.duree_max_mois)||300):'';        // durée : celle du prêt principal (300 mois maximum)
+    list.push({libelle:'Doublissimo',montant:0,duree,taux:dblCampagneActive()&&num(p.campagne.taux)>0?num(p.campagne.taux):'',frais_dossier:0,doublissimo:true});
+  }
   if(!on) list=list.filter(l=>!l.doublissimo);
   if(!list.length) list.push({libelle:'Ligne 1',montant:'',duree:'',taux:'',frais_dossier:0});
   renderLignes(px,list); renderAssurances(px); onFormChange(px);
@@ -428,7 +444,10 @@ function onDoublissimo(px){
 function syncDoublissimo(px){
   if(!document.getElementById(px+'_dbl_cb')?.checked) return;
   const row=document.querySelector(`#${px}_lignes_list .ci-ligne[data-dbl="1"] [data-lf="montant"]`);
-  if(row) row.value=doublissimoMontant(readFormRaw(px)).toFixed(2);
+  const d=readFormRaw(px);
+  if(row) row.value=doublissimoMontant(d).toFixed(2);
+  const info=document.getElementById(px+'_dbl_info');
+  if(info) info.textContent='Plafond '+fmt(doublissimoPlafond(d))+' €'+(dblCampagneActive()?' (offre exceptionnelle, taux '+String(dblParams().campagne.taux).replace('.',',')+' %)':'');
 }
 function equilibrerLignes(px){
   const raw=readFormRaw(px); raw.lignes_credit_json=JSON.stringify(readLignes(px));
@@ -699,7 +718,8 @@ function buildFormTabs(px,d){
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
           <h6 class="mb-0">Lignes de crédit</h6>
           <div class="d-flex align-items-center gap-3">
-            <div class="form-check mb-0"><input class="form-check-input" type="checkbox" name="doublissimo" value="1" id="${px}_dbl_cb" ${d.doublissimo==1?'checked':''} onchange="onDoublissimo('${px}')"><label class="form-check-label" for="${px}_dbl_cb" title="Ajoute une ligne égale à 20 % de (acquisition + frais de notaire + frais de négociation − apport)">Doublissimo</label></div>
+            <div class="form-check mb-0"><input class="form-check-input" type="checkbox" name="doublissimo" value="1" id="${px}_dbl_cb" ${d.doublissimo==1?'checked':''} onchange="onDoublissimo('${px}')"><label class="form-check-label" for="${px}_dbl_cb" title="Prêt complémentaire des primo-accédants : 20 % du financement total (acquisition + frais de notaire + frais de négociation − apport), plafonné">Doublissimo</label></div>
+            <div class="mt-1 small"><select name="canal_origine" id="${px}_canal" class="form-select form-select-sm d-inline-block w-auto" onchange="onFormChange('${px}')" title="Canal d'origine du client (plafond de l'offre exceptionnelle)"><option value="AGENCE" ${d.canal_origine!=='PRESCRIPTION'?'selected':''}>Client issu de l'agence</option><option value="PRESCRIPTION" ${d.canal_origine==='PRESCRIPTION'?'selected':''}>Prescription immobilière</option></select> <span class="text-muted" id="${px}_dbl_info"></span></div>
             <button type="button" class="btn btn-sm btn-outline-secondary" onclick="equilibrerLignes('${px}')" title="Ajuste la dernière ligne pour couvrir exactement le besoin"><i class="fas fa-equals"></i> Affecter le reste à la dernière ligne</button>
           </div>
         </div>

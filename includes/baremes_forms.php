@@ -15,7 +15,24 @@ function bfNumList($v) { return is_array($v) ? array_values($v) : []; }
 
 function baremeRenderForm($cle, array $d) {
     ob_start();
-    if ($cle === 'hcsf') { ?>
+    if ($cle === 'doublissimo') { $c = $d['campagne']; ?>
+        <?= bfHelp('Montant du Doublissimo = pourcentage du financement total (coût du projet − apport), dans la limite du plafond.') ?>
+        <table class="table table-sm align-middle w-auto"><tbody>
+            <tr><td>Pourcentage du financement total (%)</td><td><?= bfNum('[pourcentage]', $d['pourcentage'], 'any') ?></td></tr>
+            <tr><td>Plafond hors campagne (€)</td><td><?= bfNum('[plafond]', $d['plafond'], '1') ?></td></tr>
+            <tr><td>Durée minimale (mois)</td><td><?= bfNum('[duree_min_mois]', $d['duree_min_mois'], '1') ?></td></tr>
+            <tr><td>Durée maximale (mois, dans la limite de la durée du prêt principal)</td><td><?= bfNum('[duree_max_mois]', $d['duree_max_mois'], '1') ?></td></tr>
+        </tbody></table>
+        <?= bfTitle(2, 'Offre exceptionnelle (campagne)') ?>
+        <?= bfHelp('Pendant la campagne, le plafond est relevé (selon le canal d\'origine du client) et un taux fixe préférentiel s\'applique. Sans date de début, il n\'y a pas de campagne ; sans date de fin, la campagne reste ouverte jusqu\'à ce que vous en saisissiez une.') ?>
+        <table class="table table-sm align-middle w-auto"><tbody>
+            <tr><td>Du</td><td><input type="date" name="d[campagne][debut]" value="<?= e($c['debut']) ?>" class="form-control form-control-sm" style="width:160px"></td></tr>
+            <tr><td>Au (inclus, facultatif)</td><td><input type="date" name="d[campagne][fin]" value="<?= e($c['fin']) ?>" class="form-control form-control-sm" style="width:160px"></td></tr>
+            <tr><td>Plafond canal agence (€)</td><td><?= bfNum('[campagne][plafond_agence]', $c['plafond_agence'], '1') ?></td></tr>
+            <tr><td>Plafond prescription immobilière (€)</td><td><?= bfNum('[campagne][plafond_prescription]', $c['plafond_prescription'], '1') ?></td></tr>
+            <tr><td>Taux fixe pendant la campagne (%)</td><td><?= bfNum('[campagne][taux]', $c['taux'], '0.01') ?></td></tr>
+        </tbody></table>
+    <?php } elseif ($cle === 'hcsf') { ?>
         <?= bfHelp('Les grandes règles du Haut Conseil de stabilité financière (HCSF) appliquées aux crédits immobiliers.') ?>
         <table class="table table-sm align-middle w-auto"><tbody>
             <tr><td>Taux d'endettement maximal (%, assurance comprise)</td><td><?= bfNum('[taux_endettement_max]', $d['taux_endettement_max'], '0.1') ?></td></tr>
@@ -106,6 +123,12 @@ function baremeCollect($cle, array $p) {
     $row = fn($a) => array_map($n, array_values((array)$a));
     if ($cle === 'hcsf') {
         return ['taux_endettement_max' => $n($p['taux_endettement_max'] ?? 0), 'duree_max_annees' => $n($p['duree_max_annees'] ?? 0), 'duree_max_annees_neuf' => $n($p['duree_max_annees_neuf'] ?? 0)];
+    }
+    if ($cle === 'doublissimo') {
+        $c = (array)($p['campagne'] ?? []);
+        $date = fn($v) => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$v) ? $v : '';
+        return ['pourcentage' => $n($p['pourcentage'] ?? 0), 'plafond' => $n($p['plafond'] ?? 0), 'duree_min_mois' => $n($p['duree_min_mois'] ?? 0), 'duree_max_mois' => $n($p['duree_max_mois'] ?? 0),
+            'campagne' => ['debut' => $date($c['debut'] ?? ''), 'fin' => $date($c['fin'] ?? ''), 'plafond_agence' => $n($c['plafond_agence'] ?? 0), 'plafond_prescription' => $n($c['plafond_prescription'] ?? 0), 'taux' => $n($c['taux'] ?? 0)]];
     }
     if ($cle === 'notaire') {
         $emol = [];
