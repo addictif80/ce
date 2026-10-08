@@ -857,26 +857,31 @@ function getPublicToolsCatalog() {
             'note' => 'Les calculs se font dans votre navigateur : rien n\'est envoyé ni conservé.',
         ],
         'capacite' => [
+            'added' => '2026-10-06',
             'label' => 'Capacité d\'emprunt', 'icon' => 'fa-hand-holding-dollar', 'url' => 'capacite.php', 'default' => true,
             'description' => 'Estimez le capital empruntable et le budget d\'achat à partir des revenus, des charges et des conditions du prêt.',
             'note' => 'Les calculs se font dans votre navigateur : rien n\'est envoyé ni conservé.',
         ],
         'notaire' => [
+            'added' => '2026-10-06',
             'label' => 'Frais de notaire', 'icon' => 'fa-scale-balanced', 'url' => 'notaire.php', 'default' => true,
             'description' => 'Estimez les frais de notaire d\'une acquisition (ancien ou neuf) : droits, émoluments, taxes et débours.',
             'note' => 'Les calculs se font dans votre navigateur : rien n\'est envoyé ni conservé.',
         ],
         'ptz' => [
+            'added' => '2026-10-06',
             'label' => 'Simulateur PTZ', 'icon' => 'fa-percent', 'url' => 'ptz.php', 'default' => true,
             'description' => 'Vérifiez l\'éligibilité au prêt à taux zéro et estimez son montant, sa durée et son différé.',
             'note' => 'Les calculs se font dans votre navigateur : rien n\'est envoyé ni conservé.',
         ],
         'relais' => [
+            'added' => '2026-10-07',
             'label' => 'Prêt relais', 'icon' => 'fa-house-circle-check', 'url' => 'relais.php', 'default' => true,
             'description' => 'Estimez le montant d\'un prêt relais, son coût et ce qu\'il reste après la vente du bien.',
             'note' => 'Les calculs se font dans votre navigateur : rien n\'est envoyé ni conservé.',
         ],
         'rachat' => [
+            'added' => '2026-10-07',
             'label' => 'Rachat de crédits', 'icon' => 'fa-layer-group', 'url' => 'rachat.php', 'default' => true,
             'description' => 'Simulez le regroupement de vos crédits : indemnités de remboursement anticipé, nouvelle mensualité et coût global.',
             'note' => 'Les calculs se font dans votre navigateur : rien n\'est envoyé ni conservé.',

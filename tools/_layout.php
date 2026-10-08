@@ -57,6 +57,9 @@ function privacyBanner($text = null) { ?>
 
 function toolsFooter() {
     $key = $GLOBALS['toolsCurrentKey'] ?? null;
+    if ($key) { ?>
+<script>try{const k=<?= json_encode($key) ?>;let r=JSON.parse(localStorage.getItem('toolsRecent')||'[]').filter(x=>x!==k);r.unshift(k);localStorage.setItem('toolsRecent',JSON.stringify(r.slice(0,8)));}catch(e){}</script>
+<?php }
     if (!empty($GLOBALS['toolsNoFeedbackLink'])) { echo "</body>\n</html>\n"; return; } ?>
 <div class="container text-center text-muted small my-4 no-print">
     <a href="feedback.php<?= $key ? '?tool=' . urlencode($key) : '' ?>" class="text-muted"><i class="fas fa-comment-dots me-1"></i>Un problème, une idée ? Envoyer un retour à l'administrateur</a>
