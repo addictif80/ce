@@ -76,3 +76,10 @@ if ($action === 'save_popup') {
     header('Location: index.php?tab=popups&msg=popup_saved#' . urlencode($slot) . '-card');
     exit;
 }
+
+if ($action === 'save_terms') {
+    require_once __DIR__ . '/../../includes/terms.php';
+    saveTermsSettings($_POST['terms_title'] ?? '', $_POST['terms_text'] ?? '', isset($_POST['ask_again']));
+    header('Location: index.php?tab=conditions&msg=terms_saved');
+    exit;
+}

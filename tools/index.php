@@ -2,6 +2,7 @@
 require_once __DIR__ . '/_layout.php';
 require_once __DIR__ . '/../includes/agences.php';
 require_once __DIR__ . '/../includes/popups.php';
+require_once __DIR__ . '/../includes/terms.php';
 
 $catalog = getPublicToolsCatalog();
 $status = getPublicToolsStatus();
@@ -88,9 +89,11 @@ toolsHeader('Outils en libre accès');
     <div id="recentBar" class="mb-3 small" style="display:none"><i class="fas fa-clock-rotate-left text-secondary me-1"></i><strong>Utilisés récemment :</strong> <span id="recentList"></span></div>
     <div id="favSection" class="mb-4" style="display:none"><h2 class="h5 mb-3"><i class="fas fa-star text-warning me-1"></i>Mes favoris</h2><div class="row g-4" id="favRow"></div><hr class="mt-4"></div>
     <?php if (!$visible): ?>
+        <div class="row g-4 mb-3"><?php renderTermsToolsCard(); ?></div>
         <div class="alert alert-info">Aucun outil n'est disponible pour le moment.</div>
     <?php else: ?>
     <div class="row g-4">
+        <?php renderTermsToolsCard(); // avertissement : toujours la première carte ?>
         <?php foreach ($visible as $key): $t = $catalog[$key]; $off = $status[$key]['state'] === 'indisponible'; ?>
         <div class="col-md-6 col-lg-4 tool-col" data-key="<?= e($key) ?>">
             <<?= $off ? 'div' : 'a href="' . e($t['url']) . '"' ?> class="text-decoration-none text-dark d-block h-100" <?= $off ? 'aria-disabled="true"' : '' ?>>
