@@ -12,11 +12,11 @@ function baremeCatalog() {
             'help' => 'Conditions de ressources, plafonds de coût, part financée et durées du prêt à taux zéro.',
             'sources' => [
                 ['Service-public.fr – Prêt à taux zéro (PTZ)', 'https://www.service-public.fr/particuliers/vosdroits/F10871', 'Tableaux « Montant auquel votre revenu doit être inférieur… », « Déterminer la tranche de revenus », « Coût maximum de l\'opération » et « Part maximum du PTZ » (choisir « Offre de prêt émise à partir d\'avril 2025 »).'],
-                ['ANIL – Outils de calcul', 'https://www.anil.org/outils/outils-de-calcul/ptz/', 'Simulateur officiel pour comparer un cas concret avec le résultat de notre simulateur.'],
+                ['ANIL – Simulateur « Votre prêt à taux zéro »', 'https://www.anil.org/outils/outils-de-calcul/votre-pret-a-taux-zero/', 'Saisissez un cas concret (commune, personnes, revenu fiscal, coût de l\'opération) et comparez montant maximum, durée, différé et mensualités avec notre simulateur.'],
             ],
-            'verifie' => ['date' => '08/10/2026', 'source' => 'Service-public.fr',
-                'ok' => 'coefficients familiaux, revenus maximaux, limites de tranches, coûts maximaux, parts financées (offres émises à partir d\'avril 2025)',
-                'ko' => 'durées et différés par tranche (la page indique seulement : 25 ans maximum et différé d\'au moins 2 ans) — à confirmer'],
+            'verifie' => ['date' => '08/10/2026', 'source' => 'Service-public.fr et le simulateur de l\'ANIL',
+                'ok' => 'coefficients familiaux, revenus maximaux, limites de tranches, coûts maximaux, parts financées, durées et différés par tranche, revenu retenu (coût ÷ 9) — offres émises à partir d\'avril 2025',
+                'ko' => ''],
             'default' => ptzDefaultBareme(),
         ],
         'notaire' => [

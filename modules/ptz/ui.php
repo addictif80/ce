@@ -25,7 +25,7 @@ require __DIR__ . '/../_sim/style.php';
         <select class="form-select" id="pz_type"><?php foreach ($ptzBareme['types'] as $k => $t): ?><option value="<?= e($k) ?>"><?= e($t['label']) ?></option><?php endforeach; ?></select></div>
       <div class="col-6"><label class="form-label small mb-0">Coût de l'opération (€)</label><input type="number" min="0" step="any" class="form-control" id="pz_cout" value="220000"></div>
     </div>
-    <div class="form-text">La zone dépend de la commune du bien (A bis, A, B1, B2, C).</div>
+    <div class="form-text">La zone dépend de la commune du bien (A bis / A, B1, B2, C) : si vous ne la connaissez pas, utilisez le simulateur de l'ANIL indiqué sous les résultats. Ancien avec travaux : les travaux doivent représenter au moins 25 % du coût total.</div>
   </div>
   <?php if ($capSave) simSaveForm($capLoad, 'pzPrepare'); ?>
  </div>
@@ -36,13 +36,17 @@ require __DIR__ . '/../_sim/style.php';
     <div class="row mt-3 g-3">
       <div class="col-6"><div class="lbl">Tranche de revenus</div><div class="fw-bold" id="pr_tr">–</div></div>
       <div class="col-6"><div class="lbl">Quotité</div><div class="fw-bold" id="pr_q">–</div></div>
-      <div class="col-6"><div class="lbl">Durée / différé</div><div class="fw-bold" id="pr_d">–</div></div>
-      <div class="col-6"><div class="lbl">Mensualité après différé</div><div class="fw-bold" id="pr_m">–</div></div>
+      <div class="col-6"><div class="lbl">Durée totale / différé</div><div class="fw-bold" id="pr_d">–</div></div>
+      <div class="col-6"><div class="lbl">Mensualité pendant le différé</div><div class="fw-bold" id="pr_m1">–</div></div>
+      <div class="col-6"><div class="lbl">Mensualité après le différé</div><div class="fw-bold" id="pr_m">–</div></div>
+      <div class="col-6"><div class="lbl">Revenu retenu (÷ coefficient)</div><div class="fw-bold" id="pr_rv">–</div></div>
       <div class="col-6"><div class="lbl">Plafond de ressources</div><div class="fw-bold" id="pr_pr">–</div></div>
       <div class="col-6"><div class="lbl">Plafond de prix retenu</div><div class="fw-bold" id="pr_po">–</div></div>
     </div>
   </div>
-  <p class="small text-muted">Barème <?= e($ptzBareme['millesime'] ?? '') ?>. Simulation indicative : l'éligibilité définitive est vérifiée sur l'offre de prêt et les justificatifs.</p>
+  <div class="alert alert-warning py-2 small"><i class="fas fa-triangle-exclamation me-1"></i><strong>Résultat indicatif</strong> : il repose uniquement sur les informations saisies et n'a pas de valeur contractuelle. L'éligibilité définitive est vérifiée sur l'offre de prêt et les justificatifs.</div>
+  <p class="small text-muted mb-1">Barème <?= e($ptzBareme['millesime'] ?? '') ?>. Le revenu retenu est le plus élevé du revenu fiscal de référence et du coût de l'opération divisé par <?= e((string)($ptzBareme['diviseur_cout'] ?? 9)) ?>.</p>
+  <p class="small text-muted"><strong>Cas non pris en compte</strong> : location-accession (PSLA), bail réel solidaire (BRS), logement social, TVA à taux réduit (QPV, ANRU), transformation d'un local en logement : les règles diffèrent (voir <a href="https://www.service-public.fr/particuliers/vosdroits/F10871" target="_blank" rel="noopener noreferrer">service-public.fr</a>). Pour connaître la zone d'une commune : <a href="https://www.anil.org/outils/outils-de-calcul/votre-pret-a-taux-zero/" target="_blank" rel="noopener noreferrer">simulateur de l'ANIL</a> (la zone est déduite de la commune saisie).</p>
  </div>
 </div>
 <script>
@@ -79,6 +83,8 @@ require __DIR__ . '/../_sim/style.php';
     $('pr_q').textContent=r.q+' % du prix plafonné ('+eur(r.prix)+')';
     $('pr_d').textContent=r.d.total+' ans dont '+r.d.differe+' ans de différé';
     $('pr_m').textContent=r.mens>0?eur2(r.mens):'–';
+    $('pr_m1').textContent=r.mont>0?(r.d.differe>0?'0 € (différé de '+r.d.differe+' ans)':'Pas de différé'):'–';
+    $('pr_rv').textContent=eur(r.revenu)+' ÷ '+String(r.coeff).replace('.',',')+' = '+eur(r.rpc);
     $('pr_pr').textContent=eur(r.maxRev); $('pr_po').textContent=eur(r.po);
     return {p,r};
   }
