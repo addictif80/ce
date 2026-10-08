@@ -96,6 +96,7 @@ $stmt->execute([$userId]);
 $productions = $stmt->fetchAll();
 ?>
 
+<style>#tableProduction tr.rdv-head td{background:#f1f3f5;border-top:2px solid #dee2e6}</style>
 <!-- Stats -->
 <div class="row g-3 mb-4">
     <div class="col-md-4">
@@ -137,9 +138,28 @@ $productions = $stmt->fetchAll();
             </tr>
         </thead>
         <tbody>
-        <?php foreach ($productions as $prod): ?>
-            <tr>
-                <td><?= formatDateTime($prod['date_rdv']) ?></td>
+        <?php
+        // Regroupement par RDV (même date et heure) : en-tête avec le nombre de ventes et le total des montants en €
+        $groupes = [];
+        foreach ($productions as $prod) $groupes[$prod['date_rdv'] ?? ''][] = $prod;
+        $unites = array_column($produits, 'unite', 'libelle');
+        foreach ($groupes as $dateRdv => $ventes):
+            $euros = 0.0; $nbEuros = 0;
+            foreach ($ventes as $v) {
+                if (($unites[$v['produit_vendu']] ?? '') === '€') { $euros += (float)str_replace([' ', ','], ['', '.'], (string)$v['montant_nombre']); $nbEuros++; }
+            }
+            $gid = md5((string)$dateRdv);
+        ?>
+            <tr class="rdv-head" data-rdv="<?= $gid ?>">
+                <td colspan="6">
+                    <i class="fas fa-calendar-day me-1"></i><strong><?= formatDateTime($dateRdv) ?></strong>
+                    <span class="badge ms-2" style="background:#e4002b"><?= count($ventes) ?> vente<?= count($ventes) > 1 ? 's' : '' ?></span>
+                    <?php if ($nbEuros): ?><span class="ms-2 text-muted small">dont <?= number_format($euros, 2, ',', ' ') ?> € de volume</span><?php endif; ?>
+                </td>
+            </tr>
+        <?php foreach ($ventes as $prod): ?>
+            <tr data-rdv="<?= $gid ?>">
+                <td class="text-muted small ps-4"><?= formatDateTime($prod['date_rdv']) ?></td>
                 <td><?= !empty($prod['categorie']) ? '<span class="badge bg-secondary">' . e($prod['categorie']) . '</span>' : '<span class="text-muted">—</span>' ?></td>
                 <td><strong><?= e($prod['produit_vendu']) ?></strong></td>
                 <td><?= e($prod['montant_nombre']) ?></td>
@@ -154,6 +174,7 @@ $productions = $stmt->fetchAll();
                     </form>
                 </td>
             </tr>
+        <?php endforeach; ?>
         <?php endforeach; ?>
         </tbody>
     </table>
@@ -222,7 +243,19 @@ $productions = $stmt->fetchAll();
 </div>
 
 <script>
-filterTable('searchProduction', 'tableProduction');
+// Recherche : les lignes de vente sont filtrées, l'en-tête d'un RDV reste visible tant qu'une de ses ventes l'est
+document.getElementById('searchProduction').addEventListener('keyup', function () {
+    const f = this.value.toLowerCase();
+    const visible = new Set();
+    document.querySelectorAll('#tableProduction tbody tr:not(.rdv-head)').forEach(row => {
+        const ok = row.textContent.toLowerCase().includes(f);
+        row.style.display = ok ? '' : 'none';
+        if (ok) visible.add(row.dataset.rdv);
+    });
+    document.querySelectorAll('#tableProduction tbody tr.rdv-head').forEach(row => {
+        row.style.display = (f === '' || visible.has(row.dataset.rdv)) ? '' : 'none';
+    });
+});
 
 const productionsData = <?= json_encode($productions) ?>;
 const produitsData = <?= json_encode($produits) ?>;
