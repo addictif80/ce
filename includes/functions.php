@@ -1191,6 +1191,27 @@ function getToolsMessageForVisitor() {
     return $html;
 }
 
+/** Adresse qui reçoit les demandes d'accès : celle saisie en administration, sinon l'e-mail du premier administrateur ; '' si aucune. */
+function getAccessRequestEmail() {
+    $mail = trim(getToolsSetting('access_cta_email', ''));
+    if (filter_var($mail, FILTER_VALIDATE_EMAIL)) return $mail;
+    try {
+        $stmt = getDB()->query("SELECT email_pro FROM users WHERE is_admin = 1 AND email_pro <> '' ORDER BY id");
+        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $m) if (filter_var(trim($m), FILTER_VALIDATE_EMAIL)) return trim($m);
+    } catch (Exception $e) {}
+    return '';
+}
+
+/** Texte de l'appel à action « demander un accès au portail » (personnalisable en administration) */
+function getAccessCtaSettings() {
+    return [
+        'enabled' => getToolsSetting('access_cta_enabled', '1') === '1',
+        'title' => getToolsSetting('access_cta_title', 'Besoin d\'un accès complet au portail ?'),
+        'text' => getToolsSetting('access_cta_text', "Le portail d'activité regroupe tous les modules de suivi (crédit immobilier, production, agenda, rappels…) avec enregistrement de vos données.\nRenseignez le formulaire pour générer votre demande d'accès, puis envoyez-la à l'administrateur."),
+        'email' => getAccessRequestEmail(),
+    ];
+}
+
 /** Enregistre une connexion réussie avec ce code (aucune donnée sur le visiteur) */
 function logToolsCodeUse($codeId) {
     ensureToolsAccessSchema();
