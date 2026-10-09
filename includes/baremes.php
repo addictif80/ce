@@ -161,6 +161,26 @@ function baremeCatalog() {
                 'ko' => 'la fiche produit porte une date de version incohérente (2031) : vérifier auprès de la hiérarchie que le dispositif est toujours commercialisé'],
             'default' => ['pourcentage' => 10, 'plafond' => 20000, 'duree_max_mois' => 240, 'age_max' => 35],
         ],
+        'primoz' => [
+            'label' => 'Primoz (prêt amorti avec différé de longue durée)', 'icon' => 'fa-hourglass-half',
+            'help' => 'Règles de la fiche produit : 10 à 20 % du financement, 10 000 à 120 000 €, durée de 20 à 25 ans dont 10 à 15 ans de différé d\'amortissement (intérêts seuls), primo-accédants de moins de 36 ans en CDI.',
+            'sources' => [
+                ['Fiche produit Primoz (intranet / Easydoc) – version du 05/11/2024', '', 'Fiche interne : montant entre 10 % et 20 % du montant financé (10 000 € minimum, 120 000 € maximum), durée de 20 à 25 ans par multiples de 12 mois, différé d\'amortissement en capital de 120 à 180 mois (échéances d\'intérêts seuls), taux selon le barème de la CE, couplé obligatoirement à un prêt principal amortissable, incompatible avec PC-PAS, Primolis et Grandioz.'],
+            ],
+            'verifie' => ['date' => '09/10/2026', 'source' => 'la fiche produit interne',
+                'ok' => 'pourcentages, montants, durées, différé et âge maximum', 'ko' => ''],
+            'default' => ['pct_min' => 10, 'pct_max' => 20, 'montant_min' => 10000, 'montant_max' => 120000, 'duree_min_mois' => 240, 'duree_max_mois' => 300, 'differe_min_mois' => 120, 'differe_max_mois' => 180, 'age_max' => 35],
+        ],
+        'grandioz' => [
+            'label' => 'Grandioz (prêt à échéances progressives)', 'icon' => 'fa-arrow-trend-up',
+            'help' => 'Règles de la présentation « Primo Jeunes et Grandioz » : échéances progressives de 1 % par an, financement minimum, durée de 7 à 25 ans, primo-accédants de 35 ans maximum ; ne se combine pas avec le PTZ.',
+            'sources' => [
+                ['Présentation « Primo Jeunes et Grandioz » (intranet / Easydoc)', '', 'Fiche interne : prêt à taux fixe à échéances progressives (1 % l\'an), financement minimum 50 000 €, durée de 7 à 25 ans, primo-accédant de 35 ans maximum en CDI / titulaire, exclusion des bénéficiaires du PTZ, taux d\'effort de 35 % calculé sur la première échéance.'],
+            ],
+            'verifie' => ['date' => '09/10/2026', 'source' => 'la présentation interne',
+                'ok' => 'progression, montant minimum, durées et âge', 'ko' => ''],
+            'default' => ['progression' => 1, 'montant_min' => 50000, 'duree_min_mois' => 84, 'duree_max_mois' => 300, 'age_max' => 35],
+        ],
         'hcsf' => [
             'label' => 'Plafonds HCSF (endettement et durée)', 'icon' => 'fa-gauge-high',
             'help' => 'Taux d\'endettement maximal et durées maximales recommandées pour les crédits immobiliers.',
@@ -210,6 +230,16 @@ function baremeCheck($cle, $d) {
     }
     if ($cle === 'primo_jeune') {
         foreach (['pourcentage', 'plafond', 'duree_max_mois', 'age_max'] as $k) if (!isset($d[$k]) || !is_numeric($d[$k]) || $d[$k] <= 0) return "Valeur positive manquante : $k";
+        return null;
+    }
+    if ($cle === 'primoz') {
+        foreach (['pct_min', 'pct_max', 'montant_min', 'montant_max', 'duree_min_mois', 'duree_max_mois', 'differe_min_mois', 'differe_max_mois', 'age_max'] as $k) if (!isset($d[$k]) || !is_numeric($d[$k]) || $d[$k] <= 0) return "Valeur positive manquante : $k";
+        if ($d['pct_min'] > $d['pct_max'] || $d['montant_min'] > $d['montant_max'] || $d['duree_min_mois'] > $d['duree_max_mois'] || $d['differe_min_mois'] > $d['differe_max_mois']) return 'Un minimum dépasse son maximum.';
+        return null;
+    }
+    if ($cle === 'grandioz') {
+        foreach (['progression', 'montant_min', 'duree_min_mois', 'duree_max_mois', 'age_max'] as $k) if (!isset($d[$k]) || !is_numeric($d[$k]) || $d[$k] <= 0) return "Valeur positive manquante : $k";
+        if ($d['duree_min_mois'] > $d['duree_max_mois']) return 'Durée minimale supérieure à la durée maximale.';
         return null;
     }
     if ($cle === 'hcsf') {

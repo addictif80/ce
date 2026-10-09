@@ -40,6 +40,28 @@ function baremeRenderForm($cle, array $d) {
             <tr><td>Durée maximale (mois, multiple de 12)</td><td><?= bfNum('[duree_max_mois]', $d['duree_max_mois'], '12') ?></td></tr>
             <tr><td>Âge maximum de l'un des emprunteurs (ans, inclus)</td><td><?= bfNum('[age_max]', $d['age_max'], '1') ?></td></tr>
         </tbody></table>
+    <?php } elseif ($cle === 'primoz') { ?>
+        <?= bfHelp('Le Primoz est amorti après un long différé (intérêts seuls) ; il se combine avec un prêt principal classique.') ?>
+        <table class="table table-sm align-middle w-auto"><tbody>
+            <tr><td>Part minimale du financement total (%)</td><td><?= bfNum('[pct_min]', $d['pct_min'], 'any') ?></td></tr>
+            <tr><td>Part maximale du financement total (%)</td><td><?= bfNum('[pct_max]', $d['pct_max'], 'any') ?></td></tr>
+            <tr><td>Montant minimum (€)</td><td><?= bfNum('[montant_min]', $d['montant_min'], '1') ?></td></tr>
+            <tr><td>Montant maximum (€)</td><td><?= bfNum('[montant_max]', $d['montant_max'], '1') ?></td></tr>
+            <tr><td>Durée minimale (mois)</td><td><?= bfNum('[duree_min_mois]', $d['duree_min_mois'], '12') ?></td></tr>
+            <tr><td>Durée maximale (mois)</td><td><?= bfNum('[duree_max_mois]', $d['duree_max_mois'], '12') ?></td></tr>
+            <tr><td>Différé minimal (mois)</td><td><?= bfNum('[differe_min_mois]', $d['differe_min_mois'], '1') ?></td></tr>
+            <tr><td>Différé maximal (mois)</td><td><?= bfNum('[differe_max_mois]', $d['differe_max_mois'], '1') ?></td></tr>
+            <tr><td>Âge maximum des emprunteurs (ans, inclus)</td><td><?= bfNum('[age_max]', $d['age_max'], '1') ?></td></tr>
+        </tbody></table>
+    <?php } elseif ($cle === 'grandioz') { ?>
+        <?= bfHelp('Prêt à échéances progressives : l\'échéance augmente chaque année du pourcentage indiqué.') ?>
+        <table class="table table-sm align-middle w-auto"><tbody>
+            <tr><td>Progression annuelle des échéances (%)</td><td><?= bfNum('[progression]', $d['progression'], '0.1') ?></td></tr>
+            <tr><td>Montant minimum du financement (€)</td><td><?= bfNum('[montant_min]', $d['montant_min'], '1') ?></td></tr>
+            <tr><td>Durée minimale (mois)</td><td><?= bfNum('[duree_min_mois]', $d['duree_min_mois'], '12') ?></td></tr>
+            <tr><td>Durée maximale (mois)</td><td><?= bfNum('[duree_max_mois]', $d['duree_max_mois'], '12') ?></td></tr>
+            <tr><td>Âge maximum de l'un des emprunteurs (ans, inclus)</td><td><?= bfNum('[age_max]', $d['age_max'], '1') ?></td></tr>
+        </tbody></table>
     <?php } elseif ($cle === 'hcsf') { ?>
         <?= bfHelp('Les grandes règles du Haut Conseil de stabilité financière (HCSF) appliquées aux crédits immobiliers.') ?>
         <table class="table table-sm align-middle w-auto"><tbody>
@@ -131,6 +153,11 @@ function baremeCollect($cle, array $p) {
     $row = fn($a) => array_map($n, array_values((array)$a));
     if ($cle === 'hcsf') {
         return ['taux_endettement_max' => $n($p['taux_endettement_max'] ?? 0), 'duree_max_annees' => $n($p['duree_max_annees'] ?? 0), 'duree_max_annees_neuf' => $n($p['duree_max_annees_neuf'] ?? 0)];
+    }
+    if ($cle === 'primoz' || $cle === 'grandioz') {
+        $out = [];
+        foreach (array_keys(baremeCatalog()[$cle]['default']) as $k) $out[$k] = $n($p[$k] ?? 0);
+        return $out;
     }
     if ($cle === 'primo_jeune') {
         return ['pourcentage' => $n($p['pourcentage'] ?? 0), 'plafond' => $n($p['plafond'] ?? 0), 'duree_max_mois' => $n($p['duree_max_mois'] ?? 0), 'age_max' => $n($p['age_max'] ?? 0)];

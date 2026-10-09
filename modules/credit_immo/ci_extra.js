@@ -71,6 +71,7 @@ function ciControles(d){
     if(dur>num(p.duree_max_mois)||(princ&&dur>parseInt(princ.duree))) al(nomL(i)+' (Doublissimo) : durée supérieure à celle du prêt principal ('+(princ?princ.duree:p.duree_max_mois)+' mois, '+p.duree_max_mois+' maximum)');
     if(ps===''||ps==='NON') al('Doublissimo réservé aux primo-accédants (statut non renseigné ou « Non »)');
     if(usageChoice(d)!=='RP') al('Doublissimo réservé au financement de la résidence principale');
+    if(d.ptz_actif!=1) al('Doublissimo sans PTZ : joindre l\'attestation sur l\'honneur de primo-accession');
   });
   c.lignes.forEach((l,i)=>{
     if(!l.primo_jeune) return;
@@ -84,6 +85,32 @@ function ciControles(d){
     if(usageChoice(d)!=='RP') al('Primo Jeune réservé au financement de la résidence principale');
     if(!ages.length) al('Primo Jeune : renseigner la date de naissance des emprunteurs (35 ans maximum pour l\'un d\'eux)');
     else if(Math.min(...ages)>num(p.age_max)) err('Primo Jeune : aucun emprunteur de '+p.age_max+' ans ou moins (plus jeune : '+Math.min(...ages)+' ans)');
+  });
+  const ageMin=()=>{const a=c.emps.map(e=>ageDe(e.date_naissance)).filter(x=>x!==null);return a.length?Math.min(...a):null;};
+  const ageMax=()=>{const a=c.emps.map(e=>ageDe(e.date_naissance)).filter(x=>x!==null);return a.length?Math.max(...a):null;};
+  c.lignes.forEach((l,i)=>{
+    if(!l.primoz) return;
+    const p=pzParams(), dur=parseInt(l.duree)||0, df=parseInt(l.differe)||0, ft=financementTotal(d), m=num(l.montant), ps=primoStatut(d), am=ageMax();
+    if(m<num(p.montant_min)-0.5||m>num(p.montant_max)+0.5) err(nomL(i)+' (Primoz) : '+fmt(m)+' € hors de la fourchette '+fmt(p.montant_min)+' – '+fmt(p.montant_max)+' €');
+    if(ft>0&&(m<ft*num(p.pct_min)/100-0.5||m>ft*num(p.pct_max)/100+0.5)) al(nomL(i)+' (Primoz) : doit représenter '+p.pct_min+' à '+p.pct_max+' % du financement total ('+fmt(ft*p.pct_min/100)+' à '+fmt(ft*p.pct_max/100)+' €)');
+    if(dur<num(p.duree_min_mois)||dur>num(p.duree_max_mois)||(dur>0&&dur%12!==0)) al(nomL(i)+' (Primoz) : durée de '+dur+' mois ; '+p.duree_min_mois+' à '+p.duree_max_mois+' mois, par multiples de 12');
+    if(df<num(p.differe_min_mois)||df>num(p.differe_max_mois)) al(nomL(i)+' (Primoz) : différé de '+df+' mois ; '+p.differe_min_mois+' à '+p.differe_max_mois+' mois');
+    else if(dur-df<120) al(nomL(i)+' (Primoz) : la phase d\'amortissement ne doit pas être inférieure à 10 ans');
+    if(!c.lignes.some((x,k)=>k!==i&&!x.doublissimo&&!x.primo_jeune&&!x.primoz&&!x.grandioz&&num(x.montant)>0)) al('Primoz : doit être couplé à un prêt principal amortissable');
+    if(c.lignes.some(x=>x.grandioz)) err('Primoz et Grandioz sont incompatibles');
+    if(ps===''||ps==='NON') al('Primoz réservé aux primo-accédants');
+    if(usageChoice(d)!=='RP') al('Primoz réservé au financement de la résidence principale');
+    if(am===null) al('Primoz : renseigner la date de naissance des emprunteurs (moins de 36 ans)'); else if(am>num(p.age_max)) err('Primoz : emprunteur de '+am+' ans (maximum '+p.age_max+' ans, les deux emprunteurs étant concernés)');
+  });
+  c.lignes.forEach((l,i)=>{
+    if(!l.grandioz) return;
+    const p=grParams(), dur=parseInt(l.duree)||0, ps=primoStatut(d), an=ageMin();
+    if(num(l.montant)<num(p.montant_min)-0.5) al(nomL(i)+' (Grandioz) : financement minimum de '+fmt(p.montant_min)+' €');
+    if(dur<num(p.duree_min_mois)||dur>num(p.duree_max_mois)) al(nomL(i)+' (Grandioz) : durée de '+dur+' mois ; '+p.duree_min_mois+' à '+p.duree_max_mois+' mois');
+    if(d.ptz_actif==1) al('Grandioz et PTZ sont peu compatibles (le PTZ ne peut être associé que si le Grandioz est remboursé pendant son différé)');
+    if(ps===''||ps==='NON') al('Grandioz réservé aux primo-accédants');
+    if(usageChoice(d)!=='RP') al('Grandioz réservé à la résidence principale');
+    if(an===null) al('Grandioz : renseigner la date de naissance des emprunteurs (35 ans maximum)'); else if(an>num(p.age_max)) al('Grandioz : aucun emprunteur de '+p.age_max+' ans ou moins (plus jeune : '+an+' ans)');
   });
   if(d.ptz_actif==1){
     const r=ciPtzMaxFor(d);
