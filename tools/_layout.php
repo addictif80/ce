@@ -5,6 +5,8 @@
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/nouveautes.php';
+require_once __DIR__ . '/../includes/tool_tours.php';
+require_once __DIR__ . '/../includes/tour.php';
 
 function toolsHeader($title, $key = null, $extraHead = '') {
     $GLOBALS['toolsCurrentKey'] = $key;
@@ -54,6 +56,9 @@ function toolsHeader($title, $key = null, $extraHead = '') {
             <?php if ($key !== null): ?>
             <a href="./" class="btn btn-sm btn-light"><i class="fas fa-th-large me-1"></i>Tous les outils</a>
             <?php endif; ?>
+            <?php if ($key !== null && function_exists('toolTours') && isset(toolTours()[$key])): ?>
+            <button type="button" class="btn btn-sm btn-light no-client" data-tour="<?= e($key) ?>"><i class="fas fa-circle-question me-1"></i>Comment ça marche ?</button>
+            <?php endif; ?>
             <?php if (empty($GLOBALS['toolsNoGate'])): ?>
             <a href="<?= strpos($_SERVER['SCRIPT_NAME'] ?? '', '/modules/') === false ? '' : '../../tools/' ?>nouveautes.php" class="btn btn-sm btn-light tools-hbtn no-client" id="newsBtn" data-latest="<?= e(function_exists('newsLatestDate') ? newsLatestDate() : '') ?>"><i class="fas fa-bullhorn me-1"></i>Quoi de neuf<span class="nb">nouveau</span></a>
             <button type="button" class="btn btn-sm btn-light" id="f2fBtn" title="Agrandit l'affichage et masque les éléments internes pour montrer l'écran au client"><i class="fas fa-handshake me-1"></i>Mode client</button>
@@ -79,6 +84,7 @@ function toolsFooter() {
     if ($key) { ?>
 <div class="container text-center small my-3 no-print no-client" style="color:#8a5a00"><i class="fas fa-triangle-exclamation me-1"></i>Outil d'aide : il ne se substitue pas aux outils internes du groupe BPCE. Vérifiez les résultats avant toute communication à un client.</div>
 <?php }
+    if ($key) renderToolTour($key);
     ?>
 <script>
 (function(){
