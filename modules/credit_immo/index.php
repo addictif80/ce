@@ -436,6 +436,14 @@ $cRefusees = count(array_filter($dossiers, fn($d) => ($d['workflow_status']??'')
         <h3>Dossiers crédit immobilier</h3>
         <div class="search-box"><i class="fas fa-search"></i><input type="text" id="searchDossiers" placeholder="Rechercher..."></div>
     </div>
+    <style>
+        #ciTableWrap{overflow-x:auto}
+        #tableDossiers th,#tableDossiers td{padding:8px 8px;font-size:13px}
+        #tableDossiers td.actions{white-space:normal;min-width:150px;max-width:190px}
+        #tableDossiers td.actions .btn{margin:1px}
+        #tableDossiers td.actions form{display:inline-block}
+    </style>
+    <div id="ciTableWrap">
     <table class="data-table" id="tableDossiers">
         <thead><tr>
             <th>Date</th><th>N° dossier</th><th>N° personne emprunteur(s)</th><th>Usage</th><th>Capital emprunté</th><th>Lignes</th>
@@ -476,6 +484,7 @@ $cRefusees = count(array_filter($dossiers, fn($d) => ($d['workflow_status']??'')
         <?php endforeach; ?>
         </tbody>
     </table>
+    </div>
 </div>
 
 <!-- ── MODALS ────────────────────────────────────────────────────────────── -->
