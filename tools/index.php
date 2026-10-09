@@ -11,22 +11,26 @@ $visible = array_keys(array_filter($status, fn($st) => $st['state'] !== 'masque'
 
 $message = getToolsMessageForVisitor();
 $procCounts = (isset($status['procedures']) && $status['procedures']['state'] !== 'masque') ? getPublicProcedureCategoryCounts() : [];
-$isNew = fn($k) => !empty($catalog[$k]['added']) && strtotime($catalog[$k]['added']) >= strtotime('-60 days');
-$newKeys = array_values(array_filter($visible, $isNew));
+// « Nouveau » : les 6 outils les plus récemment ajoutés (60 jours maximum) ; la liste complète est dans « Quoi de neuf »
+$recents = array_values(array_filter($visible, fn($k) => !empty($catalog[$k]['added']) && strtotime($catalog[$k]['added']) >= strtotime('-60 days')));
+usort($recents, fn($a, $b) => strcmp($catalog[$b]['added'], $catalog[$a]['added']));
+$newKeys = array_slice($recents, 0, 6);
+$isNew = fn($k) => in_array($k, $newKeys, true);
 $cta = (!toolsVisitorIsLoggedIn()) ? getAccessCtaSettings() : null;
 $showCta = $cta && $cta['enabled'] && $cta['email'] !== '';
 $agences = $showCta ? getAgences() : [];
 toolsHeader('Outils en libre accès');
 ?>
+<style>.tool-desc{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.6em}.tool-card{transition:transform .12s,box-shadow .12s}a:hover > .tool-card{transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,.12)!important}html.f2f .tool-desc{-webkit-line-clamp:3}</style>
 <div class="container my-4">
-    <div class="privacy-banner mb-4" style="padding:22px 26px;">
+    <div class="privacy-banner mb-3" style="padding:12px 18px;">
         <div class="d-flex align-items-center gap-3">
-            <i class="fas fa-user-shield" style="font-size:2.4rem"></i>
+            <i class="fas fa-user-shield" style="font-size:1.8rem"></i>
             <div>
-                <div class="h4 mb-1">Aucune donnée n'est enregistrée</div>
-                <div>Ces outils sont accessibles sans connexion ni création de compte. Rien de ce que vous saisissez n'est stocké par ce portail :
-                    tout reste dans votre navigateur et disparaît à la fermeture de la page.
-                    <span class="small d-block mt-1">Seules exceptions, volontaires : envoyer un retour à l'administrateur, ou proposer un ajout ou une modification (procédures, codes utiles, contacts utiles), qui est transmis pour validation. Le portail tient en outre des compteurs anonymes de fréquentation (nombre d'ouvertures par outil), sans identifiant ni cookie.</span></div>
+                <div class="fw-bold">Aucune donnée n'est enregistrée</div>
+                <div class="small">Ces outils sont accessibles sans connexion ni compte : ce que vous saisissez reste dans votre navigateur et disparaît à la fermeture de la page.
+                    <details class="d-inline"><summary class="d-inline" style="cursor:pointer;text-decoration:underline">Précisions</summary>
+                    <span class="d-block mt-1">Seules exceptions, volontaires : envoyer un retour à l\'administrateur, ou proposer un ajout ou une modification (procédures, codes utiles, contacts utiles), qui est transmis pour validation. Le portail tient en outre des compteurs anonymes de fréquentation (nombre d\'ouvertures par outil), sans identifiant ni cookie.</span></details></div>
             </div>
         </div>
         <?php if ($message !== ''): ?>
@@ -87,12 +91,12 @@ toolsHeader('Outils en libre accès');
 
     <?php if ($newKeys): ?>
     <div class="mb-3 small"><i class="fas fa-sparkles text-danger me-1"></i><strong>Récemment ajoutés :</strong>
-        <?php foreach ($newKeys as $k): ?><a href="<?= e($catalog[$k]['url']) ?>" class="badge text-bg-light border text-decoration-none me-1"><i class="fas <?= e($catalog[$k]['icon']) ?> me-1"></i><?= e($catalog[$k]['label']) ?></a><?php endforeach; ?></div>
+        <?php foreach ($newKeys as $k): ?><a href="<?= e($catalog[$k]['url']) ?>" class="badge text-bg-light border text-decoration-none me-1"><i class="fas <?= e($catalog[$k]['icon']) ?> me-1"></i><?= e($catalog[$k]['label']) ?></a><?php endforeach; ?> <a href="nouveautes.php" class="small ms-1">Tout voir<?= count($recents) > count($newKeys) ? ' (+' . (count($recents) - count($newKeys)) . ')' : '' ?></a></div>
     <?php endif; ?>
     <div id="recentBar" class="mb-3 small" style="display:none"><i class="fas fa-clock-rotate-left text-secondary me-1"></i><strong>Utilisés récemment :</strong> <span id="recentList"></span></div>
-    <div id="favSection" class="mb-4" style="display:none"><h2 class="h5 mb-3"><i class="fas fa-star text-warning me-1"></i>Mes favoris</h2><div class="row g-4" id="favRow"></div><hr class="mt-4"></div>
+    <div id="favSection" class="mb-4" style="display:none"><h2 class="h5 mb-3"><i class="fas fa-star text-warning me-1"></i>Mes favoris</h2><div class="row g-3" id="favRow"></div><hr class="mt-4"></div>
     <?php if (!$visible): ?>
-        <div class="row g-4 mb-3"><?php renderTermsToolsCard(); ?></div>
+        <div class="row g-3 mb-3"><?php renderTermsToolsCard(true); ?></div>
         <div class="alert alert-info">Aucun outil n'est disponible pour le moment.</div>
     <?php else: ?>
     <?php
@@ -108,35 +112,31 @@ toolsHeader('Outils en libre accès');
     $autres = array_values(array_diff($visible, $placed));
     if ($autres) $groupes['Autres outils'] = $autres;
     ?>
-    <div class="row g-4 mb-2"><?php renderTermsToolsCard(); // avertissement : toujours la première carte ?></div>
+    <div class="row g-3 mb-3"><?php renderTermsToolsCard(true); // avertissement : toujours la première carte ?></div>
     <div class="mb-3 no-print" style="max-width:420px"><label class="visually-hidden" for="toolFilter">Filtrer les outils</label><input type="search" id="toolFilter" class="form-control" placeholder="Filtrer les outils de cette page…" autocomplete="off"></div>
-    <?php foreach ($groupes as $gTitre => $gKeys): $gKeys = array_values(array_filter($gKeys, fn($k) => in_array($k, $visible, true))); if (!$gKeys) continue; ?>
-    <section class="tool-group"><h2 class="h5 mt-4 mb-3 border-bottom pb-2"><?= e($gTitre) ?></h2>
-    <div class="row g-4">
+    <?php $gi = 0; $gActifs = []; foreach ($groupes as $gTitre => $gKeys) { $gKeys = array_values(array_filter($gKeys, fn($k) => in_array($k, $visible, true))); if ($gKeys) $gActifs[$gTitre] = $gKeys; } ?>
+    <div class="d-flex flex-wrap gap-2 mb-3 no-print" role="tablist" aria-label="Catégories d'outils" id="toolTabs">
+        <button type="button" class="btn btn-sm btn-danger" role="tab" data-g="all" aria-selected="true">Tous <span class="badge text-bg-light"><?= count($visible) ?></span></button>
+        <?php foreach (array_keys($gActifs) as $n => $gTitre): ?><button type="button" class="btn btn-sm btn-outline-secondary" role="tab" data-g="<?= $n ?>" aria-selected="false"><?= e($gTitre) ?> <span class="badge text-bg-light"><?= count($gActifs[$gTitre]) ?></span></button><?php endforeach; ?>
+    </div>
+    <?php foreach ($gActifs as $gTitre => $gKeys): ?>
+    <section class="tool-group" data-g="<?= $gi++ ?>"><h2 class="h6 text-uppercase text-muted mt-3 mb-2 pb-1 border-bottom" style="letter-spacing:.5px"><?= e($gTitre) ?></h2>
+    <div class="row g-3">
         <?php foreach ($gKeys as $key): $t = $catalog[$key]; $off = $status[$key]['state'] === 'indisponible'; ?>
-        <div class="col-md-6 col-lg-4 tool-col" data-key="<?= e($key) ?>">
-            <<?= $off ? 'div' : 'a href="' . e($t['url']) . '"' ?> class="text-decoration-none text-dark d-block h-100" <?= $off ? 'aria-disabled="true"' : '' ?>>
-                <div class="card h-100 shadow-sm border-0" style="<?= $off ? 'opacity:.6;filter:grayscale(1);cursor:not-allowed' : '' ?>">
-                    <div class="card-body">
-                        <div class="mb-3 d-flex justify-content-between align-items-start">
-                            <span style="color:#e4002b;font-size:2rem"><i class="fas <?= e($t['icon']) ?>"></i></span>
-                            <span>
+        <div class="col-sm-6 col-lg-4 col-xl-3 tool-col" data-key="<?= e($key) ?>">
+            <<?= $off ? 'div' : 'a href="' . e($t['url']) . '"' ?> class="text-decoration-none text-dark d-block h-100" <?= $off ? 'aria-disabled="true"' : '' ?> title="<?= e($t['description']) ?>">
+                <div class="card h-100 shadow-sm border-0 tool-card" style="<?= $off ? 'opacity:.6;filter:grayscale(1);cursor:not-allowed' : '' ?>">
+                    <div class="card-body py-2 px-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <span style="color:#e4002b;font-size:1.35rem;width:1.7rem;text-align:center;flex:0 0 auto"><i class="fas <?= e($t['icon']) ?>"></i></span>
+                            <h3 class="h6 mb-0 flex-grow-1 lh-sm"><?= e($t['label']) ?></h3>
                             <?php if ($off): ?><span class="badge bg-secondary">Indisponible</span><?php endif; ?>
                             <?php if (!$off && $isNew($key)): ?><span class="badge bg-danger">Nouveau</span><?php endif; ?>
-                            <button type="button" class="btn btn-link p-0 ms-1 fav-btn text-secondary" title="Ajouter aux favoris" aria-label="Ajouter aux favoris" aria-pressed="false"><i class="far fa-star"></i></button>
-                            </span>
+                            <button type="button" class="btn btn-link p-0 fav-btn text-secondary" title="Ajouter aux favoris" aria-label="Ajouter aux favoris" aria-pressed="false"><i class="far fa-star"></i></button>
                         </div>
-                        <h2 class="h5"><?= e($t['label']) ?></h2>
-                        <p class="text-muted mb-2"><?= e($t['description']) ?></p>
-                        <?php if ($key === 'procedures' && $procCounts): ?>
-                            <div class="mb-2"><div class="small text-muted mb-1"><?= array_sum(array_column($procCounts, 'nb')) ?> procédure(s) :</div>
-                            <?php foreach ($procCounts as $pc): ?><span class="badge bg-light text-dark border me-1 mb-1"><?= e($pc['nom']) ?> <strong>(<?= (int)$pc['nb'] ?>)</strong></span><?php endforeach; ?></div>
-                        <?php endif; ?>
-                        <?php if ($off): ?>
-                            <p class="small mb-0 fw-semibold"><i class="fas fa-ban me-1"></i><?= nl2br(e($status[$key]['motif'] !== '' ? $status[$key]['motif'] : 'Temporairement indisponible.')) ?></p>
-                        <?php else: ?>
-                            <p class="small text-success mb-0"><i class="fas fa-check-circle me-1"></i><?= e($t['note']) ?></p>
-                        <?php endif; ?>
+                        <p class="text-muted small mb-0 mt-1 tool-desc"><?= e($t['description']) ?></p>
+                        <?php if ($key === 'procedures' && $procCounts): ?><div class="small text-muted mt-1"><?= array_sum(array_column($procCounts, 'nb')) ?> procédure(s)</div><?php endif; ?>
+                        <?php if ($off): ?><p class="small mb-0 mt-1 fw-semibold"><i class="fas fa-ban me-1"></i><?= nl2br(e($status[$key]['motif'] !== '' ? $status[$key]['motif'] : 'Temporairement indisponible.')) ?></p><?php endif; ?>
                     </div>
                 </div>
             </<?= $off ? 'div' : 'a' ?>>
@@ -185,10 +185,19 @@ toolsHeader('Outils en libre accès');
     el.textContent=cols[order.indexOf(k)].querySelector('h2').textContent; list.appendChild(el);
   });
   if(list.children.length) document.getElementById('recentBar').style.display='';
+  // onglets de catégories (dernier choix mémorisé dans ce navigateur)
+  const tabs=[...document.querySelectorAll('#toolTabs [data-g]')], groups=[...document.querySelectorAll('.tool-group')];
+  function showTab(g,save){
+    tabs.forEach(t=>{const on=t.dataset.g===g;t.classList.toggle('btn-danger',on);t.classList.toggle('btn-outline-secondary',!on);t.setAttribute('aria-selected',on?'true':'false');});
+    groups.forEach(x=>{x.style.display=(g==='all'||x.dataset.g===g)?'':'none';});
+    if(save){try{localStorage.setItem('toolsTab',g);}catch(e){}}
+  }
+  tabs.forEach(t=>t.addEventListener('click',()=>{if(flt) flt.value=''; cols.forEach(c=>c.style.display=''); showTab(t.dataset.g,true);}));
+  try{const g=localStorage.getItem('toolsTab'); if(g&&tabs.some(x=>x.dataset.g===g)) showTab(g,false);}catch(e){}
   // filtre instantané des cartes (les groupes vides se masquent)
   const flt=document.getElementById('toolFilter'), norm=s=>s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   if(flt) flt.addEventListener('input',()=>{
-    const t=norm(flt.value.trim());
+    const t=norm(flt.value.trim()); if(t) showTab('all',false); else {let g='all';try{g=localStorage.getItem('toolsTab')||'all';}catch(e){} showTab(tabs.some(x=>x.dataset.g===g)?g:'all',false);}
     cols.forEach(c=>{c.style.display=!t||norm(c.textContent).includes(t)?'':'none';});
     document.querySelectorAll('.tool-group').forEach(g=>{g.style.display=[...g.querySelectorAll('.tool-col')].some(c=>c.style.display!=='none')?'':'none';});
   });
