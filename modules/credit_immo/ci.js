@@ -188,7 +188,15 @@ function computeAll(d){
   //  - assurance : celle d'un seul emprunteur par ligne (« le moins cher » par défaut), réglable (taeg_assurance).
   const taegMode=d.taeg_assurance||'MIN';
   const montantLignes=lignes.reduce((t,l)=>t+num(l.montant),0);
+  const montantTaeg=montantLignes+ptzMontant(d)+ecoMontant(d);   // la garantie se répartit au prorata de tous les crédits, PTZ compris
+  const nPtz0=d.ptz_actif==1?(parseInt(d.ptz_duree)||0):0;
+  // Assurance retenue pour le TAEG, mois par mois : l'emprunteur « le moins cher » (réglable) ;
+  // pour un prêt à 0 % (PTZ, Primo Jeune, EcoPTZ) elle se calcule sur le capital restant dû réel (constant pendant un différé), comme le logiciel de référence.
+  const ptzRowsT=(d.ptz_actif==1&&ptzMontant(d)>0)?[...Array(ptzDiffere(d)).keys()].map(()=>({crd:ptzMontant(d)})).concat(scheduleLine(ptzMontant(d),0,Math.max(1,nPtz0-ptzDiffere(d))).rows):[];
+  const ecoRowsT=(d.ecoptz_actif==1&&ecoMontant(d)>0)?scheduleLine(ecoMontant(d),0,d.ecoptz_duree).rows:[];
+  const crdRowsOf=li=>li<lignes.length?sch[li].rows:(lignesA[li].ptz?ptzRowsT:ecoRowsT);
   const taegInsFor=(l,li)=>{
+    const n=parseInt(l.duree)||0;
     const rows=assRaw.filter(a=>(a.ligne??0)===li).map(a=>({...a,ligne:0}));
     const cost=r=>computeAssurances([l],[r])[0].monthly;
     let sel=rows;
@@ -198,26 +206,30 @@ function computeAll(d){
       const priced=rows.filter(r=>cost(r)>0).sort((x,y)=>cost(x)-cost(y));
       sel=priced.length?[priced[0]]:[];
     }
-    return computeAssurances([l],sel).reduce((t,x)=>t+x.monthly,0);
+    const R=sel.reduce((t,r)=>t+num(r.taux)*(num(r.quotite)>0?num(r.quotite)/100:1),0);
+    if(num(l.taux)===0&&R>0&&n>0){const cr=crdRowsOf(li); return Array.from({length:n},(_,k)=>(cr[k]?cr[k].crd:0)*R/1200);}
+    const m=computeAssurances([l],sel).reduce((t,x)=>t+x.monthly,0);
+    return Array(n).fill(m);
   };
   const taegInsAll=lignesA.map((l,li)=>taegInsFor(l,li));
   const taegIns=taegInsAll.slice(0,lignes.length);
+  const insAt=(arr,k)=>arr&&arr[k]!==undefined?arr[k]:0;
   const taegLignes=lignes.map((l,i)=>{
     const n=parseInt(l.duree)||0;
-    const garantiePart=montantLignes>0?garantie*num(l.montant)/montantLignes:0;
-    return n>0?calcTaeg(num(l.montant)-num(l.frais_dossier)-garantiePart,sch[i].rows.map(r=>r.pay+taegIns[i])):null;
+    const garantiePart=montantTaeg>0?garantie*num(l.montant)/montantTaeg:0;
+    return n>0?calcTaeg(num(l.montant)-num(l.frais_dossier)-garantiePart,sch[i].rows.map((r,k)=>r.pay+insAt(taegIns[i],k))):null;
   });
   const lineIns=lignes.map((l,i)=>ass.reduce((t,a,k)=>t+(((assRaw[k].ligne)??0)===i?a.monthly:0),0));
   const nPtz=d.ptz_actif==1?(parseInt(d.ptz_duree)||0):0, nEco=d.ecoptz_actif==1?(parseInt(d.ecoptz_duree)||0):0;
   const N=Math.max(0,nPtz,nEco,...lignes.map(l=>parseInt(l.duree)||0));
   const flows=Array(N).fill(0);
-  lignes.forEach((l,i)=>{const n=parseInt(l.duree)||0; for(let k=0;k<n;k++) flows[k]+=(sch[i].rows[k]?sch[i].rows[k].pay:sch[i].mens)+taegIns[i];});
+  lignes.forEach((l,i)=>{const n=parseInt(l.duree)||0; for(let k=0;k<n;k++) flows[k]+=(sch[i].rows[k]?sch[i].rows[k].pay:sch[i].mens)+insAt(taegIns[i],k);});
   const iPtz=d.ptz_actif==1?lignes.length:-1, iEco=d.ecoptz_actif==1?lignes.length+(d.ptz_actif==1?1:0):-1;
-  const insPtz=iPtz>=0?taegInsAll[iPtz]:0, insEco=iEco>=0?taegInsAll[iEco]:0;
-  for(let k=0;k<nPtz;k++) flows[k]+=(k>=ptzDiffere(d)?mensPTZ:0)+insPtz;
-  for(let k=0;k<nEco;k++) flows[k]+=mensEco+insEco;
+  const insPtz=iPtz>=0?taegInsAll[iPtz]:[], insEco=iEco>=0?taegInsAll[iEco]:[];
+  for(let k=0;k<nPtz;k++) flows[k]+=(k>=ptzDiffere(d)?mensPTZ:0)+insAt(insPtz,k);
+  for(let k=0;k<nEco;k++) flows[k]+=mensEco+insAt(insEco,k);
   // TAEG du PTZ seul (assurance comprise)
-  const taegPtz=nPtz>0?calcTaeg(ptzMontant(d),Array.from({length:nPtz},(_,k)=>(k>=ptzDiffere(d)?mensPTZ:0)+insPtz)):null;
+  const taegPtz=nPtz>0?calcTaeg(ptzMontant(d)-(montantTaeg>0?garantie*ptzMontant(d)/montantTaeg:0),Array.from({length:nPtz},(_,k)=>(k>=ptzDiffere(d)?mensPTZ:0)+insAt(insPtz,k))):null;
   const taegGlobal=calcTaeg(lignes.reduce((t,l)=>t+num(l.montant),0)+ptzMontant(d)+ecoMontant(d)-fraisDossier-garantie,flows);
   return {lignes,lignesA,sch,emps,ass,assRaw,taegPtz,mensActuelle,taegLignes,taegGlobal,taegIns,lineIns,mensLignes,mensPTZ,mensEco,mensHorsAssur,mensAssur,mensTout,totAssur,
     revenus,charges,te,reste,restePers:nbPers>0?reste/nbPers:null,nbPers,interets,fraisDossier,garantie,
