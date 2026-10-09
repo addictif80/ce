@@ -69,6 +69,12 @@ if (in_array($action, ['save_pieces_modele', 'delete_pieces_modele', 'duplicate_
     exit;
 }
 
+if ($action === 'save_intro') {
+    setToolsSetting('tools_intro_enabled', isset($_POST['enabled']) ? '1' : '0');
+    header('Location: index.php?tab=popups&msg=popup_saved#intro-card');
+    exit;
+}
+
 if ($action === 'save_popup') {
     require_once __DIR__ . '/../../includes/popups.php';
     $slot = $_POST['slot'] ?? '';

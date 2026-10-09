@@ -9,6 +9,16 @@ $freqs = popupFrequencies();
     sur le <strong>tableau de bord</strong> des utilisateurs connectés, sur <strong>/tools</strong> (après validation du code d'accès, ou directement si /tools n'est pas protégé), ou sur <strong>les deux</strong>.
     Si les deux popups s'affichent sur la même page, elles apparaissent l'une après l'autre.
 </div>
+<?php require_once __DIR__ . '/../../includes/intro_tools.php'; ?>
+<div class="card mb-4" id="intro-card"><div class="card-header"><strong><i class="fas fa-play-circle"></i> Diaporama d'accueil de /tools</strong></div>
+    <div class="card-body">
+        <form method="post" class="d-flex align-items-center gap-3 flex-wrap">
+            <input type="hidden" name="action" value="save_intro">
+            <div class="form-check form-switch mb-0"><input class="form-check-input" type="checkbox" role="switch" name="enabled" id="introEnabled" <?= toolsIntroEnabled() ? 'checked' : '' ?>><label class="form-check-label" for="introEnabled">Afficher la présentation animée à la première visite de /tools (une fois par session de navigation, après le code d'accès)</label></div>
+            <button class="btn btn-ce btn-sm">Enregistrer</button>
+        </form>
+        <div class="form-text mt-2">Les visiteurs peuvent la revoir à tout moment avec le lien « Revoir la présentation » en haut de /tools.</div>
+    </div></div>
 <?php foreach (popupSlots() as $slot => $label): $p = getPopupSettings($slot); ?>
 <div class="data-table-container mb-4" id="<?= e($slot) ?>-card">
     <div class="data-table-header"><h3><i class="fas fa-window-restore"></i> <?= e($label) ?></h3>

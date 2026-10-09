@@ -3,6 +3,7 @@ require_once __DIR__ . '/_layout.php';
 require_once __DIR__ . '/../includes/agences.php';
 require_once __DIR__ . '/../includes/popups.php';
 require_once __DIR__ . '/../includes/terms.php';
+require_once __DIR__ . '/../includes/intro_tools.php';
 
 $catalog = getPublicToolsCatalog();
 $status = getPublicToolsStatus();
@@ -34,6 +35,8 @@ toolsHeader('Outils en libre accès');
         <style>.tools-message{background:#fff;color:#212529;border:1px solid #c8e6c9;border-radius:8px;padding:14px 18px}.tools-message a{color:#0d6efd}.tools-message > :last-child{margin-bottom:0}.tools-message h2,.tools-message h3{font-size:1.15rem}</style>
         <?php endif; ?>
     </div>
+
+    <?php if (toolsIntroEnabled()): ?><div class="text-end mb-2 no-print"><a href="#" data-intro-replay class="small text-decoration-none"><i class="fas fa-play-circle me-1"></i>Revoir la présentation</a></div><?php endif; ?>
 
     <?php if ($showCta): ?>
     <div class="card border-0 shadow mb-4" style="background:linear-gradient(135deg,#e4002b 0%,#b30022 100%);color:#fff">
@@ -165,5 +168,10 @@ toolsHeader('Outils en libre accès');
   if(list.children.length) document.getElementById('recentBar').style.display='';
 })();
 </script>
+<?php
+// Diaporama d'accueil (une fois par session de navigation, après validation du code d'accès)
+$introTools = array_map(fn($k) => ['label' => $catalog[$k]['label'], 'icon' => $catalog[$k]['icon']], array_values(array_filter($visible, fn($k) => isset($catalog[$k]['label'], $catalog[$k]['icon']))));
+renderToolsIntro($introTools, $showCta);
+?>
 <?php renderPopups('tools'); // popups de l'administrateur, après validation du code d'accès éventuel ?>
 <?php toolsFooter();
