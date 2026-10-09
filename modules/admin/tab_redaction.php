@@ -2,7 +2,7 @@
 // Onglet « Rédaction » : réglages de l'aide à la rédaction du générateur de courrier (correction, reformulation, réponse à un mail).
 require_once __DIR__ . '/../../includes/assist.php';
 $hasKey = assistKey() !== '';
-$test = $_SESSION['assist_test'] ?? null; unset($_SESSION['assist_test']);
+$test = json_decode(getToolsSetting('assist_last_test', ''), true) ?: null;
 ?>
 <div class="alert alert-info">
     <strong><i class="fas fa-circle-info"></i> Aide à la rédaction du générateur de courrier</strong>
@@ -28,7 +28,7 @@ $test = $_SESSION['assist_test'] ?? null; unset($_SESSION['assist_test']);
 <div class="card mb-4" id="assist-test"><div class="card-header"><strong><i class="fas fa-vial"></i> Tester la connexion</strong></div>
 <div class="card-body">
     <form method="post"><input type="hidden" name="action" value="test_assist"><button class="btn btn-outline-secondary" <?= $hasKey ? '' : 'disabled' ?>>Lancer un test de correction</button></form>
-    <?php if ($test): ?><div class="alert alert-<?= $test[0] === 'ok' ? 'success' : 'danger' ?> mt-3 mb-0"><?= $test[0] === 'ok' ? 'Réponse reçue : ' : '' ?><code><?= e($test[1]) ?></code></div><?php endif; ?>
+    <?php if ($test): ?><div class="alert alert-<?= $test[0] === 'ok' ? 'success' : 'danger' ?> mt-3 mb-0"><div class="small text-muted mb-1">Dernier test : <?= e($test[2] ?? '') ?></div><?= $test[0] === 'ok' ? '<strong>Connexion réussie.</strong> Réponse reçue : ' : '<strong>Échec.</strong> ' ?><code style="white-space:pre-wrap;word-break:break-word"><?= e($test[1]) ?></code></div><?php endif; ?>
 </div></div>
 <div class="card mb-4"><div class="card-body small text-muted">
     <strong>À savoir</strong>

@@ -6,7 +6,8 @@
  */
 require_once __DIR__ . '/functions.php';
 
-const ASSIST_ENDPOINT = 'https://api.1min.ai/api/features';
+// API compatible OpenAI de 1min.ai (même format que Chat Completions)
+const ASSIST_ENDPOINT = 'https://api.1min.ai/openai/v1/chat/completions';
 const ASSIST_MAX_CHARS = 8000;
 const ASSIST_HOURLY_LIMIT = 40;
 
@@ -24,29 +25,26 @@ function assistRateOk() {
     return true;
 }
 
-/** Appel brut du service. Retourne [texte|null, détail technique]. */
-function assistCall($prompt) {
-    $payload = json_encode([
-        'type' => 'CHAT_WITH_AI',
-        'model' => assistModel(),
-        'promptObject' => ['prompt' => $prompt, 'isMixed' => false, 'webSearch' => false],
-    ], JSON_UNESCAPED_UNICODE);
+/** Appel du service : messages système + utilisateur. Retourne [texte|null, détail technique]. */
+function assistCall($system, $user, $maxTokens = null) {
+    $body = ['model' => assistModel(), 'stream' => false,
+        'messages' => [['role' => 'system', 'content' => $system], ['role' => 'user', 'content' => $user]]];
+    if ($maxTokens) $body['max_tokens'] = $maxTokens;
     $ch = curl_init(ASSIST_ENDPOINT);
     curl_setopt_array($ch, [
-        CURLOPT_POST => true, CURLOPT_POSTFIELDS => $payload, CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 60, CURLOPT_CONNECTTIMEOUT => 10,
-        CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'API-KEY: ' . assistKey()],
+        CURLOPT_POST => true, CURLOPT_POSTFIELDS => json_encode($body, JSON_UNESCAPED_UNICODE), CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 90, CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Authorization: Bearer ' . assistKey()],
     ]);
     $raw = curl_exec($ch);
     $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $err = curl_error($ch);
     curl_close($ch);
-    if ($raw === false) return [null, 'réseau : ' . $err];
+    if ($raw === false) return [null, 'Connexion impossible : ' . $err];
     $j = json_decode($raw, true);
-    if ($code < 200 || $code >= 300 || !is_array($j)) return [null, 'HTTP ' . $code . ' ' . mb_substr((string)$raw, 0, 300)];
-    $r = $j['aiRecord']['aiRecordDetail']['resultObject'] ?? ($j['resultObject'] ?? null);
-    if (is_array($r)) $r = implode("\n", array_map('strval', $r));
-    if (!is_string($r) || trim($r) === '') return [null, 'réponse vide : ' . mb_substr((string)$raw, 0, 300)];
+    if ($code < 200 || $code >= 300) return [null, 'HTTP ' . $code . ' ' . mb_substr(trim((string)$raw), 0, 300)];
+    $r = is_array($j) ? ($j['choices'][0]['message']['content'] ?? null) : null;
+    if (!is_string($r) || trim($r) === '') return [null, 'Réponse inattendue : ' . mb_substr(trim((string)$raw), 0, 300)];
     return [trim($r), ''];
 }
 
@@ -70,24 +68,24 @@ function assistPrompt($mode, array $in) {
     $tone = $tones[$in['tone'] ?? 'neutre'] ?? $tones['neutre'];
     $fmt = "Le texte est du HTML simple : conserve les balises existantes (p, br, b, i, u, ul, ol, li) et n'en ajoute pas d'autres.\n";
     if ($mode === 'correct') {
-        return $base . "Corrige uniquement l'orthographe, la grammaire, la conjugaison, l'accentuation et la ponctuation du texte ci-dessous. "
-            . "Ne reformule pas, ne change ni le sens, ni le style, ni la mise en forme.\n" . $fmt . "<<<DEBUT\n" . $in['text'] . "\nFIN>>>";
+        return [$base, "Corrige uniquement l'orthographe, la grammaire, la conjugaison, l'accentuation et la ponctuation du texte ci-dessous. "
+            . "Ne reformule pas, ne change ni le sens, ni le style, ni la mise en forme.\n" . $fmt . "<<<DEBUT\n" . $in['text'] . "\nFIN>>>"];
     }
     if ($mode === 'rewrite') {
-        return $base . "Reformule le texte ci-dessous avec $tone. Garde exactement le même sens et les mêmes informations, corrige les fautes, "
+        return [$base, "Reformule le texte ci-dessous avec $tone. Garde exactement le même sens et les mêmes informations, corrige les fautes, "
             . "améliore la fluidité et la structure. Conserve la formule d'appel et la formule de politesse si elles existent.\n" . $fmt
-            . "<<<DEBUT\n" . $in['text'] . "\nFIN>>>";
+            . "<<<DEBUT\n" . $in['text'] . "\nFIN>>>"];
     }
     // reply
     $civ = trim(($in['civilite'] ?? '') . ' ' . ($in['nom'] ?? ''));
-    $p = $base . "Rédige la réponse à un message reçu, sous forme de corps de courrier, avec $tone. "
+    $p = "Rédige la réponse à un message reçu, sous forme de corps de courrier, avec $tone. "
         . "Structure : formule d'appel adaptée" . ($civ !== '' ? " (destinataire : $civ)" : '') . ", réponse claire aux points soulevés, "
         . "formule de politesse. Ne mets ni date, ni adresse, ni objet dans le corps, ni signature. Écris en paragraphes séparés par une ligne vide, sans balises ni mise en forme. "
         . "Sur la toute première ligne, écris « OBJET : » suivi d'un objet court et pertinent pour la réponse, puis une ligne vide, puis le corps.\n";
     $p .= "Longueur souhaitée : " . (['court' => 'courte (quelques phrases)', 'long' => 'détaillée'][$in['length'] ?? ''] ?? 'moyenne') . ".\n";
     if (trim($in['instructions'] ?? '') !== '') $p .= "Contenu de la réponse voulue par le conseiller : " . $in['instructions'] . "\n";
     $p .= "<<<DEBUT\n" . $in['text'] . "\nFIN>>>";
-    return $p;
+    return [$base, $p];
 }
 
 function assistVarsOf($s) { preg_match_all('/\{\{[^}]+\}\}/', (string)$s, $m); $v = $m[0]; sort($v); return $v; }
@@ -116,7 +114,8 @@ function assistHandle(array $in) {
     if (!assistRateOk()) return ['error' => 'Trop de demandes en peu de temps. Réessayez dans quelques minutes.'];
     $in['text'] = $text;
     foreach (['instructions', 'civilite', 'nom'] as $k) $in[$k] = mb_substr((string)($in[$k] ?? ''), 0, 1000);
-    [$out, $detail] = assistCall(assistPrompt($mode, $in));
+    [$sys, $usr] = assistPrompt($mode, $in);
+    [$out, $detail] = assistCall($sys, $usr);
     if ($out === null) { error_log('assist: ' . $detail); return ['error' => 'Le service de rédaction est momentanément indisponible. Réessayez plus tard.']; }
     $res = [];
     if ($mode === 'reply') {

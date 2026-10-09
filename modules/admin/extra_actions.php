@@ -90,11 +90,13 @@ if ($action === 'save_assist') {
 
 if ($action === 'test_assist') {
     require_once __DIR__ . '/../../includes/assist.php';
-    if (assistKey() === '') { $_SESSION['assist_test'] = ['ko', 'Aucune clé API enregistrée.']; }
+    if (assistKey() === '') { $r = ['ko', 'Aucune clé API enregistrée.']; }
     else {
-        [$out, $detail] = assistCall("Corrige uniquement les fautes de ce texte et réponds par le texte corrigé seul : « Je vous remerci pour votre message, nous resterons a votre dispositon. »");
-        $_SESSION['assist_test'] = $out === null ? ['ko', 'Échec : ' . $detail] : ['ok', $out];
+        [$out, $detail] = assistCall("Tu es un correcteur. Réponds uniquement par le texte corrigé.", "Je vous remerci pour votre message, nous resterons a votre dispositon.", 200);
+        $r = $out === null ? ['ko', $detail] : ['ok', $out];
     }
+    // résultat conservé (et non à usage unique) : il reste lisible après rechargement
+    setToolsSetting('assist_last_test', json_encode([$r[0], $r[1], date('d/m/Y H:i:s')], JSON_UNESCAPED_UNICODE));
     header('Location: index.php?tab=redaction#assist-test');
     exit;
 }
