@@ -32,6 +32,14 @@ function baremeRenderForm($cle, array $d) {
             <tr><td>Plafond prescription immobilière (€)</td><td><?= bfNum('[campagne][plafond_prescription]', $c['plafond_prescription'], '1') ?></td></tr>
             <tr><td>Taux fixe pendant la campagne (%)</td><td><?= bfNum('[campagne][taux]', $c['taux'], '0.01') ?></td></tr>
         </tbody></table>
+    <?php } elseif ($cle === 'primo_jeune') { ?>
+        <?= bfHelp('Prêt à 0 % sans frais de dossier, complémentaire au PTZ (obligatoire) : montant limité à un pourcentage du financement total (PTZ compris) et à un plafond.') ?>
+        <table class="table table-sm align-middle w-auto"><tbody>
+            <tr><td>Pourcentage du financement total (%)</td><td><?= bfNum('[pourcentage]', $d['pourcentage'], 'any') ?></td></tr>
+            <tr><td>Montant maximum (€)</td><td><?= bfNum('[plafond]', $d['plafond'], '1') ?></td></tr>
+            <tr><td>Durée maximale (mois, multiple de 12)</td><td><?= bfNum('[duree_max_mois]', $d['duree_max_mois'], '12') ?></td></tr>
+            <tr><td>Âge maximum de l'un des emprunteurs (ans, inclus)</td><td><?= bfNum('[age_max]', $d['age_max'], '1') ?></td></tr>
+        </tbody></table>
     <?php } elseif ($cle === 'hcsf') { ?>
         <?= bfHelp('Les grandes règles du Haut Conseil de stabilité financière (HCSF) appliquées aux crédits immobiliers.') ?>
         <table class="table table-sm align-middle w-auto"><tbody>
@@ -123,6 +131,9 @@ function baremeCollect($cle, array $p) {
     $row = fn($a) => array_map($n, array_values((array)$a));
     if ($cle === 'hcsf') {
         return ['taux_endettement_max' => $n($p['taux_endettement_max'] ?? 0), 'duree_max_annees' => $n($p['duree_max_annees'] ?? 0), 'duree_max_annees_neuf' => $n($p['duree_max_annees_neuf'] ?? 0)];
+    }
+    if ($cle === 'primo_jeune') {
+        return ['pourcentage' => $n($p['pourcentage'] ?? 0), 'plafond' => $n($p['plafond'] ?? 0), 'duree_max_mois' => $n($p['duree_max_mois'] ?? 0), 'age_max' => $n($p['age_max'] ?? 0)];
     }
     if ($cle === 'doublissimo') {
         $c = (array)($p['campagne'] ?? []);

@@ -75,6 +75,11 @@ function doublissimoPlafond(d){
   if(dblCampagneActive()) return d&&d.canal_origine==='PRESCRIPTION'?num(c.plafond_prescription):num(c.plafond_agence);
   return num(p.plafond);
 }
+// Primo Jeune 0 % (fiche produit) : pourcentage du financement total (PTZ compris), plafonné ; 0 %, sans frais
+const PJ_DEF={pourcentage:10,plafond:20000,duree_max_mois:240,age_max:35};
+function pjParams(){return (typeof ciPrimoJeune!=='undefined'&&ciPrimoJeune)||PJ_DEF;}
+function pjMontant(d){return Math.max(0,Math.min(num(pjParams().pourcentage)/100*(getCoutProjet(d)-num(d.apport)),num(pjParams().plafond)));}
+function ageDe(iso){if(!/^\d{4}-\d{2}-\d{2}$/.test(iso||''))return null;const n=new Date(),b=new Date(iso);let a=n.getFullYear()-b.getFullYear();if(n.getMonth()<b.getMonth()||(n.getMonth()===b.getMonth()&&n.getDate()<b.getDate()))a--;return a;}
 function doublissimoMontant(d){return Math.max(0,Math.min(num(dblParams().pourcentage)/100*(getCoutProjet(d)-num(d.apport)),doublissimoPlafond(d)));}
 
 // Échéancier d'une ligne : mensualité, capital restant dû avant chaque échéance, intérêts
@@ -323,6 +328,7 @@ function buildEmprunteurPanel(px,i,e){
     <div class="row g-2 mb-2">
       <div class="col-md-3"><label class="form-label small mb-0">N° personne</label><input type="text" class="form-control form-control-sm" data-ef="num_personne" maxlength="50" value="${escapeHtml(e.num_personne||'')}" oninput="onFormChange('${px}')"></div>
       <div class="col-md-5"><label class="form-label small mb-0">Nom / prénom</label><input type="text" class="form-control form-control-sm" data-ef="nom" value="${escapeHtml(e.nom||'')}" oninput="onFormChange('${px}')"></div>
+      <div class="col-md-3"><label class="form-label small mb-0">Date de naissance</label><input type="date" class="form-control form-control-sm" data-ef="date_naissance" value="${escapeHtml(e.date_naissance||'')}" onchange="onFormChange('${px}')"></div>
     </div>
     <div class="row g-2 mb-3">
       ${st('bdf','Interro. Banque de France',e.bdf)}${st('drc','Interro. DRC',e.drc)}${st('topcc','TopCC',e.topcc)}
@@ -391,11 +397,11 @@ function renderEnfants(px,ages){
 // ── LIGNES DE CRÉDIT ─────────────────────────────────────────────────────────
 function buildLigneRow(px,l,idx){
   l=l||{};
-  const dbl=l.doublissimo;
-  const f=(label,field,val,attrs,col)=>`<div class="${col}"><label class="form-label small mb-0">${label}</label><input type="number" ${attrs} class="form-control form-control-sm" data-lf="${field}" value="${val??''}" oninput="onFormChange('${px}')" ${dbl&&field==='montant'?'readonly style="background:#eef"':''}></div>`;
-  return `<div class="ci-json-row ci-ligne" data-dbl="${dbl?1:0}">
+  const dbl=l.doublissimo, pj=l.primo_jeune, ro=dbl||pj;
+  const f=(label,field,val,attrs,col)=>`<div class="${col}"><label class="form-label small mb-0">${label}</label><input type="number" ${attrs} class="form-control form-control-sm" data-lf="${field}" value="${val??''}" oninput="onFormChange('${px}')" ${(ro&&field==='montant')||(pj&&(field==='taux'||field==='frais_dossier'))?'readonly style="background:#eef"':''}></div>`;
+  return `<div class="ci-json-row ci-ligne" data-dbl="${dbl?1:0}" data-pj="${pj?1:0}">
     <div class="row g-2 align-items-end">
-      <div class="col-md-3"><label class="form-label small mb-0">Libellé${dbl?' <span class="badge bg-info">Doublissimo</span>':''}</label><input type="text" class="form-control form-control-sm" data-lf="libelle" value="${escapeHtml(l.libelle||('Ligne '+(idx+1)))}" oninput="onFormChange('${px}')"></div>
+      <div class="col-md-3"><label class="form-label small mb-0">Libellé${dbl?' <span class="badge bg-info">Doublissimo</span>':''}${pj?' <span class="badge bg-info">Primo Jeune 0 %</span>':''}</label><input type="text" class="form-control form-control-sm" data-lf="libelle" value="${escapeHtml(l.libelle||('Ligne '+(idx+1)))}" oninput="onFormChange('${px}')"></div>
       ${f('Montant (€)','montant',l.montant,'step="0.01" min="0"','col-md-2')}
       ${f('Durée (mois)','duree',l.duree,'min="0"','col-md-2')}
       ${f('Taux (%)','taux',l.taux,'step="0.001" min="0"','col-md-1')}
@@ -407,7 +413,7 @@ function buildLigneRow(px,l,idx){
 function readLignes(px){
   return Array.from(document.querySelectorAll(`#${px}_lignes_list .ci-ligne`)).map(row=>{
     const g=f=>row.querySelector(`[data-lf="${f}"]`)?.value||'';
-    return {libelle:g('libelle'),montant:num(g('montant')),duree:parseInt(g('duree'))||0,taux:num(g('taux')),frais_dossier:num(g('frais_dossier')),doublissimo:row.dataset.dbl==='1'};
+    return {libelle:g('libelle'),montant:num(g('montant')),duree:parseInt(g('duree'))||0,taux:num(g('taux')),frais_dossier:num(g('frais_dossier')),doublissimo:row.dataset.dbl==='1',primo_jeune:row.dataset.pj==='1'};
   });
 }
 function renderLignes(px,lignes){
@@ -422,23 +428,43 @@ function removeLigne(btn,px){
   if(list.length<=1){alert('Il faut conserver au moins une ligne de crédit.');return;}
   const row=btn.closest('.ci-ligne');
   const idx=Array.from(row.parentNode.children).indexOf(row);
-  const wasDbl=list[idx].doublissimo;
+  const wasDbl=list[idx].doublissimo, wasPj=list[idx].primo_jeune;
   list.splice(idx,1);
   renderLignes(px,list);
   if(wasDbl){const cb=document.getElementById(px+'_dbl_cb'); if(cb) cb.checked=false;}
+  if(wasPj){const cb=document.getElementById(px+'_pj_cb'); if(cb) cb.checked=false;}
   renderAssurances(px); onFormChange(px);
 }
 function onDoublissimo(px){
   const on=document.getElementById(px+'_dbl_cb').checked;
   let list=readLignes(px);
   if(on&&!list.some(l=>l.doublissimo)){
-    const princ=list.find(l=>!l.doublissimo&&parseInt(l.duree)>0), p=dblParams();
+    const princ=list.find(l=>!l.doublissimo&&!l.primo_jeune&&parseInt(l.duree)>0), p=dblParams();
     const duree=princ?Math.min(parseInt(princ.duree),num(p.duree_max_mois)||300):'';        // durée : celle du prêt principal (300 mois maximum)
     list.push({libelle:'Doublissimo',montant:0,duree,taux:dblCampagneActive()&&num(p.campagne.taux)>0?num(p.campagne.taux):'',frais_dossier:0,doublissimo:true});
   }
   if(!on) list=list.filter(l=>!l.doublissimo);
   if(!list.length) list.push({libelle:'Ligne 1',montant:'',duree:'',taux:'',frais_dossier:0});
   renderLignes(px,list); renderAssurances(px); onFormChange(px);
+}
+function onPrimoJeune(px){
+  const on=document.getElementById(px+'_pj_cb').checked;
+  let list=readLignes(px);
+  if(on&&!list.some(l=>l.primo_jeune)){
+    const princ=list.find(l=>!l.doublissimo&&!l.primo_jeune&&parseInt(l.duree)>0), max=num(pjParams().duree_max_mois)||240;
+    const duree=princ?Math.floor(Math.min(parseInt(princ.duree),max)/12)*12||12:max;   // multiple de 12 mois, 20 ans maximum
+    list.push({libelle:'Primo Jeune 0 %',montant:0,duree,taux:0,frais_dossier:0,primo_jeune:true});
+  }
+  if(!on) list=list.filter(l=>!l.primo_jeune);
+  if(!list.length) list.push({libelle:'Ligne 1',montant:'',duree:'',taux:'',frais_dossier:0});
+  renderLignes(px,list); renderAssurances(px); onFormChange(px);
+}
+function syncPrimoJeune(px){
+  if(!document.getElementById(px+'_pj_cb')?.checked) return;
+  const row=document.querySelector(`#${px}_lignes_list .ci-ligne[data-pj="1"] [data-lf="montant"]`);
+  if(row) row.value=pjMontant(readFormRaw(px)).toFixed(2);
+  const info=document.getElementById(px+'_pj_info');
+  if(info) info.textContent='Maximum '+fmt(pjParams().plafond)+' € et '+pjParams().pourcentage+' % du financement total, 20 ans, 0 %';
 }
 // Doublissimo = 20 % de (coût du projet − apport), recalculé tant que la case est cochée
 function syncDoublissimo(px){
@@ -454,7 +480,7 @@ function equilibrerLignes(px){
   const reste=getResteAFinancer(raw);
   const rows=document.querySelectorAll(`#${px}_lignes_list .ci-ligne`);
   for(let i=rows.length-1;i>=0;i--){
-    if(rows[i].dataset.dbl==='1') continue;
+    if(rows[i].dataset.dbl==='1'||rows[i].dataset.pj==='1') continue;
     const inp=rows[i].querySelector('[data-lf="montant"]');
     inp.value=Math.max(0,num(inp.value)+reste).toFixed(2); break;
   }
@@ -515,7 +541,7 @@ function readMrhOptions(px){return Array.from(document.querySelectorAll(`#${px}_
 function readFormRaw(px){
   const f=document.getElementById(px+'_form'); const o={};
   new FormData(f).forEach((v,k)=>{o[k]=v;});
-  ['ptz_actif','ecoptz_actif','frais_midi_epargne','doublissimo'].forEach(k=>{o[k]=f.querySelector(`[name="${k}"]`)?.checked?1:0;});
+  ['ptz_actif','ecoptz_actif','frais_midi_epargne','doublissimo','primo_jeune'].forEach(k=>{o[k]=f.querySelector(`[name="${k}"]`)?.checked?1:0;});
   return o;
 }
 // Écrit dans les champs cachés les listes (JSON) envoyées au serveur
@@ -536,7 +562,7 @@ function readForm(px){serializeAll(px);return readFormRaw(px);}
 
 function onFormChange(px){
   if(!document.getElementById(px+'_form')) return;
-  syncDoublissimo(px);
+  syncDoublissimo(px); syncPrimoJeune(px);
   const d=readForm(px), c=computeAll(d);
   // Cumul des revenus fiscaux de référence
   const rfr=document.getElementById(px+'_rfr_total'); if(rfr) rfr.textContent=fmt(c.rfr)+' €';
@@ -719,6 +745,7 @@ function buildFormTabs(px,d){
           <h6 class="mb-0">Lignes de crédit</h6>
           <div class="d-flex align-items-center gap-3">
             <div class="form-check mb-0"><input class="form-check-input" type="checkbox" name="doublissimo" value="1" id="${px}_dbl_cb" ${d.doublissimo==1?'checked':''} onchange="onDoublissimo('${px}')"><label class="form-check-label" for="${px}_dbl_cb" title="Prêt complémentaire des primo-accédants : 20 % du financement total (acquisition + frais de notaire + frais de négociation − apport), plafonné">Doublissimo</label></div>
+            <div class="form-check mb-0"><input class="form-check-input" type="checkbox" name="primo_jeune" value="1" id="${px}_pj_cb" ${d.primo_jeune==1?'checked':''} onchange="onPrimoJeune('${px}')"><label class="form-check-label" for="${px}_pj_cb" title="Prêt à 0 % sans frais, complémentaire au PTZ, pour les primo-accédants de 35 ans maximum : jusqu'à 20 000 € et 10 % du financement total">Primo Jeune 0 %</label> <span class="small text-muted" id="${px}_pj_info"></span></div>
             <div class="mt-1 small"><select name="canal_origine" id="${px}_canal" class="form-select form-select-sm d-inline-block w-auto" onchange="onFormChange('${px}')" title="Canal d'origine du client (plafond de l'offre exceptionnelle)"><option value="AGENCE" ${d.canal_origine!=='PRESCRIPTION'?'selected':''}>Client issu de l'agence</option><option value="PRESCRIPTION" ${d.canal_origine==='PRESCRIPTION'?'selected':''}>Prescription immobilière</option></select> <span class="text-muted" id="${px}_dbl_info"></span></div>
             <button type="button" class="btn btn-sm btn-outline-secondary" onclick="equilibrerLignes('${px}')" title="Ajuste la dernière ligne pour couvrir exactement le besoin"><i class="fas fa-equals"></i> Affecter le reste à la dernière ligne</button>
           </div>
@@ -1186,7 +1213,7 @@ function showDetail(id){
   </tbody></table></div></div></div>`;
 
   // Tab Financement
-  const lignesRows=c.lignes.map((l,i)=>`<tr><td>${escapeHtml(l.libelle||('Ligne '+(i+1)))}${l.doublissimo?' <span class="badge bg-info">Doublissimo</span>':''}</td><td>${money(num(l.montant))}</td><td>${parseInt(l.duree)||0} mois</td><td>${num(l.taux).toFixed(3).replace('.',',')} %</td><td>${money(num(l.frais_dossier))}</td><td><strong>${money(c.sch[i].mens)}</strong></td><td><strong>${money(c.sch[i].mens+ligneAssuranceMensuelle(c,i))}</strong></td><td>${taegTxt(c.taegLignes[i])}${c.taegLignes[i]?`<div class="small text-muted">simple ${parseFloat(c.taegLignes[i].prop).toFixed(2).replace('.',',')} %</div>`:''}</td><td>${money(c.sch[i].interets)}</td></tr>`).join('');
+  const lignesRows=c.lignes.map((l,i)=>`<tr><td>${escapeHtml(l.libelle||('Ligne '+(i+1)))}${l.doublissimo?' <span class="badge bg-info">Doublissimo</span>':''}${l.primo_jeune?' <span class="badge bg-info">Primo Jeune 0 %</span>':''}</td><td>${money(num(l.montant))}</td><td>${parseInt(l.duree)||0} mois</td><td>${num(l.taux).toFixed(3).replace('.',',')} %</td><td>${money(num(l.frais_dossier))}</td><td><strong>${money(c.sch[i].mens)}</strong></td><td><strong>${money(c.sch[i].mens+ligneAssuranceMensuelle(c,i))}</strong></td><td>${taegTxt(c.taegLignes[i])}${c.taegLignes[i]?`<div class="small text-muted">simple ${parseFloat(c.taegLignes[i].prop).toFixed(2).replace('.',',')} %</div>`:''}</td><td>${money(c.sch[i].interets)}</td></tr>`).join('');
   const assRows=getAssurances(d).map((a,i)=>{
     const cost=c.ass[i]||{monthly:0,total:0};
     return `<tr><td>${escapeHtml((c.emps[a.emp??0]?.nom)||('Emprunteur '+((a.emp??0)+1)))} — ${escapeHtml((c.lignes[a.ligne??0]?.libelle)||('Ligne '+((a.ligne??0)+1)))}</td>
@@ -1212,7 +1239,7 @@ function showDetail(id){
       ${d.frais_midi_epargne==1?`<tr><td>Frais Midi Épargne</td><td>${money(num(d.montant_midi_epargne))}</td></tr>`:''}
       <tr><td>TVA financée</td><td>${money(num(d.tva_financee))}</td></tr>
       <tr><td>Reste à financer</td><td>${money(c.resteAFin)}</td></tr>
-      ${d.doublissimo==1?'<tr><td>Doublissimo</td><td>Oui</td></tr>':''}
+      ${d.doublissimo==1?'<tr><td>Doublissimo</td><td>Oui</td></tr>':''}${d.primo_jeune==1?'<tr><td>Primo Jeune 0 %</td><td>Oui</td></tr>':''}
     </tbody></table>
     ${d.ptz_actif==1?`<div class="alert alert-info py-1">PTZ : ${money(num(d.ptz_montant))} / ${d.ptz_duree} mois${ptzDiffere(d)?' dont '+ptzDiffere(d)+' mois de différé (0 € pendant le différé)':''} → mensualité : ${money(c.mensPTZ)}</div>`:''}
     ${d.ecoptz_actif==1?`<div class="alert alert-info py-1">EcoPTZ : ${money(num(d.ecoptz_montant))} / ${d.ecoptz_duree} mois → mensualité : ${money(c.mensEco)}</div>`:''}
@@ -1583,7 +1610,7 @@ function ficheKit(d){
   // Lignes de crédit (full : + frais de dossier et intérêts)
   const creditRows=(max,full)=>{
     const nc=full?9:7;
-    const row=([l,i])=>`<tr><td>${e(ligneNom(i))}${l.doublissimo&&!/doublissimo/i.test(ligneNom(i))?' <span class="sy-grey">(Doublissimo)</span>':''}</td><td class="r">${mm(l.montant)}</td><td class="r">${parseInt(l.duree)||0} m</td><td class="r">${taux2(l.taux)}</td>${full?`<td class="r">${mm(l.frais_dossier)}</td>`:''}<td class="r">${fmt(c.sch[i].mens)}</td><td class="r"><b>${fmt(c.sch[i].mens+ligneAssuranceMensuelle(c,i))}</b></td><td class="r">${taegTxt(c.taegLignes[i])}</td>${full?`<td class="r">${mm(c.sch[i].interets)}</td>`:''}</tr>`;
+    const row=([l,i])=>`<tr><td>${e(ligneNom(i))}${l.doublissimo&&!/doublissimo/i.test(ligneNom(i))?' <span class="sy-grey">(Doublissimo)</span>':''}${l.primo_jeune&&!/primo jeune/i.test(ligneNom(i))?' <span class="sy-grey">(Primo Jeune 0 %)</span>':''}</td><td class="r">${mm(l.montant)}</td><td class="r">${parseInt(l.duree)||0} m</td><td class="r">${taux2(l.taux)}</td>${full?`<td class="r">${mm(l.frais_dossier)}</td>`:''}<td class="r">${fmt(c.sch[i].mens)}</td><td class="r"><b>${fmt(c.sch[i].mens+ligneAssuranceMensuelle(c,i))}</b></td><td class="r">${taegTxt(c.taegLignes[i])}</td>${full?`<td class="r">${mm(c.sch[i].interets)}</td>`:''}</tr>`;
     const zero=(lab,mt,du,mens)=>`<tr><td>${lab}</td><td class="r">${mm(mt)}</td><td class="r">${parseInt(du)||0} m</td><td class="r">0 %</td>${full?'<td class="r">—</td>':''}<td class="r">${fmt(mens)}</td><td class="r"><b>${fmt(mens)}</b></td><td class="r">—</td>${full?'<td class="r">0 €</td>':''}</tr>`;
     return cap(c.lignes.map((l,i)=>[l,i]),max,row,'autres lignes',nc)
       +(d.ptz_actif==1?zero('PTZ'+(ptzDiffere(d)?' <span class="sy-grey">(différé '+ptzDiffere(d)+' m)</span>':''),d.ptz_montant,d.ptz_duree,c.mensPTZ):'')
@@ -1698,7 +1725,7 @@ async function printDossier(id){
     <div class="sy-sec"><div class="sy-sec-t">3 · FINANCEMENT</div><div class="sy-body"><div class="sy-cols">
       <div class="sy-col" style="flex:0 0 30%"><table class="sy-t"><tbody>${K.planRows()}
         <tr><td colspan="2" class="sy-sub">Autres informations</td></tr>
-        ${kv('Garantie',e(d.garantie_type||''))}${kv('Doublissimo',d.doublissimo==1?'Oui':'Non')}${kv('Reste à financer',mm(c.resteAFin))}
+        ${kv('Garantie',e(d.garantie_type||''))}${kv('Doublissimo',d.doublissimo==1?'Oui':'Non')}${d.primo_jeune==1?kv('Primo Jeune 0 %','Oui'):''}${kv('Reste à financer',mm(c.resteAFin))}
         ${d.ptz_actif==1?kv('PTZ',mm(d.ptz_montant)+' / '+(parseInt(d.ptz_duree)||0)+' m'+(ptzDiffere(d)?' · différé '+ptzDiffere(d)+' m':'')):''}
         ${d.ecoptz_actif==1?kv('EcoPTZ',mm(d.ecoptz_montant)+' / '+(parseInt(d.ecoptz_duree)||0)+' m'+(d.ecoptz_performance_globale==1?' · perf. globale':(d.ecoptz_bouquets==1?' · '+(nbBq||1)+' bouquet(s)':''))):''}
       </tbody></table></div>

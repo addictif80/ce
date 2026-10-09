@@ -63,7 +63,7 @@ function ciControles(d){
   if(d.garantie_type==='CEGC'&&ciWfIdx(d)>=CI_WF_ORDER.indexOf('edition_offres')&&d.suivi_cegc_accord!=1) al('Garantie CEGC : accord non enregistré alors que le dossier est au stade « édition des offres »');
   c.lignes.forEach((l,i)=>{
     if(!l.doublissimo) return;
-    const pl=doublissimoPlafond(d), p=dblParams(), princ=c.lignes.find(x=>!x.doublissimo&&parseInt(x.duree)>0), ps=primoStatut(d);
+    const pl=doublissimoPlafond(d), p=dblParams(), princ=c.lignes.find(x=>!x.doublissimo&&!x.primo_jeune&&parseInt(x.duree)>0), ps=primoStatut(d);
     if(num(l.montant)>pl+0.5) err(nomL(i)+' (Doublissimo) : '+fmt(l.montant)+' € supérieur au plafond de '+fmt(pl)+' €');
     if(num(l.montant)>doublissimoMontant(d)+0.5) al(nomL(i)+' (Doublissimo) : supérieur à '+p.pourcentage+' % du financement total ('+fmt(doublissimoMontant(d))+' €)');
     const dur=parseInt(l.duree)||0;
@@ -71,6 +71,19 @@ function ciControles(d){
     if(dur>num(p.duree_max_mois)||(princ&&dur>parseInt(princ.duree))) al(nomL(i)+' (Doublissimo) : durée supérieure à celle du prêt principal ('+(princ?princ.duree:p.duree_max_mois)+' mois, '+p.duree_max_mois+' maximum)');
     if(ps===''||ps==='NON') al('Doublissimo réservé aux primo-accédants (statut non renseigné ou « Non »)');
     if(usageChoice(d)!=='RP') al('Doublissimo réservé au financement de la résidence principale');
+  });
+  c.lignes.forEach((l,i)=>{
+    if(!l.primo_jeune) return;
+    const p=pjParams(), dur=parseInt(l.duree)||0, ps=primoStatut(d), ages=c.emps.map(e=>ageDe(e.date_naissance)).filter(a=>a!==null);
+    if(num(l.montant)>num(p.plafond)+0.5) err(nomL(i)+' (Primo Jeune) : '+fmt(l.montant)+' € supérieur au maximum de '+fmt(p.plafond)+' €');
+    if(num(l.montant)>pjMontant(d)+0.5) err(nomL(i)+' (Primo Jeune) : supérieur à '+p.pourcentage+' % du financement total ('+fmt(pjMontant(d))+' €)');
+    if(dur>num(p.duree_max_mois)||(dur>0&&dur%12!==0)) al(nomL(i)+' (Primo Jeune) : durée de '+dur+' mois ; maximum '+p.duree_max_mois+' mois, par multiples de 12');
+    if(num(l.taux)!==0||num(l.frais_dossier)!==0) al(nomL(i)+' (Primo Jeune) : le prêt est à 0 % et sans frais de dossier');
+    if(d.ptz_actif!=1) err('Primo Jeune 0 % : le PTZ est obligatoire (prêt complémentaire au PTZ)');
+    if(ps===''||ps==='NON') al('Primo Jeune réservé aux primo-accédants (statut non renseigné ou « Non »)');
+    if(usageChoice(d)!=='RP') al('Primo Jeune réservé au financement de la résidence principale');
+    if(!ages.length) al('Primo Jeune : renseigner la date de naissance des emprunteurs (35 ans maximum pour l\'un d\'eux)');
+    else if(Math.min(...ages)>num(p.age_max)) err('Primo Jeune : aucun emprunteur de '+p.age_max+' ans ou moins (plus jeune : '+Math.min(...ages)+' ans)');
   });
   if(d.ptz_actif==1){
     const r=ciPtzMaxFor(d);

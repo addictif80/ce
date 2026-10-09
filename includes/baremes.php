@@ -150,6 +150,17 @@ function baremeCatalog() {
             'default' => ['pourcentage' => 20, 'plafond' => 22500, 'duree_min_mois' => 3, 'duree_max_mois' => 300,
                 'campagne' => ['debut' => '2026-04-01', 'fin' => '', 'plafond_agence' => 45000, 'plafond_prescription' => 22500, 'taux' => 1.99]],
         ],
+        'primo_jeune' => [
+            'label' => 'Primo Jeune 0 % (prêt complémentaire au PTZ)', 'icon' => 'fa-child',
+            'help' => 'Règles de la fiche produit : prêt sans intérêt ni frais, plafonné en montant et à un pourcentage du financement total, réservé aux emprunteurs de 35 ans ou moins éligibles au PTZ.',
+            'sources' => [
+                ['Fiche produit Primo Jeune 0 % et présentation « Primo Jeunes et Grandioz » (intranet / Easydoc)', '', 'Fiches internes : montant maximum 20 000 € et 10 % du montant global des financements (PTZ compris), durée maximale 20 ans par multiples de 12 mois, taux 0 %, sans frais de dossier ni IRA, un emprunteur de 35 ans maximum, primo-accédant éligible au PTZ (PTZ obligatoire), résidence principale.'],
+            ],
+            'verifie' => ['date' => '09/10/2026', 'source' => 'la fiche produit interne',
+                'ok' => 'montant, pourcentage, durée et âge maximum',
+                'ko' => 'la fiche produit porte une date de version incohérente (2031) : vérifier auprès de la hiérarchie que le dispositif est toujours commercialisé'],
+            'default' => ['pourcentage' => 10, 'plafond' => 20000, 'duree_max_mois' => 240, 'age_max' => 35],
+        ],
         'hcsf' => [
             'label' => 'Plafonds HCSF (endettement et durée)', 'icon' => 'fa-gauge-high',
             'help' => 'Taux d\'endettement maximal et durées maximales recommandées pour les crédits immobiliers.',
@@ -195,6 +206,10 @@ function baremeCheck($cle, $d) {
         foreach (['debut', 'fin'] as $k) if (($c[$k] ?? '') !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$c[$k])) return "Campagne : date invalide ($k).";
         if ($c['debut'] !== '' && $c['fin'] !== '' && $c['fin'] < $c['debut']) return 'Campagne : la date de fin précède la date de début.';
         if ($d['duree_min_mois'] > $d['duree_max_mois']) return 'Durée minimale supérieure à la durée maximale.';
+        return null;
+    }
+    if ($cle === 'primo_jeune') {
+        foreach (['pourcentage', 'plafond', 'duree_max_mois', 'age_max'] as $k) if (!isset($d[$k]) || !is_numeric($d[$k]) || $d[$k] <= 0) return "Valeur positive manquante : $k";
         return null;
     }
     if ($cle === 'hcsf') {
