@@ -292,6 +292,23 @@ function baremeCatalog() {
                 ]],
             ]],
         ],
+        'fiscalite' => [
+            'label' => 'Fiscalité de l\'épargne et impôt sur le revenu (estimations)', 'icon' => 'fa-landmark',
+            'help' => 'Taux et seuils utilisés par les simulateurs d\'épargne, d\'assurance-vie, de PER et le comparateur épargne / crédit. Ce sont des paramètres d\'estimation : à contrôler chaque année (loi de finances et loi de financement de la Sécurité sociale).',
+            'sources' => [
+                ['Service-public.fr – Impôt sur le revenu : barème et quotient familial', 'https://www.service-public.fr/', 'Tranches du barème applicable aux revenus de l\'année précédente.'],
+                ['Impots.gouv.fr – Prélèvement forfaitaire unique et prélèvements sociaux', 'https://www.impots.gouv.fr/', 'Taux du PFU (12,8 % d\'impôt) et des prélèvements sociaux selon le placement.'],
+                ['Urssaf / Service-public.fr – Plafond annuel de la Sécurité sociale (PASS)', 'https://www.urssaf.fr/', 'Le plafond de déduction du PER se calcule sur le PASS de l\'année précédente.'],
+            ],
+            'verifie' => ['date' => '09/10/2026', 'source' => 'articles de presse spécialisée et connaissance générale (non vérifié sur les textes officiels)',
+                'ok' => '',
+                'ko' => 'prélèvements sociaux de 18,6 % sur les produits financiers depuis la LFSS 2026 (assurance-vie et épargne logement restent à 17,2 %), barème de l\'impôt sur le revenu et PASS : tout est à contrôler avant de cocher « J\'ai contrôlé »'],
+            'default' => ['pfu_ir' => 12.8, 'ps_standard' => 18.6, 'ps_assurance_vie' => 17.2,
+                'av_taux_8ans' => 7.5, 'av_abattement_seul' => 4600, 'av_abattement_couple' => 9200, 'av_seuil_primes' => 150000,
+                'av_990i_abattement' => 152500, 'av_990i_taux1' => 20, 'av_990i_seuil' => 700000, 'av_990i_taux2' => 31.25,
+                'ir_seuils' => [11600, 29579, 84577, 181917], 'ir_taux' => [0, 11, 30, 41, 45],
+                'pass_n1' => 47100, 'per_pct' => 10, 'per_plafond_pass' => 8],
+        ],
         'hcsf' => [
             'label' => 'Plafonds HCSF (endettement et durée)', 'icon' => 'fa-gauge-high',
             'help' => 'Taux d\'endettement maximal et durées maximales recommandées pour les crédits immobiliers.',
@@ -364,6 +381,15 @@ function baremeCheck($cle, $d) {
     if ($cle === 'memo_plafonds' || $cle === 'memo_delais') {
         if (empty($d['groupes']) || !is_array($d['groupes'])) return 'Au moins un groupe de lignes est attendu.';
         foreach ($d['groupes'] as $g) { if (!is_array($g) || trim((string)($g['titre'] ?? '')) === '' || empty($g['lignes'])) return 'Chaque groupe doit avoir un titre et au moins une ligne.'; }
+        return null;
+    }
+    if ($cle === 'fiscalite') {
+        foreach (['pfu_ir', 'ps_standard', 'ps_assurance_vie', 'av_taux_8ans', 'av_abattement_seul', 'av_abattement_couple', 'av_seuil_primes', 'av_990i_abattement', 'av_990i_taux1', 'av_990i_seuil', 'av_990i_taux2', 'pass_n1', 'per_pct', 'per_plafond_pass'] as $k)
+            if (!isset($d[$k]) || !is_numeric($d[$k]) || $d[$k] < 0) return "Valeur numérique manquante : $k";
+        $sx = $d['ir_seuils'] ?? null; $tx = $d['ir_taux'] ?? null;
+        if (!is_array($sx) || count($sx) !== 4 || !is_array($tx) || count($tx) !== 5) return 'Quatre seuils et cinq taux attendus pour le barème de l\'impôt sur le revenu.';
+        $prev = 0; foreach ($sx as $v) { if (!is_numeric($v) || $v <= $prev) return 'Les seuils du barème doivent être croissants.'; $prev = $v; }
+        foreach ($tx as $v) if (!is_numeric($v) || $v < 0 || $v > 100) return 'Chaque taux du barème doit être compris entre 0 et 100 %.';
         return null;
     }
     if ($cle === 'hcsf') {

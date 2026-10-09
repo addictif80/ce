@@ -360,6 +360,12 @@ function getDefaultMenuItems() {
         ['item_key' => 'saisie', 'parent_key' => 'boite_outils', 'label' => 'Quotité saisissable', 'icon' => 'fa-gavel', 'url' => '/modules/saisie/index.php', 'uri_patterns' => '/saisie/', 'ordre' => 4],
         ['item_key' => 'memo_plafonds', 'parent_key' => 'boite_outils', 'label' => 'Mémo : plafonds et seuils', 'icon' => 'fa-gauge-high', 'url' => '/modules/memo_plafonds/index.php', 'uri_patterns' => '/memo_plafonds/', 'ordre' => 5],
         ['item_key' => 'memo_delais', 'parent_key' => 'boite_outils', 'label' => 'Mémo : délais légaux', 'icon' => 'fa-hourglass-half', 'url' => '/modules/memo_delais/index.php', 'uri_patterns' => '/memo_delais/', 'ordre' => 6],
+        // Section Épargne et patrimoine
+        ['item_key' => 'epargne_patrimoine', 'parent_key' => null, 'label' => 'Épargne et patrimoine', 'icon' => 'fa-piggy-bank', 'url' => null, 'uri_patterns' => '/modules/epargne/,/assurancevie/,/modules/per/,/epargnecredit/', 'ordre' => 8],
+        ['item_key' => 'epargne', 'parent_key' => 'epargne_patrimoine', 'label' => 'Simulateur d\'épargne', 'icon' => 'fa-piggy-bank', 'url' => '/modules/epargne/index.php', 'uri_patterns' => '/modules/epargne/', 'ordre' => 1],
+        ['item_key' => 'assurancevie', 'parent_key' => 'epargne_patrimoine', 'label' => 'Assurance-vie', 'icon' => 'fa-shield-heart', 'url' => '/modules/assurancevie/index.php', 'uri_patterns' => '/assurancevie/', 'ordre' => 2],
+        ['item_key' => 'per', 'parent_key' => 'epargne_patrimoine', 'label' => 'Simulateur PER', 'icon' => 'fa-umbrella-beach', 'url' => '/modules/per/index.php', 'uri_patterns' => '/modules/per/', 'ordre' => 3],
+        ['item_key' => 'epargnecredit', 'parent_key' => 'epargne_patrimoine', 'label' => 'Épargne ou crédit ?', 'icon' => 'fa-code-compare', 'url' => '/modules/epargnecredit/index.php', 'uri_patterns' => '/epargnecredit/', 'ordre' => 4],
         // Section Communication
         ['item_key' => 'communication', 'parent_key' => null, 'label' => 'Communication', 'icon' => 'fa-comments', 'url' => null, 'uri_patterns' => 'messagerie,agenda', 'ordre' => 6],
         ['item_key' => 'messagerie', 'parent_key' => 'communication', 'label' => 'Messagerie', 'icon' => 'fa-comment-dots', 'url' => '/modules/messagerie/index.php', 'uri_patterns' => 'messagerie', 'ordre' => 1],
@@ -943,6 +949,30 @@ function getPublicToolsCatalog() {
             'label' => 'Mémo : délais légaux', 'icon' => 'fa-hourglass-half', 'url' => 'memo_delais.php', 'default' => true,
             'description' => 'Délais de réflexion, de rétractation, de contestation, de réclamation et de succession les plus courants.',
             'note' => 'Consultation sans enregistrement.',
+        ],
+        'epargne' => [
+            'added' => '2026-10-09',
+            'label' => 'Simulateur d\'épargne', 'icon' => 'fa-piggy-bank', 'url' => 'epargne.php', 'default' => true,
+            'description' => 'Estimez le capital constitué, le versement ou la durée nécessaire pour atteindre un objectif d\'épargne.',
+            'note' => 'Les calculs se font dans votre navigateur : rien n\'est envoyé ni conservé.',
+        ],
+        'assurancevie' => [
+            'added' => '2026-10-09',
+            'label' => 'Simulateur d\'assurance-vie', 'icon' => 'fa-shield-heart', 'url' => 'assurancevie.php', 'default' => true,
+            'description' => 'Projetez un contrat, estimez la fiscalité d\'un rachat et du capital décès.',
+            'note' => 'Les calculs se font dans votre navigateur : rien n\'est envoyé ni conservé.',
+        ],
+        'per' => [
+            'added' => '2026-10-09',
+            'label' => 'Simulateur PER', 'icon' => 'fa-umbrella-beach', 'url' => 'per.php', 'default' => true,
+            'description' => 'Estimez l\'économie d\'impôt d\'un versement sur un plan d\'épargne retraite.',
+            'note' => 'Les calculs se font dans votre navigateur : rien n\'est envoyé ni conservé.',
+        ],
+        'epargnecredit' => [
+            'added' => '2026-10-09',
+            'label' => 'Épargne ou crédit ?', 'icon' => 'fa-code-compare', 'url' => 'epargnecredit.php', 'default' => true,
+            'description' => 'Comparez le coût d\'un financement par votre épargne, par un crédit ou par un mélange des deux.',
+            'note' => 'Les calculs se font dans votre navigateur : rien n\'est envoyé ni conservé.',
         ],
         'courrier' => [
             'label' => 'Générateur de courrier', 'icon' => 'fa-envelope-open-text', 'url' => 'courrier.php', 'default' => true,

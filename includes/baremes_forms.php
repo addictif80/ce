@@ -92,6 +92,35 @@ function baremeRenderForm($cle, array $d) {
                     <td><input name="d[groupes][<?= $gi ?>][lignes][<?= $li ?>][note]" class="form-control form-control-sm" placeholder="Précision (facultatif)"></td></tr>
             <?php endfor; ?></tbody></table></div>
         </div>
+    <?php } elseif ($cle === 'fiscalite') { $F = $d; ?>
+        <?= bfHelp('Paramètres d\'estimation : ils ne remplacent pas un calcul fiscal personnalisé.') ?>
+        <?= bfTitle(1, 'Prélèvements sur les revenus de l\'épargne') ?>
+        <table class="table table-sm align-middle w-auto"><tbody>
+            <tr><td>Impôt forfaitaire (PFU, part impôt sur le revenu) (%)</td><td><?= bfNum('[pfu_ir]', $F['pfu_ir'], '0.1') ?></td></tr>
+            <tr><td>Prélèvements sociaux : produits financiers (PEA, compte-titres, comptes à terme…) (%)</td><td><?= bfNum('[ps_standard]', $F['ps_standard'], '0.1') ?></td></tr>
+            <tr><td>Prélèvements sociaux : assurance-vie et épargne logement (%)</td><td><?= bfNum('[ps_assurance_vie]', $F['ps_assurance_vie'], '0.1') ?></td></tr>
+        </tbody></table>
+        <?= bfTitle(2, 'Assurance-vie') ?>
+        <table class="table table-sm align-middle w-auto"><tbody>
+            <tr><td>Rachat après 8 ans : taux d\'impôt sur les gains, après abattement (%)</td><td><?= bfNum('[av_taux_8ans]', $F['av_taux_8ans'], '0.1') ?></td></tr>
+            <tr><td>Rachat après 8 ans : abattement annuel, personne seule (€)</td><td><?= bfNum('[av_abattement_seul]', $F['av_abattement_seul'], '1') ?></td></tr>
+            <tr><td>Rachat après 8 ans : abattement annuel, couple (€)</td><td><?= bfNum('[av_abattement_couple]', $F['av_abattement_couple'], '1') ?></td></tr>
+            <tr><td>Rachat après 8 ans : seuil de primes versées au taux réduit (€)</td><td><?= bfNum('[av_seuil_primes]', $F['av_seuil_primes'], '1') ?></td></tr>
+            <tr><td>Décès : abattement par bénéficiaire, primes versées avant 70 ans (€)</td><td><?= bfNum('[av_990i_abattement]', $F['av_990i_abattement'], '1') ?></td></tr>
+            <tr><td>Décès : taux jusqu\'au seuil (%)</td><td><?= bfNum('[av_990i_taux1]', $F['av_990i_taux1'], '0.01') ?></td></tr>
+            <tr><td>Décès : seuil de la première tranche, après abattement (€)</td><td><?= bfNum('[av_990i_seuil]', $F['av_990i_seuil'], '1') ?></td></tr>
+            <tr><td>Décès : taux au-delà (%)</td><td><?= bfNum('[av_990i_taux2]', $F['av_990i_taux2'], '0.01') ?></td></tr>
+        </tbody></table>
+        <?= bfTitle(3, 'Impôt sur le revenu (revenus de l\'année précédente)') ?>
+        <table class="table table-sm align-middle w-auto"><thead><tr><th>Tranche</th><th>Jusqu\'à (€ par part)</th><th>Taux (%)</th></tr></thead><tbody>
+        <?php $tt = bfNumList($F['ir_taux']); foreach (bfNumList($F['ir_seuils']) as $i => $v): ?><tr><td>Tranche <?= $i + 1 ?></td><td><?= bfNum("[ir_seuils][$i]", $v, '1') ?></td><td><?= bfNum("[ir_taux][$i]", $tt[$i] ?? 0, '0.1') ?></td></tr><?php endforeach; ?>
+        <tr><td>Au-delà</td><td class="text-muted">—</td><td><?= bfNum('[ir_taux][4]', $tt[4] ?? 45, '0.1') ?></td></tr></tbody></table>
+        <?= bfTitle(4, 'PER') ?>
+        <table class="table table-sm align-middle w-auto"><tbody>
+            <tr><td>Plafond annuel de la Sécurité sociale de l\'année précédente (€)</td><td><?= bfNum('[pass_n1]', $F['pass_n1'], '1') ?></td></tr>
+            <tr><td>Plafond de déduction : part des revenus professionnels (%)</td><td><?= bfNum('[per_pct]', $F['per_pct'], '0.1') ?></td></tr>
+            <tr><td>Plafond maximal : nombre de PASS pris en compte</td><td><?= bfNum('[per_plafond_pass]', $F['per_plafond_pass'], '1') ?></td></tr>
+        </tbody></table>
     <?php } elseif ($cle === 'hcsf') { ?>
         <?= bfHelp('Les grandes règles du Haut Conseil de stabilité financière (HCSF) appliquées aux crédits immobiliers.') ?>
         <table class="table table-sm align-middle w-auto"><tbody>
@@ -198,6 +227,12 @@ function baremeCollect($cle, array $p) {
             if ($titre !== '' && $lignes) $groupes[] = ['titre' => $titre, 'lignes' => $lignes];
         }
         return ['groupes' => $groupes];
+    }
+    if ($cle === 'fiscalite') {
+        $out = [];
+        foreach (['pfu_ir', 'ps_standard', 'ps_assurance_vie', 'av_taux_8ans', 'av_abattement_seul', 'av_abattement_couple', 'av_seuil_primes', 'av_990i_abattement', 'av_990i_taux1', 'av_990i_seuil', 'av_990i_taux2', 'pass_n1', 'per_pct', 'per_plafond_pass'] as $k) $out[$k] = $n($p[$k] ?? 0);
+        $out['ir_seuils'] = $row($p['ir_seuils'] ?? []); $out['ir_taux'] = $row($p['ir_taux'] ?? []);
+        return $out;
     }
     if ($cle === 'primoz' || $cle === 'grandioz') {
         $out = [];
