@@ -22,6 +22,9 @@ $test = json_decode(getToolsSetting('assist_last_test', ''), true) ?: null;
             <div class="form-text">La clé n'est jamais affichée ni transmise aux navigateurs : seul le serveur appelle le service.</div></div>
         <div class="col-md-3"><label class="form-label">Modèle</label><input type="text" name="assist_model" class="form-control" value="<?= e(getToolsSetting('assist_model', '')) ?>" placeholder="gpt-4o-mini">
             <div class="form-text">Identifiant du modèle proposé par 1min.ai (vide = gpt-4o-mini).</div></div>
+        <div class="col-12"><label class="form-label">Consignes complémentaires de rédaction <span class="text-muted">(facultatif)</span></label>
+            <textarea name="assist_rules" class="form-control" rows="4" maxlength="2000" placeholder="Ex. : Toujours écrire « la Caisse d'Épargne » (jamais « la banque »). Ne jamais citer de montant de frais sans renvoyer aux conditions tarifaires. Terminer par « Bien cordialement » plutôt que par une formule longue."><?= e(getToolsSetting('assist_rules', '')) ?></textarea>
+            <div class="form-text">S'ajoute au cadrage bancaire intégré (vouvoiement, vocabulaire de banque, ton orienté solution, fond exact) pour les trois fonctions. Enregistrez puis refaites un essai de reformulation pour affiner.</div></div>
         <div class="col-12"><button class="btn btn-ce">Enregistrer</button></div>
     </form>
 </div></div>
