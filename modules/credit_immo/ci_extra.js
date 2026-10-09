@@ -50,7 +50,7 @@ function ciControles(d){
     }
 
   });
-  c.assRaw.forEach(a=>{ if((a.ligne??0)>=c.lignes.length) err('Une assurance est rattachée à une ligne qui n\'existe plus'); if((a.emp??0)>=c.emps.length) err('Une assurance est rattachée à un emprunteur qui n\'existe plus'); });
+  c.assRaw.forEach(a=>{ if((a.ligne??0)>=c.lignesA.length) err('Une assurance est rattachée à une ligne qui n\'existe plus'); if((a.emp??0)>=c.emps.length) err('Une assurance est rattachée à un emprunteur qui n\'existe plus'); });
   c.lignes.forEach((l,i)=>{const b=new Set(c.assRaw.filter(a=>(a.ligne??0)===i&&num(a.taux)>0).map(a=>a.base)); if(b.size>1) al(nomL(i)+' : assurances sur des bases différentes (CI et CRD)');});
   if(c.lignes.some(l=>num(l.montant)>0)&&Math.abs(c.resteAFin)>1) al('Plan de financement non bouclé : écart de '+fmt(c.resteAFin)+' € entre le montant à financer et les lignes');
   if(c.te!==null&&c.te>CI_SEUILS.tauxMax) al("Taux d'endettement de "+pct2(c.te)+" : supérieur à "+CI_SEUILS.tauxMax+" %");
@@ -112,6 +112,7 @@ function ciControles(d){
     if(usageChoice(d)!=='RP') al('Grandioz réservé à la résidence principale');
     if(an===null) al('Grandioz : renseigner la date de naissance des emprunteurs (35 ans maximum)'); else if(an>num(p.age_max)) al('Grandioz : aucun emprunteur de '+p.age_max+' ans ou moins (plus jeune : '+an+' ans)');
   });
+  if(d.ptz_actif==1&&d.type_projet==='ANCIEN_AVEC_TRAVAUX'&&['E','F','G'].includes(d.dpe_etiquette)) al('PTZ ancien avec travaux : DPE '+d.dpe_etiquette+' → une évaluation / un audit énergétique et les devis de performance énergétique sont requis (étiquette A à D après travaux)');
   if(d.ptz_actif==1){
     const r=ciPtzMaxFor(d);
     if(!r.indispo){
@@ -291,13 +292,15 @@ function printComparatif(ids){
 // ── PTZ : maximum autorisé (même calcul que le simulateur PTZ), zone ABC déduite de l'adresse ──────────────
 const CI_PTZ_TYPES={NEUF_VEFA:'collectif_neuf',CONSTRUCTION_CCMI:'maison_neuve',CONSTRUCTION_SANS_CCMI:'maison_neuve',ANCIEN_AVEC_TRAVAUX:'ancien_travaux'};
 // Renvoie le résultat de ptzCalc pour le dossier d, ou {indispo: 'raison'}
+// Coût de l'opération retenu pour le PTZ : prix d'acquisition + frais d'agence + travaux (hors frais de notaire et frais divers)
+function ptzCoutOperation(d){return num(d.montant_acquisition)+num(d.frais_negociation)+num(d.frais_agence)+num(d.montant_travaux)-num(d.travaux_ecoptz);}
 function ciPtzMaxFor(d){
   if(typeof ptzCalc==='undefined'||typeof ciPtzBareme==='undefined') return {indispo:'barème PTZ indisponible'};
   const type=CI_PTZ_TYPES[d.type_projet];
   if(!type) return {indispo:d.type_projet?"un PTZ n'est possible que pour le neuf, la construction ou l'ancien avec travaux":'type de projet non renseigné'};
   if(!d.zone_abc) return {indispo:"zone ABC du bien à renseigner (elle se déduit de l'adresse)"};
   const c=computeAll(d), ps=primoStatut(d);
-  return ptzCalc(ciPtzBareme,{pers:Math.max(1,c.nbPers||1),rfr:c.rfr,cout:getCoutProjet(d),zone:d.zone_abc,type,primo:ps!==''&&ps!=='NON',rp:usageChoice(d)==='RP'});
+  return ptzCalc(ciPtzBareme,{pers:Math.max(1,c.nbPers||1),rfr:c.rfr,cout:ptzCoutOperation(d),travaux:Math.max(0,num(d.montant_travaux)-num(d.travaux_ecoptz)),zone:d.zone_abc,type,primo:ps!==''&&ps!=='NON',rp:usageChoice(d)==='RP'});
 }
 function ciPtzMaxHtml(d,px){
   const r=ciPtzMaxFor(d);
@@ -305,7 +308,7 @@ function ciPtzMaxHtml(d,px){
   if(r.errs.length) return `<div class="alert alert-warning py-1 small mb-0"><i class="fas fa-triangle-exclamation"></i> <strong>PTZ non accessible</strong> : ${escapeHtml(r.errs.join(' ; '))}.</div>`;
   const dur=r.d.total*12, dif=r.d.differe*12, over=num(d.ptz_montant)>r.mont+0.5||(parseInt(d.ptz_duree)||0)>dur||ptzDiffere(d)>dif;
   return `<div class="alert alert-${over?'danger':'info'} py-1 small mb-0 d-flex flex-wrap justify-content-between align-items-center gap-2">
-    <span><i class="fas fa-calculator"></i> <strong>PTZ maximum : ${fmt(r.mont)} €</strong> · ${dur} mois maximum · différé ${dif} mois maximum <span class="text-muted">(tranche ${r.tr+1}, ${r.q} % de ${fmt(r.prix)} € ; revenu retenu ${fmt(r.revenu)} € ÷ ${String(r.coeff).replace('.',',')})</span>${over?' — <strong>les valeurs saisies dépassent le maximum</strong>':''}</span>
+    <span><i class="fas fa-calculator"></i> <strong>PTZ maximum : ${fmt(r.mont)} €</strong> · ${dur} mois maximum · différé ${dif} mois maximum <span class="text-muted">(coût de l'opération retenu ${fmt(ptzCoutOperation(d))} €, tranche ${r.tr+1}, ${r.q} % de ${fmt(r.prix)} € ; revenu retenu ${fmt(r.revenu)} € ÷ ${String(r.coeff).replace('.',',')})</span>${over?' — <strong>les valeurs saisies dépassent le maximum</strong>':''}</span>
     ${px?`<button type="button" class="btn btn-sm btn-outline-primary" onclick="ciApplyPtz('${px}')">Appliquer ces valeurs</button>`:''}</div>`;
 }
 function ciUpdatePtzMax(px,d){

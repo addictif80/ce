@@ -1,5 +1,5 @@
 // Calcul du prêt à taux zéro (PTZ) à partir d'un barème B (voir modules/ptz/bareme.php) et d'une situation :
-// p = {pers, rfr, cout, zone ('A'|'B1'|'B2'|'C'), type (clé de B.types), primo (bool), rp (bool)}.
+// p = {pers, rfr, cout (prix + frais d'agence + travaux, hors notaire), travaux (ancien : part finançable), zone ('A'|'B1'|'B2'|'C'), type (clé de B.types), primo (bool), rp (bool)}.
 // Partagé par le simulateur PTZ (portail et /tools) et le module crédit immobilier.
 window.ptzCalc=function(B,p){
   const eur=v=>Math.round(v).toLocaleString('fr-FR')+' €';
@@ -16,6 +16,11 @@ window.ptzCalc=function(B,p){
   if(!p.primo) out.errs.push("le PTZ est réservé aux primo-accédants");
   if(!p.rp) out.errs.push("le logement doit être la résidence principale");
   if(!t||!t.zones.includes(z)) out.errs.push("ce type de logement n'est pas éligible dans cette zone");
+  if(p.type==='ancien_travaux'&&p.travaux!==undefined&&p.cout>0){
+    const part=p.travaux/p.cout*100;
+    out.partTravaux=part;
+    if(part<25) out.errs.push("la part des travaux ("+part.toFixed(2).replace('.',',')+" %) est inférieure au minimum de 25 % du coût de l'opération");
+  }
   if(revenu>maxRev) out.errs.push("revenus retenus ("+eur(revenu)+") supérieurs au plafond de la zone ("+eur(maxRev)+")");
   if(rpc>lim[3]) out.errs.push("revenus au-delà de la tranche 4");
   out.tr=tr; out.q=t?t.quotites[tr]:0;

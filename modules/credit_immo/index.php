@@ -120,6 +120,8 @@ $migrations = [
     "ALTER TABLE credit_immobilier ADD COLUMN lignes_credit_json TEXT DEFAULT NULL",
     "ALTER TABLE credit_immobilier ADD COLUMN doublissimo TINYINT(1) DEFAULT 0",
     "ALTER TABLE credit_immobilier ADD COLUMN primo_jeune TINYINT(1) DEFAULT 0",
+    "ALTER TABLE credit_immobilier ADD COLUMN montant_travaux DECIMAL(15,2) DEFAULT 0",
+    "ALTER TABLE credit_immobilier ADD COLUMN travaux_ecoptz DECIMAL(15,2) DEFAULT 0",
     "ALTER TABLE credit_immobilier ADD COLUMN primoz TINYINT(1) DEFAULT 0",
     "ALTER TABLE credit_immobilier ADD COLUMN grandioz TINYINT(1) DEFAULT 0",
     "ALTER TABLE credit_immobilier ADD COLUMN pret_patronal DECIMAL(12,2) DEFAULT 0",
@@ -264,6 +266,7 @@ function ciCollect($p) {
         'frais_notaire' => d2n($p['frais_notaire'] ?? 0), 'frais_negociation' => d2n($p['frais_negociation'] ?? 0),
         'frais_agence' => 0, // regroupés avec les frais de négociation
         'frais_divers' => d2n($p['frais_divers'] ?? 0),
+        'montant_travaux' => d2n($p['montant_travaux'] ?? 0), 'travaux_ecoptz' => d2n($p['travaux_ecoptz'] ?? 0),
         'adresse_bien' => $text('adresse_bien', 500), 'bien_lat' => $decn('bien_lat'), 'bien_lon' => $decn('bien_lon'),
         'type_acquisition' => $enum('type_acquisition', ['MAISON', 'APPARTEMENT']),
         'type_propriete' => $enum('type_propriete', ['NU_PROPRIETAIRE', 'USUFRUITIER', 'PLEINE_PROPRIETE', 'NON_PROPRIETAIRE']),
