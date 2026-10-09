@@ -6,7 +6,7 @@
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/zonage.php';
-requirePublicTool('ptz', true);
+requireAnyPublicTool(['ptz', 'plan', 'scenarios', 'creditsspeciaux'], true);
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: private, max-age=600');
 try {

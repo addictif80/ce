@@ -308,7 +308,7 @@ function getDefaultMenuItems() {
         ['item_key' => 'activite', 'parent_key' => null, 'label' => 'Mon activité', 'icon' => 'fa-briefcase', 'url' => null, 'uri_patterns' => 'instances,rappels,demandes_clients,offres,interets_clients,rappels_clients,signatures,envoi_documents,kanban,gestion_portefeuille', 'ordre' => 1],
         ['item_key' => 'formation', 'parent_key' => null, 'label' => 'Formation', 'icon' => 'fa-graduation-cap', 'url' => null, 'uri_patterns' => 'formations', 'ordre' => 2],
         ['item_key' => 'commercial', 'parent_key' => null, 'label' => 'Commercial', 'icon' => 'fa-handshake', 'url' => null, 'uri_patterns' => 'production,phoning,eai,mobilites', 'ordre' => 3],
-        ['item_key' => 'outils', 'parent_key' => null, 'label' => 'Outils', 'icon' => 'fa-tools', 'url' => null, 'uri_patterns' => 'credit_immo,calculateur,courriers,courriers_internes,blocnotes,procedures,bureau_dom,retraits,dpe,/rge/,/capacite/,/notaire/,/ptz/,/rachat/,/pieces/,/modules/pdf/,/modules/stock/', 'ordre' => 4],
+        ['item_key' => 'outils', 'parent_key' => null, 'label' => 'Outils', 'icon' => 'fa-tools', 'url' => null, 'uri_patterns' => 'credit_immo,calculateur,courriers,courriers_internes,blocnotes,procedures,bureau_dom,retraits,dpe,/rge/,/capacite/,/notaire/,/ptz/,/rachat/,/pieces/,/modules/pdf/,/modules/stock/,/creditsspeciaux/,/modules/plan/,/modules/scenarios/', 'ordre' => 4],
         ['item_key' => 'references', 'parent_key' => null, 'label' => 'Références', 'icon' => 'fa-bookmark', 'url' => null, 'uri_patterns' => '/codes/,/contacts/', 'ordre' => 5],
         // Items - Mon activité
         ['item_key' => 'kanban', 'parent_key' => 'activite', 'label' => 'Vue Kanban', 'icon' => 'fa-columns', 'url' => '/modules/kanban/index.php', 'uri_patterns' => 'kanban', 'ordre' => 0],
@@ -348,6 +348,9 @@ function getDefaultMenuItems() {
         ['item_key' => 'rachat', 'parent_key' => 'outils', 'label' => 'Prêt relais / rachat', 'icon' => 'fa-arrows-rotate', 'url' => '/modules/rachat/index.php', 'uri_patterns' => '/rachat/', 'ordre' => 15],
         ['item_key' => 'pieces', 'parent_key' => 'outils', 'label' => 'Pièces justificatives', 'icon' => 'fa-list-check', 'url' => '/modules/pieces/index.php', 'uri_patterns' => '/pieces/', 'ordre' => 16],
         ['item_key' => 'pdf', 'parent_key' => 'outils', 'label' => 'Boîte à outils PDF', 'icon' => 'fa-file-pdf', 'url' => '/modules/pdf/index.php', 'uri_patterns' => '/modules/pdf/', 'ordre' => 17],
+        ['item_key' => 'creditsspeciaux', 'parent_key' => 'outils', 'label' => 'Crédits spéciaux', 'icon' => 'fa-gift', 'url' => '/modules/creditsspeciaux/index.php', 'uri_patterns' => '/creditsspeciaux/', 'ordre' => 18],
+        ['item_key' => 'plan', 'parent_key' => 'outils', 'label' => 'Plan de financement', 'icon' => 'fa-diagram-project', 'url' => '/modules/plan/index.php', 'uri_patterns' => '/modules/plan/', 'ordre' => 19],
+        ['item_key' => 'scenarios', 'parent_key' => 'outils', 'label' => 'Comparateur de scénarios', 'icon' => 'fa-code-compare', 'url' => '/modules/scenarios/index.php', 'uri_patterns' => '/modules/scenarios/', 'ordre' => 20],
         ['item_key' => 'dpe', 'parent_key' => 'outils', 'label' => 'Recherche DPE', 'icon' => 'fa-leaf', 'url' => '/modules/dpe/index.php', 'uri_patterns' => '/dpe/', 'ordre' => 10],
         // Items - Références
         ['item_key' => 'codes', 'parent_key' => 'references', 'label' => 'Codes utiles', 'icon' => 'fa-key', 'url' => '/modules/codes/index.php', 'uri_patterns' => '/codes/', 'ordre' => 1],
@@ -974,6 +977,24 @@ function getPublicToolsCatalog() {
             'description' => 'Comparez le coût d\'un financement par votre épargne, par un crédit ou par un mélange des deux.',
             'note' => 'Les calculs se font dans votre navigateur : rien n\'est envoyé ni conservé.',
         ],
+        'creditsspeciaux' => [
+            'added' => '2026-10-09',
+            'label' => 'Crédits spéciaux', 'icon' => 'fa-gift', 'url' => 'creditsspeciaux.php', 'default' => true,
+            'description' => 'Éligibilité et montant du PTZ, du Doublissimo, du Primo Jeune 0 %, du Primoz et du Grandioz pour un projet et des emprunteurs donnés.',
+            'note' => 'Les calculs se font dans votre navigateur. Seule la liste des communes d\'un département est demandée à ce portail : rien de ce que vous saisissez n\'est conservé.',
+        ],
+        'plan' => [
+            'added' => '2026-10-09',
+            'label' => 'Plan de financement complet', 'icon' => 'fa-diagram-project', 'url' => 'plan.php', 'default' => true,
+            'description' => 'Montez le financement d\'un projet : PTZ, prêts spéciaux et prêt principal, avec mensualité, endettement, reste à vivre et TAEG.',
+            'note' => 'Les calculs se font dans votre navigateur. Seule la liste des communes d\'un département est demandée à ce portail : rien de ce que vous saisissez n\'est conservé.',
+        ],
+        'scenarios' => [
+            'added' => '2026-10-09',
+            'label' => 'Comparateur de scénarios', 'icon' => 'fa-code-compare', 'url' => 'scenarios.php', 'default' => true,
+            'description' => 'Comparez jusqu\'à trois montages de financement côte à côte (apport, durée, prêts aidés et spéciaux).',
+            'note' => 'Les calculs se font dans votre navigateur. Seule la liste des communes d\'un département est demandée à ce portail : rien de ce que vous saisissez n\'est conservé.',
+        ],
         'courrier' => [
             'label' => 'Générateur de courrier', 'icon' => 'fa-envelope-open-text', 'url' => 'courrier.php', 'default' => true,
             'description' => 'Rédigez un courrier mis en forme, avec variables, puis imprimez-le ou enregistrez-le en PDF.',
@@ -1075,6 +1096,15 @@ function requirePublicTool($key, $json = false) {
         . ($unavailable ? '<a class="btn btn-outline-secondary" href="' . (strpos($_SERVER['SCRIPT_NAME'] ?? '', '/modules/') !== false ? '../../tools/' : './') . '">Retour aux outils</a>' : '')
         . '</div></div></div></body></html>';
     exit;
+}
+
+/** Comme requirePublicTool(), mais accepte n'importe lequel des outils listés (ressource partagée par plusieurs outils). */
+function requireAnyPublicTool(array $keys, $json = false) {
+    if (toolsVisitorIsLoggedIn()) return;
+    requireToolsAccess($json);
+    $status = getPublicToolsStatus();
+    foreach ($keys as $k) if (($status[$k]['state'] ?? 'masque') === 'actif') return;
+    requirePublicTool($keys[0], $json);
 }
 
 function ensureToolsFeedbackSchema() {
