@@ -85,6 +85,7 @@
   function label(el){
     let t='';
     if(el.id){const l=document.querySelector('label[for="'+el.id+'"]'); if(l) t=l.textContent;}
+    if(!t&&el.previousElementSibling&&el.previousElementSibling.tagName==='LABEL') t=el.previousElementSibling.textContent;
     if(!t){const c=el.closest('.col-6,.col-md-3,.col-md-4,.col-md-6,.col-12,.mb-3,div'); const l=c&&c.querySelector('label'); if(l) t=l.textContent;}
     if(!t) t=el.getAttribute('aria-label')||el.getAttribute('placeholder')||'';
     return t.replace(/\s+/g,' ').replace(/\*/g,'').trim();
@@ -94,7 +95,7 @@
     const rows=[], seen=new Set();
     document.querySelectorAll('input[id],select[id],textarea[id]').forEach(el=>{
       if(['file','password','hidden','submit','button'].includes(el.type)||el.matches('[data-noshare],.modal *,form[role=search] *')||el.id.startsWith('search')) return;
-      if(!visible(el)) return;
+      if(!visible(el)||el.closest('.js-result')) return;
       let v;
       if(el.type==='checkbox') {if(!el.checked) return; v='Oui';}
       else if(el.type==='radio') {if(!el.checked) return; v=label(el)||'Oui';}
@@ -111,7 +112,7 @@
     const extra=window.toolsDoc?window.toolsDoc():{};
     const title=extra.title||((document.querySelector('h1')||document.querySelector('h4')||{}).textContent||document.title).trim();
     const rows=extra.inputs||inputs();
-    const res=[...document.querySelectorAll('.js-result,.js-print')].filter(el=>el.offsetParent!==null).map(el=>{const c=el.cloneNode(true);c.querySelectorAll('button,.no-print,[data-print-skip],script,style').forEach(x=>x.remove());return '<div class="td-res">'+c.innerHTML+'</div>';}).join('');
+    const res=[...document.querySelectorAll('.js-result,.js-print')].filter(el=>el.offsetParent!==null).map(el=>{const c=el.cloneNode(true);const src=[...el.querySelectorAll('input[type=checkbox]')];[...c.querySelectorAll('input[type=checkbox]')].forEach((x,i)=>{const t=document.createElement('span');t.textContent=src[i]&&src[i].checked?'\u2611':'\u2610';t.style.marginRight='6px';x.replaceWith(t);});c.querySelectorAll('button,.no-print,[data-print-skip],script,style').forEach(x=>x.remove());return '<div class="td-res">'+c.innerHTML+'</div>';}).join('');
     const notes=[...document.querySelectorAll('[data-bareme-note]')].map(n=>'<p>'+esc(n.dataset.baremeNote)+'</p>').join('');
     const d=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
     return '<div class="td-head"><img src="'+LOGO+'" alt="Caisse d\'Épargne" onerror="this.style.display=\'none\'"><div class="td-date">Édité le '+esc(d)+'</div></div>'

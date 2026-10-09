@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/memo_defaults.php';
 /**
  * Barèmes réglementaires utilisés par les simulateurs (PTZ, frais de notaire, plafonds HCSF).
  * Gérés par l'administrateur (onglet « Barèmes ») ; chaque barème porte une date de référence et un indicateur « contrôlé ».
@@ -180,6 +181,31 @@ function baremeCatalog() {
             'verifie' => ['date' => '09/10/2026', 'source' => 'la présentation interne',
                 'ok' => 'progression, montant minimum, durées et âge', 'ko' => ''],
             'default' => ['progression' => 1, 'montant_min' => 50000, 'duree_min_mois' => 84, 'duree_max_mois' => 300, 'age_max' => 35],
+        ],
+        'signataires' => [
+            'label' => 'Fiche : qui peut signer quoi ?', 'icon' => 'fa-signature', 'type' => 'memo',
+            'champs' => ['Opération', 'Qui signe', 'Pièces et points d\'attention'],
+            'help' => 'Pour chaque situation (majeur protégé, mineur, société, indivision…), qui peut effectuer chaque opération. Chaque groupe est une situation ; chaque ligne une opération. Les libellés d\'opération doivent être identiques d\'un groupe à l\'autre.',
+            'sources' => [
+                ['Service-public.fr – Protection juridique, capacité, régimes matrimoniaux', 'https://www.service-public.fr/', 'Règles générales sur la capacité des personnes et la représentation.'],
+                ['Légifrance – Code civil', 'https://www.legifrance.gouv.fr/', 'Textes de référence (capacité, régimes matrimoniaux, majeurs protégés).'],
+                ['Procédures internes de la banque', '', 'À compléter par la conformité : pièces exigées et conditions propres à l\'établissement.'],
+            ],
+            'verifie' => ['date' => '09/10/2026', 'source' => 'règles générales du droit français rédigées en résumé',
+                'ok' => '', 'ko' => 'tout le contenu est à faire valider par la conformité avant de cocher « J\'ai contrôlé » : c\'est une aide à l\'orientation, pas un avis juridique'],
+            'default' => memoDefaultSignataires(),
+        ],
+        'evenements' => [
+            'label' => 'Fiche : parcours événements de vie', 'icon' => 'fa-route', 'type' => 'memo',
+            'champs' => ['Démarche ou proposition', 'Catégorie (Démarche, Proposition, Pièce à fournir)', 'Précision'],
+            'help' => 'Pour chaque événement de vie, la liste des démarches bancaires, des solutions à proposer et des pièces à demander. Chaque groupe est un événement. Catégories reconnues : Démarche, Proposition, Pièce à fournir.',
+            'sources' => [
+                ['Procédures internes de la banque', '', 'Démarches et pièces propres à l\'établissement.'],
+                ['Service-public.fr – Démarches par événement de vie', 'https://www.service-public.fr/', 'Rubriques « Famille », « Retraite », « Décès » pour les démarches administratives.'],
+            ],
+            'verifie' => ['date' => '09/10/2026', 'source' => 'pratiques courantes en agence',
+                'ok' => '', 'ko' => 'à adapter aux offres et aux procédures de votre établissement avant de cocher « J\'ai contrôlé »'],
+            'default' => memoDefaultEvenements(),
         ],
         'saisie' => [
             'label' => 'Saisie des rémunérations et solde bancaire insaisissable', 'icon' => 'fa-gavel',
@@ -378,7 +404,7 @@ function baremeCheck($cle, $d) {
         foreach (['charge_annuelle', 'rsa_mensuel'] as $k) if (!isset($d[$k]) || !is_numeric($d[$k]) || $d[$k] <= 0) return "Valeur positive manquante : $k";
         return null;
     }
-    if ($cle === 'memo_plafonds' || $cle === 'memo_delais') {
+    if (baremeIsMemo($cle)) {
         if (empty($d['groupes']) || !is_array($d['groupes'])) return 'Au moins un groupe de lignes est attendu.';
         foreach ($d['groupes'] as $g) { if (!is_array($g) || trim((string)($g['titre'] ?? '')) === '' || empty($g['lignes'])) return 'Chaque groupe doit avoir un titre et au moins une ligne.'; }
         return null;
@@ -464,3 +490,7 @@ function baremeNotice(array $cles) {
     $txt = 'Barème utilisé — ' . implode(' · ', $parts);
     return '<div class="small ' . $cls . ' mb-2 no-client" data-bareme-note="' . htmlspecialchars($txt, ENT_QUOTES) . '"><i class="fas ' . $icon . ' me-1"></i>' . htmlspecialchars($txt) . '</div>';
 }
+
+
+/** Fiches de mémo (groupes de lignes libellé / valeur / note) : mémos, fiche des signataires, parcours événements de vie. */
+function baremeIsMemo($cle) { return (baremeCatalog()[$cle]['type'] ?? '') === 'memo'; }

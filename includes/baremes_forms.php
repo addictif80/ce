@@ -72,24 +72,24 @@ function baremeRenderForm($cle, array $d) {
             <tr><td>Majoration par personne à charge (€ par an)</td><td><?= bfNum('[charge_annuelle]', $d['charge_annuelle'], '1') ?></td></tr>
             <tr><td>RSA pour une personne seule (€ par mois) = solde bancaire insaisissable</td><td><?= bfNum('[rsa_mensuel]', $d['rsa_mensuel'], '0.01') ?></td></tr>
         </tbody></table>
-    <?php } elseif ($cle === 'memo_plafonds' || $cle === 'memo_delais') { $gi = 0; ?>
+    <?php } elseif (baremeIsMemo($cle)) { $gi = 0; $ch = baremeCatalog()[$cle]['champs'] ?? ['Libellé', 'Valeur', 'Précision (facultatif)']; ?>
         <?= bfHelp('Chaque groupe est un encadré du mémo. Une ligne vide est ignorée ; pour supprimer une ligne, videz son libellé. Le champ « Valeur » est libre (montant, durée, texte).') ?>
         <div id="memoGroups-<?= e($cle) ?>">
         <?php foreach ($d['groupes'] as $g): $li = 0; ?>
             <div class="border rounded p-2 mb-3 memo-group"><input name="d[groupes][<?= $gi ?>][titre]" value="<?= e($g['titre']) ?>" class="form-control fw-bold mb-2" placeholder="Titre du groupe">
             <table class="table table-sm align-middle mb-1"><tbody>
             <?php foreach (array_merge($g['lignes'], [['libelle' => '', 'valeur' => '', 'note' => '']]) as $l): ?>
-                <tr><td style="width:34%"><input name="d[groupes][<?= $gi ?>][lignes][<?= $li ?>][libelle]" value="<?= e($l['libelle']) ?>" class="form-control form-control-sm" placeholder="Libellé"></td>
-                    <td style="width:22%"><input name="d[groupes][<?= $gi ?>][lignes][<?= $li ?>][valeur]" value="<?= e($l['valeur']) ?>" class="form-control form-control-sm" placeholder="Valeur"></td>
-                    <td><input name="d[groupes][<?= $gi ?>][lignes][<?= $li ?>][note]" value="<?= e($l['note'] ?? '') ?>" class="form-control form-control-sm" placeholder="Précision (facultatif)"></td></tr>
+                <tr><td style="width:34%"><input name="d[groupes][<?= $gi ?>][lignes][<?= $li ?>][libelle]" value="<?= e($l['libelle']) ?>" class="form-control form-control-sm" placeholder="<?= e($ch[0]) ?>"></td>
+                    <td style="width:22%"><input name="d[groupes][<?= $gi ?>][lignes][<?= $li ?>][valeur]" value="<?= e($l['valeur']) ?>" class="form-control form-control-sm" placeholder="<?= e($ch[1]) ?>"></td>
+                    <td><input name="d[groupes][<?= $gi ?>][lignes][<?= $li ?>][note]" value="<?= e($l['note'] ?? '') ?>" class="form-control form-control-sm" placeholder="<?= e($ch[2]) ?>"></td></tr>
             <?php $li++; endforeach; ?></tbody></table></div>
         <?php $gi++; endforeach; ?>
         <div class="border rounded p-2 mb-3 memo-group bg-light"><input name="d[groupes][<?= $gi ?>][titre]" class="form-control fw-bold mb-2" placeholder="Nouveau groupe (titre) — laissez vide pour ne rien ajouter">
             <table class="table table-sm align-middle mb-1"><tbody>
             <?php for ($li = 0; $li < 4; $li++): ?>
-                <tr><td style="width:34%"><input name="d[groupes][<?= $gi ?>][lignes][<?= $li ?>][libelle]" class="form-control form-control-sm" placeholder="Libellé"></td>
-                    <td style="width:22%"><input name="d[groupes][<?= $gi ?>][lignes][<?= $li ?>][valeur]" class="form-control form-control-sm" placeholder="Valeur"></td>
-                    <td><input name="d[groupes][<?= $gi ?>][lignes][<?= $li ?>][note]" class="form-control form-control-sm" placeholder="Précision (facultatif)"></td></tr>
+                <tr><td style="width:34%"><input name="d[groupes][<?= $gi ?>][lignes][<?= $li ?>][libelle]" class="form-control form-control-sm" placeholder="<?= e($ch[0]) ?>"></td>
+                    <td style="width:22%"><input name="d[groupes][<?= $gi ?>][lignes][<?= $li ?>][valeur]" class="form-control form-control-sm" placeholder="<?= e($ch[1]) ?>"></td>
+                    <td><input name="d[groupes][<?= $gi ?>][lignes][<?= $li ?>][note]" class="form-control form-control-sm" placeholder="<?= e($ch[2]) ?>"></td></tr>
             <?php endfor; ?></tbody></table></div>
         </div>
     <?php } elseif ($cle === 'fiscalite') { $F = $d; ?>
@@ -216,13 +216,13 @@ function baremeCollect($cle, array $p) {
     if ($cle === 'saisie') {
         return ['seuils' => $row($p['seuils'] ?? []), 'quotites' => $row($p['quotites'] ?? []), 'charge_annuelle' => $n($p['charge_annuelle'] ?? 0), 'rsa_mensuel' => $n($p['rsa_mensuel'] ?? 0)];
     }
-    if ($cle === 'memo_plafonds' || $cle === 'memo_delais') {
+    if (baremeIsMemo($cle)) {
         $groupes = [];
         foreach ((array)($p['groupes'] ?? []) as $g) {
             $titre = mb_substr(trim((string)($g['titre'] ?? '')), 0, 120); $lignes = [];
             foreach ((array)($g['lignes'] ?? []) as $l) {
                 $lib = mb_substr(trim((string)($l['libelle'] ?? '')), 0, 200); if ($lib === '') continue;
-                $lignes[] = ['libelle' => $lib, 'valeur' => mb_substr(trim((string)($l['valeur'] ?? '')), 0, 120), 'note' => mb_substr(trim((string)($l['note'] ?? '')), 0, 300)];
+                $lignes[] = ['libelle' => $lib, 'valeur' => mb_substr(trim((string)($l['valeur'] ?? '')), 0, 400), 'note' => mb_substr(trim((string)($l['note'] ?? '')), 0, 600)];
             }
             if ($titre !== '' && $lignes) $groupes[] = ['titre' => $titre, 'lignes' => $lignes];
         }
