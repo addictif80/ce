@@ -150,7 +150,8 @@ function computeAssurances(lignes,rows){
       if(taux>0&&a.base==='CRD') m=R>0?M*(taux*quotOf(a)/R):0;
       else if(taux>0) m=cap*quotOf(a)*taux/1200;
       else if(num(a.cout_total)>0&&n>0) m=num(a.cout_total)/n; // ancien dossier : coût total saisi
-      out[k]={monthly:m,total:m*n};
+      if(taux>0&&a.base==='CRD'&&R>0) out[k]={monthly:cap*taux*quotOf(a)/1200,total:m*n,lisse:m};   // 1re échéance affichée, mensualité totale constante
+      else out[k]={monthly:m,total:m*n};
     });
   });
   return out;
@@ -172,15 +173,21 @@ function taegTxt(t){return t?parseFloat(t.taeg).toFixed(2).replace('.',',')+' %'
 function computeAll(d){
   const lignes=getLignes(d), emps=getEmprunteurs(d);
   const sch=lignes.map(l=>scheduleLine(num(l.montant),num(l.taux),l.duree,ligneOpt(l)));
-  const mensLignes=sch.reduce((t,s)=>t+s.mens,0);
   const mensPTZ=getMensPTZ(d), mensEco=getMensEcoPTZ(d);
-  const mensHorsAssur=mensLignes+mensPTZ+mensEco;
   const assRaw=getAssurances(d);
   const nPtz1=d.ptz_actif==1?(parseInt(d.ptz_duree)||0):0;
   const ptzRows1=(d.ptz_actif==1&&ptzMontant(d)>0)?[...Array(ptzDiffere(d)).keys()].map(()=>({crd:ptzMontant(d)})).concat(scheduleLine(ptzMontant(d),0,Math.max(1,nPtz1-ptzDiffere(d))).rows):[];
   const ecoRows1=(d.ecoptz_actif==1&&ecoMontant(d)>0)?scheduleLine(ecoMontant(d),0,d.ecoptz_duree).rows:[];
   const lignesA=lignesAss(d,lignes).map((l,i)=>({...l,_crd:i<lignes.length?sch[i].rows:(l.ptz?ptzRows1:ecoRows1)}));
   const ass=computeAssurances(lignesA,assRaw);
+  // Présentation du logiciel de référence : l'assurance affichée est celle de la 1re échéance (capital restant dû × taux) ; la part « hors assurance »
+  // est le solde de l'échéance totale lissée (la mensualité tout inclus reste constante).
+  sch.forEach((s0,i)=>{
+    const adj=ass.reduce((t,a,k)=>t+(((assRaw[k].ligne)??0)===i?((a.lisse??a.monthly)-a.monthly):0),0);
+    s0.mensPure=s0.mens; s0.mens=s0.mens+adj;
+  });
+  const mensLignes=sch.reduce((t,s0)=>t+s0.mens,0);
+  const mensHorsAssur=mensLignes+mensPTZ+mensEco;
   const mensAssur=ass.reduce((t,a)=>t+a.monthly,0), totAssur=ass.reduce((t,a)=>t+a.total,0);
   const mensTout=mensHorsAssur+mensAssur;
   const revenus=emps.reduce((t,e)=>t+sumRevenus(e.revenus),0);
@@ -216,7 +223,7 @@ function computeAll(d){
     }
     const R=sel.reduce((t,r)=>t+num(r.taux)*(num(r.quotite)>0?num(r.quotite)/100:1),0);
     if(num(l.taux)===0&&R>0&&n>0){const cr=crdRowsOf(li); return Array.from({length:n},(_,k)=>(cr[k]?cr[k].crd:0)*R/1200);}
-    const m=computeAssurances([l],sel).reduce((t,x)=>t+x.monthly,0);
+    const m=computeAssurances([l],sel).reduce((t,x)=>t+(x.lisse??x.monthly),0);
     return Array(n).fill(m);
   };
   const taegInsAll=lignesA.map((l,li)=>taegInsFor(l,li));
@@ -1499,7 +1506,7 @@ function allScheduleLines(d){
 }
 function assuranceByMonth(d,c,ligneIdx,m){ // cotisation d'assurance du mois m pour une ligne (constante sur la durée de la ligne)
   if(m>(parseInt(c.lignesA[ligneIdx]?.duree)||0)) return 0;
-  return c.ass.reduce((t,a,k)=>t+(((c.assRaw[k].ligne)??0)===ligneIdx?a.monthly:0),0);
+  return c.ass.reduce((t,a,k)=>t+(((c.assRaw[k].ligne)??0)===ligneIdx?(a.lisse??a.monthly):0),0);
 }
 function showAmortissement(id){
   const d=dossiersData.find(x=>x.id==id);
