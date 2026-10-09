@@ -181,6 +181,117 @@ function baremeCatalog() {
                 'ok' => 'progression, montant minimum, durées et âge', 'ko' => ''],
             'default' => ['progression' => 1, 'montant_min' => 50000, 'duree_min_mois' => 84, 'duree_max_mois' => 300, 'age_max' => 35],
         ],
+        'saisie' => [
+            'label' => 'Saisie des rémunérations et solde bancaire insaisissable', 'icon' => 'fa-gavel',
+            'help' => 'Barème annuel des quotités saisissables (tranches de rémunération nette), majoration par personne à charge et montant du solde bancaire insaisissable.',
+            'sources' => [
+                ['Service-public.fr – Saisie sur salaire', 'https://www.service-public.fr/', 'Barème en vigueur au 1er janvier, par tranches annuelles.'],
+                ['Légifrance – décret n° 2025-1299 du 24 décembre 2025', 'https://www.legifrance.gouv.fr/', 'Revalorisation 2026 des seuils de saisie des rémunérations.'],
+                ['Service-public.fr – RSA (montant forfaitaire)', 'https://www.service-public.fr/', 'Le solde bancaire insaisissable est égal au RSA pour une personne seule.'],
+            ],
+            'verifie' => ['date' => '09/10/2026', 'source' => 'barème 2026 relevé dans les sources publiques',
+                'ok' => 'les six seuils annuels et la majoration par personne à charge (145 € / mois)',
+                'ko' => 'le montant du RSA (651,69 € ou 646,52 € selon les sources) est à vérifier, il fixe le solde bancaire insaisissable'],
+            'default' => ['seuils' => [4480, 8730, 13000, 17230, 21470, 25810], 'quotites' => [5, 10, 20, 25, 33.33, 66.67, 100], 'charge_annuelle' => 1740, 'rsa_mensuel' => 651.69],
+        ],
+        'memo_plafonds' => [
+            'label' => 'Mémo : plafonds et seuils', 'icon' => 'fa-gauge-high', 'type' => 'memo',
+            'help' => 'Plafonds de dépôt, d\'espèces, de garantie des dépôts et abattements usuels, affichés dans le mémo de /tools. Chaque ligne se modifie librement.',
+            'sources' => [
+                ['Service-public.fr – Argent / Épargne / Fiscalité', 'https://www.service-public.fr/', 'Plafonds des livrets, abattements sur donations et successions, plafond de paiement en espèces.'],
+                ['Fonds de garantie des dépôts et de résolution (FGDR)', 'https://www.garantiedesdepots.fr/', 'Garantie des dépôts (100 000 €), des titres (70 000 €) et des cautionnements.'],
+                ['Légifrance – Code monétaire et financier, Code général des impôts', 'https://www.legifrance.gouv.fr/', 'Textes de référence pour chaque plafond.'],
+            ],
+            'verifie' => ['date' => '09/10/2026', 'source' => 'connaissance générale des plafonds en vigueur',
+                'ok' => '', 'ko' => 'toutes les valeurs sont à contrôler sur les sources officielles avant de cocher « J\'ai contrôlé » (elles changent par décret ou en loi de finances)'],
+            'default' => ['groupes' => [
+                ['titre' => 'Épargne réglementée : plafonds de dépôt', 'lignes' => [
+                    ['libelle' => 'Livret A', 'valeur' => '22 950 €', 'note' => 'Hors capitalisation des intérêts'],
+                    ['libelle' => 'Livret de développement durable et solidaire (LDDS)', 'valeur' => '12 000 €', 'note' => ''],
+                    ['libelle' => 'Livret d\'épargne populaire (LEP)', 'valeur' => '10 000 €', 'note' => 'Sous conditions de revenus'],
+                    ['libelle' => 'Livret Jeune', 'valeur' => '1 600 €', 'note' => '12 à 25 ans'],
+                    ['libelle' => 'Plan d\'épargne logement (PEL)', 'valeur' => '61 200 €', 'note' => ''],
+                    ['libelle' => 'Compte épargne logement (CEL)', 'valeur' => '15 300 €', 'note' => ''],
+                    ['libelle' => 'PEA', 'valeur' => '150 000 €', 'note' => 'Versements'],
+                    ['libelle' => 'PEA-PME', 'valeur' => '225 000 €', 'note' => 'Cumul PEA + PEA-PME limité à 225 000 €'],
+                ]],
+                ['titre' => 'Espèces et paiements', 'lignes' => [
+                    ['libelle' => 'Paiement en espèces entre particuliers et professionnels', 'valeur' => '1 000 €', 'note' => 'Résident fiscal français ; 15 000 € pour un non-résident'],
+                    ['libelle' => 'Dépôts ou retraits en espèces cumulés sur un mois', 'valeur' => '10 000 €', 'note' => 'Au-delà, déclaration systématique à Tracfin par la banque'],
+                    ['libelle' => 'Virement SEPA instantané', 'valeur' => '100 000 €', 'note' => 'Maximum du schéma ; la banque peut fixer un plafond inférieur'],
+                ]],
+                ['titre' => 'Garantie des dépôts (FGDR)', 'lignes' => [
+                    ['libelle' => 'Dépôts (comptes, livrets)', 'valeur' => '100 000 €', 'note' => 'Par déposant et par établissement'],
+                    ['libelle' => 'Titres (comptes-titres, PEA)', 'valeur' => '70 000 €', 'note' => 'Par investisseur et par établissement'],
+                    ['libelle' => 'Cautionnements', 'valeur' => '90 000 €', 'note' => ''],
+                    ['libelle' => 'Assurance-vie (FGAP)', 'valeur' => '70 000 €', 'note' => 'Par assuré et par entreprise d\'assurance'],
+                ]],
+                ['titre' => 'Donations et successions : abattements', 'lignes' => [
+                    ['libelle' => 'Parent / enfant', 'valeur' => '100 000 €', 'note' => 'Renouvelable tous les 15 ans'],
+                    ['libelle' => 'Grand-parent / petit-enfant', 'valeur' => '31 865 €', 'note' => ''],
+                    ['libelle' => 'Arrière-grand-parent / arrière-petit-enfant', 'valeur' => '5 310 €', 'note' => ''],
+                    ['libelle' => 'Frère / sœur', 'valeur' => '15 932 €', 'note' => ''],
+                    ['libelle' => 'Neveu / nièce', 'valeur' => '7 967 €', 'note' => ''],
+                    ['libelle' => 'Personne handicapée (cumulable)', 'valeur' => '159 325 €', 'note' => ''],
+                    ['libelle' => 'Don familial de sommes d\'argent', 'valeur' => '31 865 €', 'note' => 'Donateur de moins de 80 ans, bénéficiaire majeur'],
+                ]],
+                ['titre' => 'Assurance-vie', 'lignes' => [
+                    ['libelle' => 'Capital décès : abattement par bénéficiaire (primes avant 70 ans)', 'valeur' => '152 500 €', 'note' => 'Article 990 I du CGI'],
+                    ['libelle' => 'Rachat après 8 ans : abattement annuel sur les gains', 'valeur' => '4 600 € / 9 200 €', 'note' => 'Personne seule / couple soumis à imposition commune'],
+                ]],
+                ['titre' => 'Crédit', 'lignes' => [
+                    ['libelle' => 'Crédit à la consommation : champ d\'application', 'valeur' => '200 € à 75 000 €', 'note' => ''],
+                ]],
+            ]],
+        ],
+        'memo_delais' => [
+            'label' => 'Mémo : délais légaux', 'icon' => 'fa-hourglass-half', 'type' => 'memo',
+            'help' => 'Délais de réflexion, de rétractation, de contestation et de réponse les plus courants en agence, affichés dans le mémo de /tools.',
+            'sources' => [
+                ['Service-public.fr – Argent / Banque et crédit', 'https://www.service-public.fr/', 'Fiches pratiques sur les délais applicables aux particuliers.'],
+                ['Légifrance – Code de la consommation, Code monétaire et financier', 'https://www.legifrance.gouv.fr/', 'Textes de référence pour chaque délai.'],
+                ['Médiateur de l\'AFB / ACPR – Réclamations et médiation', 'https://acpr.banque-france.fr/', 'Délais de traitement des réclamations et saisine du médiateur.'],
+            ],
+            'verifie' => ['date' => '09/10/2026', 'source' => 'connaissance générale de la réglementation',
+                'ok' => '', 'ko' => 'tous les délais sont à contrôler sur les textes avant de cocher « J\'ai contrôlé » ; à faire valider par la conformité'],
+            'default' => ['groupes' => [
+                ['titre' => 'Crédit immobilier', 'lignes' => [
+                    ['libelle' => 'Délai de réflexion sur l\'offre', 'valeur' => '10 jours', 'note' => 'Acceptation possible à partir du 11e jour suivant la réception de l\'offre'],
+                    ['libelle' => 'Validité minimale de l\'offre', 'valeur' => '30 jours', 'note' => ''],
+                    ['libelle' => 'Remboursement anticipé : indemnité maximale', 'valeur' => '6 mois d\'intérêts ou 3 % du capital restant dû', 'note' => 'Le montant le moins élevé est retenu'],
+                    ['libelle' => 'Assurance emprunteur : résiliation / substitution', 'valeur' => 'À tout moment', 'note' => 'La banque répond sous 10 jours ouvrés à une demande de substitution (loi Lemoine)'],
+                    ['libelle' => 'Condition suspensive d\'obtention du prêt', 'valeur' => 'Environ 45 jours', 'note' => 'Délai usuel, fixé dans le compromis de vente'],
+                ]],
+                ['titre' => 'Crédit à la consommation', 'lignes' => [
+                    ['libelle' => 'Délai de rétractation', 'valeur' => '14 jours calendaires', 'note' => 'À compter de l\'acceptation de l\'offre'],
+                    ['libelle' => 'Offre préalable : durée de maintien', 'valeur' => '15 jours minimum', 'note' => ''],
+                ]],
+                ['titre' => 'Comptes et moyens de paiement', 'lignes' => [
+                    ['libelle' => 'Contestation d\'un prélèvement SEPA autorisé', 'valeur' => '8 semaines', 'note' => 'À compter du débit'],
+                    ['libelle' => 'Contestation d\'une opération non autorisée (carte, virement, prélèvement)', 'valeur' => '13 mois', 'note' => 'La banque rembourse au plus tard le premier jour ouvrable suivant, sauf soupçon de fraude'],
+                    ['libelle' => 'Validité d\'un chèque', 'valeur' => '1 an et 8 jours', 'note' => 'À compter de la date d\'émission'],
+                    ['libelle' => 'Virement SEPA', 'valeur' => 'J+1 ouvrable', 'note' => 'Crédit du compte du bénéficiaire au plus tard le jour ouvrable suivant'],
+                    ['libelle' => 'Clôture d\'un compte de dépôt par la banque', 'valeur' => 'Préavis de 60 jours', 'note' => ''],
+                    ['libelle' => 'Comptes inactifs', 'valeur' => '10 ans', 'note' => 'Transfert à la Caisse des dépôts au terme de l\'inactivité'],
+                ]],
+                ['titre' => 'Réclamations et médiation', 'lignes' => [
+                    ['libelle' => 'Réclamation : accusé de réception', 'valeur' => '10 jours ouvrables', 'note' => ''],
+                    ['libelle' => 'Réclamation sur un service de paiement : réponse', 'valeur' => '15 jours ouvrables', 'note' => 'Jusqu\'à 35 jours en cas de circonstances exceptionnelles'],
+                    ['libelle' => 'Autre réclamation : réponse', 'valeur' => '2 mois maximum', 'note' => ''],
+                    ['libelle' => 'Saisine du médiateur', 'valeur' => 'Après 2 mois sans réponse ou en cas de refus', 'note' => ''],
+                ]],
+                ['titre' => 'Assurance-vie et succession', 'lignes' => [
+                    ['libelle' => 'Assurance-vie : renonciation au contrat', 'valeur' => '30 jours', 'note' => ''],
+                    ['libelle' => 'Assurance-vie : versement du capital au bénéficiaire', 'valeur' => '1 mois', 'note' => 'À compter de la réception des pièces'],
+                    ['libelle' => 'Déclaration de succession', 'valeur' => '6 mois', 'note' => '12 mois si le décès a lieu hors de France'],
+                    ['libelle' => 'Frais d\'obsèques prélevés sur les comptes du défunt', 'valeur' => 'Jusqu\'à 5 910 €', 'note' => ''],
+                ]],
+                ['titre' => 'Prescription', 'lignes' => [
+                    ['libelle' => 'Action d\'un professionnel contre un consommateur (crédit)', 'valeur' => '2 ans', 'note' => ''],
+                    ['libelle' => 'Prescription de droit commun', 'valeur' => '5 ans', 'note' => ''],
+                ]],
+            ]],
+        ],
         'hcsf' => [
             'label' => 'Plafonds HCSF (endettement et durée)', 'icon' => 'fa-gauge-high',
             'help' => 'Taux d\'endettement maximal et durées maximales recommandées pour les crédits immobiliers.',
@@ -240,6 +351,19 @@ function baremeCheck($cle, $d) {
     if ($cle === 'grandioz') {
         foreach (['progression', 'montant_min', 'duree_min_mois', 'duree_max_mois', 'age_max'] as $k) if (!isset($d[$k]) || !is_numeric($d[$k]) || $d[$k] <= 0) return "Valeur positive manquante : $k";
         if ($d['duree_min_mois'] > $d['duree_max_mois']) return 'Durée minimale supérieure à la durée maximale.';
+        return null;
+    }
+    if ($cle === 'saisie') {
+        $sx = $d['seuils'] ?? null; $qx = $d['quotites'] ?? null;
+        if (!is_array($sx) || count($sx) !== 6 || !is_array($qx) || count($qx) !== 7) return 'Six seuils et sept quotités attendus.';
+        $prev = 0; foreach ($sx as $v) { if (!is_numeric($v) || $v <= $prev) return 'Les seuils doivent être croissants.'; $prev = $v; }
+        foreach ($qx as $v) if (!is_numeric($v) || $v < 0 || $v > 100) return 'Chaque quotité doit être comprise entre 0 et 100 %.';
+        foreach (['charge_annuelle', 'rsa_mensuel'] as $k) if (!isset($d[$k]) || !is_numeric($d[$k]) || $d[$k] <= 0) return "Valeur positive manquante : $k";
+        return null;
+    }
+    if ($cle === 'memo_plafonds' || $cle === 'memo_delais') {
+        if (empty($d['groupes']) || !is_array($d['groupes'])) return 'Au moins un groupe de lignes est attendu.';
+        foreach ($d['groupes'] as $g) { if (!is_array($g) || trim((string)($g['titre'] ?? '')) === '' || empty($g['lignes'])) return 'Chaque groupe doit avoir un titre et au moins une ligne.'; }
         return null;
     }
     if ($cle === 'hcsf') {

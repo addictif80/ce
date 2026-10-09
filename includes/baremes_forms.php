@@ -62,6 +62,36 @@ function baremeRenderForm($cle, array $d) {
             <tr><td>Durée maximale (mois)</td><td><?= bfNum('[duree_max_mois]', $d['duree_max_mois'], '12') ?></td></tr>
             <tr><td>Âge maximum de l'un des emprunteurs (ans, inclus)</td><td><?= bfNum('[age_max]', $d['age_max'], '1') ?></td></tr>
         </tbody></table>
+    <?php } elseif ($cle === 'saisie') { $q = bfNumList($d['quotites']); ?>
+        <?= bfHelp('Tranches de rémunération nette <strong>annuelle</strong> : la quotité de chaque tranche s\'applique à la part de rémunération comprise dans cette tranche. Au-delà du dernier seuil, tout est saisissable.') ?>
+        <table class="table table-sm align-middle w-auto"><thead><tr><th>Tranche</th><th>Jusqu\'à (€ par an)</th><th>Part saisissable (%)</th></tr></thead><tbody>
+        <?php foreach (bfNumList($d['seuils']) as $i => $v): ?><tr><td>Tranche <?= $i + 1 ?></td><td><?= bfNum("[seuils][$i]", $v, '1') ?></td><td><?= bfNum("[quotites][$i]", $q[$i] ?? 0, 'any') ?></td></tr><?php endforeach; ?>
+        <tr><td>Au-delà</td><td class="text-muted">—</td><td><?= bfNum('[quotites][6]', $q[6] ?? 100, 'any') ?></td></tr>
+        </tbody></table>
+        <table class="table table-sm align-middle w-auto"><tbody>
+            <tr><td>Majoration par personne à charge (€ par an)</td><td><?= bfNum('[charge_annuelle]', $d['charge_annuelle'], '1') ?></td></tr>
+            <tr><td>RSA pour une personne seule (€ par mois) = solde bancaire insaisissable</td><td><?= bfNum('[rsa_mensuel]', $d['rsa_mensuel'], '0.01') ?></td></tr>
+        </tbody></table>
+    <?php } elseif ($cle === 'memo_plafonds' || $cle === 'memo_delais') { $gi = 0; ?>
+        <?= bfHelp('Chaque groupe est un encadré du mémo. Une ligne vide est ignorée ; pour supprimer une ligne, videz son libellé. Le champ « Valeur » est libre (montant, durée, texte).') ?>
+        <div id="memoGroups-<?= e($cle) ?>">
+        <?php foreach ($d['groupes'] as $g): $li = 0; ?>
+            <div class="border rounded p-2 mb-3 memo-group"><input name="d[groupes][<?= $gi ?>][titre]" value="<?= e($g['titre']) ?>" class="form-control fw-bold mb-2" placeholder="Titre du groupe">
+            <table class="table table-sm align-middle mb-1"><tbody>
+            <?php foreach (array_merge($g['lignes'], [['libelle' => '', 'valeur' => '', 'note' => '']]) as $l): ?>
+                <tr><td style="width:34%"><input name="d[groupes][<?= $gi ?>][lignes][<?= $li ?>][libelle]" value="<?= e($l['libelle']) ?>" class="form-control form-control-sm" placeholder="Libellé"></td>
+                    <td style="width:22%"><input name="d[groupes][<?= $gi ?>][lignes][<?= $li ?>][valeur]" value="<?= e($l['valeur']) ?>" class="form-control form-control-sm" placeholder="Valeur"></td>
+                    <td><input name="d[groupes][<?= $gi ?>][lignes][<?= $li ?>][note]" value="<?= e($l['note'] ?? '') ?>" class="form-control form-control-sm" placeholder="Précision (facultatif)"></td></tr>
+            <?php $li++; endforeach; ?></tbody></table></div>
+        <?php $gi++; endforeach; ?>
+        <div class="border rounded p-2 mb-3 memo-group bg-light"><input name="d[groupes][<?= $gi ?>][titre]" class="form-control fw-bold mb-2" placeholder="Nouveau groupe (titre) — laissez vide pour ne rien ajouter">
+            <table class="table table-sm align-middle mb-1"><tbody>
+            <?php for ($li = 0; $li < 4; $li++): ?>
+                <tr><td style="width:34%"><input name="d[groupes][<?= $gi ?>][lignes][<?= $li ?>][libelle]" class="form-control form-control-sm" placeholder="Libellé"></td>
+                    <td style="width:22%"><input name="d[groupes][<?= $gi ?>][lignes][<?= $li ?>][valeur]" class="form-control form-control-sm" placeholder="Valeur"></td>
+                    <td><input name="d[groupes][<?= $gi ?>][lignes][<?= $li ?>][note]" class="form-control form-control-sm" placeholder="Précision (facultatif)"></td></tr>
+            <?php endfor; ?></tbody></table></div>
+        </div>
     <?php } elseif ($cle === 'hcsf') { ?>
         <?= bfHelp('Les grandes règles du Haut Conseil de stabilité financière (HCSF) appliquées aux crédits immobiliers.') ?>
         <table class="table table-sm align-middle w-auto"><tbody>
@@ -153,6 +183,21 @@ function baremeCollect($cle, array $p) {
     $row = fn($a) => array_map($n, array_values((array)$a));
     if ($cle === 'hcsf') {
         return ['taux_endettement_max' => $n($p['taux_endettement_max'] ?? 0), 'duree_max_annees' => $n($p['duree_max_annees'] ?? 0), 'duree_max_annees_neuf' => $n($p['duree_max_annees_neuf'] ?? 0)];
+    }
+    if ($cle === 'saisie') {
+        return ['seuils' => $row($p['seuils'] ?? []), 'quotites' => $row($p['quotites'] ?? []), 'charge_annuelle' => $n($p['charge_annuelle'] ?? 0), 'rsa_mensuel' => $n($p['rsa_mensuel'] ?? 0)];
+    }
+    if ($cle === 'memo_plafonds' || $cle === 'memo_delais') {
+        $groupes = [];
+        foreach ((array)($p['groupes'] ?? []) as $g) {
+            $titre = mb_substr(trim((string)($g['titre'] ?? '')), 0, 120); $lignes = [];
+            foreach ((array)($g['lignes'] ?? []) as $l) {
+                $lib = mb_substr(trim((string)($l['libelle'] ?? '')), 0, 200); if ($lib === '') continue;
+                $lignes[] = ['libelle' => $lib, 'valeur' => mb_substr(trim((string)($l['valeur'] ?? '')), 0, 120), 'note' => mb_substr(trim((string)($l['note'] ?? '')), 0, 300)];
+            }
+            if ($titre !== '' && $lignes) $groupes[] = ['titre' => $titre, 'lignes' => $lignes];
+        }
+        return ['groupes' => $groupes];
     }
     if ($cle === 'primoz' || $cle === 'grandioz') {
         $out = [];

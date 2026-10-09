@@ -17,12 +17,16 @@ function newsEnsureSchema() {
         visible TINYINT(1) NOT NULL DEFAULT 1,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-    // Premier lancement : une entrée par outil récent du catalogue
-    if ((int)$db->query("SELECT COUNT(*) FROM tools_news")->fetchColumn() === 0 && function_exists('getPublicToolsCatalog')) {
+    // Une entrée « nouvel outil » est créée une fois par outil du catalogue (suivi dans le réglage news_seeded) ;
+    // supprimer l'entrée dans l'admin ne la recrée donc pas.
+    if (function_exists('getPublicToolsCatalog')) {
+        $seeded = json_decode(getToolsSetting('news_seeded', '[]'), true); $seeded = is_array($seeded) ? $seeded : [];
         $ins = $db->prepare("INSERT INTO tools_news (date_news, titre, texte, type, tool_key) VALUES (?, ?, ?, 'outil', ?)");
+        $changed = false;
         foreach (getPublicToolsCatalog() as $k => $t) {
-            if (!empty($t['added'])) $ins->execute([$t['added'], 'Nouvel outil : ' . $t['label'], $t['description'] ?? '', $k]);
+            if (!empty($t['added']) && !in_array($k, $seeded, true)) { $ins->execute([$t['added'], 'Nouvel outil : ' . $t['label'], $t['description'] ?? '', $k]); $seeded[] = $k; $changed = true; }
         }
+        if ($changed) setToolsSetting('news_seeded', json_encode($seeded));
     }
 }
 
