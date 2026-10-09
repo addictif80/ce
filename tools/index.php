@@ -23,7 +23,9 @@ toolsHeader('Outils en libre accès');
 ?>
 <style>.tool-desc{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.6em}.tool-card{transition:transform .12s,box-shadow .12s}a:hover > .tool-card{transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,.12)!important}html.f2f .tool-desc{-webkit-line-clamp:3}</style>
 <div class="container my-4">
-    <div class="privacy-banner mb-3" style="padding:12px 18px;">
+    <?php if ($visible): ?><div class="row g-3 mb-3"><div class="col-md-6">
+    <?php endif; ?>
+    <div class="privacy-banner h-100" style="padding:12px 18px;">
         <div class="d-flex align-items-center gap-3">
             <i class="fas fa-user-shield" style="font-size:1.8rem"></i>
             <div>
@@ -39,17 +41,19 @@ toolsHeader('Outils en libre accès');
         <style>.tools-message{background:#fff;color:#212529;border:1px solid #c8e6c9;border-radius:8px;padding:14px 18px}.tools-message a{color:#0d6efd}.tools-message > :last-child{margin-bottom:0}.tools-message h2,.tools-message h3{font-size:1.15rem}</style>
         <?php endif; ?>
     </div>
+    <?php if ($visible): ?></div>
+    <?php renderTermsToolsCard('half'); // avertissement : toujours la première carte (2e colonne de la première ligne) ?>
+    </div><?php endif; ?>
 
-    <?php if (toolsIntroEnabled()): ?><div class="text-end mb-2 no-print"><a href="#" data-intro-replay class="small text-decoration-none"><i class="fas fa-play-circle me-1"></i>Revoir la présentation</a></div><?php endif; ?>
 
     <?php if ($showCta): ?>
-    <div class="card border-0 shadow mb-4" style="background:linear-gradient(135deg,#e4002b 0%,#b30022 100%);color:#fff">
-        <div class="card-body d-md-flex align-items-center justify-content-between gap-4 p-4 p-md-5">
+    <div class="card border-0 shadow-sm mb-3" style="background:linear-gradient(135deg,#e4002b 0%,#b30022 100%);color:#fff">
+        <div class="card-body d-md-flex align-items-center justify-content-between gap-3 py-3 px-4">
             <div>
-                <h2 class="h3 mb-2 fw-bold"><i class="fas fa-user-plus me-2"></i><?= e($cta['title']) ?></h2>
-                <div class="mb-0 fs-6" style="opacity:.95"><?= nl2br(e($cta['text'])) ?></div>
+                <h2 class="h5 mb-1 fw-bold"><i class="fas fa-user-plus me-2"></i><?= e($cta['title']) ?></h2>
+                <div class="mb-0 small" style="opacity:.95"><?= nl2br(e($cta['text'])) ?></div>
             </div>
-            <button type="button" class="btn btn-light btn-lg flex-shrink-0 mt-3 mt-md-0 fw-bold px-4" style="color:#b30022" data-bs-toggle="modal" data-bs-target="#accessModal"><i class="fas fa-key me-2"></i>Demander un accès</button>
+            <button type="button" class="btn btn-light flex-shrink-0 mt-2 mt-md-0 fw-bold px-3" style="color:#b30022" data-bs-toggle="modal" data-bs-target="#accessModal"><i class="fas fa-key me-2"></i>Demander un accès</button>
         </div>
     </div>
 
@@ -89,14 +93,11 @@ toolsHeader('Outils en libre accès');
     <?php endif; ?>
 
 
-    <?php if ($newKeys): ?>
-    <div class="mb-3 small"><i class="fas fa-sparkles text-danger me-1"></i><strong>Récemment ajoutés :</strong>
-        <?php foreach ($newKeys as $k): ?><a href="<?= e($catalog[$k]['url']) ?>" class="badge text-bg-light border text-decoration-none me-1"><i class="fas <?= e($catalog[$k]['icon']) ?> me-1"></i><?= e($catalog[$k]['label']) ?></a><?php endforeach; ?> <a href="nouveautes.php" class="small ms-1">Tout voir<?= count($recents) > count($newKeys) ? ' (+' . (count($recents) - count($newKeys)) . ')' : '' ?></a></div>
-    <?php endif; ?>
     <div id="recentBar" class="mb-3 small" style="display:none"><i class="fas fa-clock-rotate-left text-secondary me-1"></i><strong>Utilisés récemment :</strong> <span id="recentList"></span></div>
     <div id="favSection" class="mb-4" style="display:none"><h2 class="h5 mb-3"><i class="fas fa-star text-warning me-1"></i>Mes favoris</h2><div class="row g-3" id="favRow"></div><hr class="mt-4"></div>
     <?php if (!$visible): ?>
-        <div class="row g-3 mb-3"><?php renderTermsToolsCard(true); ?></div>
+        <div class="row g-3 mb-3"><?php renderTermsToolsCard('full'); ?></div>
+        
         <div class="alert alert-info">Aucun outil n'est disponible pour le moment.</div>
     <?php else: ?>
     <?php
@@ -112,8 +113,7 @@ toolsHeader('Outils en libre accès');
     $autres = array_values(array_diff($visible, $placed));
     if ($autres) $groupes['Autres outils'] = $autres;
     ?>
-    <div class="row g-3 mb-3"><?php renderTermsToolsCard(true); // avertissement : toujours la première carte ?></div>
-    <div class="mb-3 no-print" style="max-width:420px"><label class="visually-hidden" for="toolFilter">Filtrer les outils</label><input type="search" id="toolFilter" class="form-control" placeholder="Filtrer les outils de cette page…" autocomplete="off"></div>
+    <div class="mb-3 no-print d-flex flex-wrap gap-3 align-items-center justify-content-between"><div style="width:min(420px,100%)"><label class="visually-hidden" for="toolFilter">Filtrer les outils</label><input type="search" id="toolFilter" class="form-control" placeholder="Filtrer les outils de cette page…" autocomplete="off"></div><?php if (toolsIntroEnabled()): ?><a href="#" data-intro-replay class="small text-decoration-none"><i class="fas fa-play-circle me-1"></i>Revoir la présentation</a><?php endif; ?></div>
     <?php $gi = 0; $gActifs = []; foreach ($groupes as $gTitre => $gKeys) { $gKeys = array_values(array_filter($gKeys, fn($k) => in_array($k, $visible, true))); if ($gKeys) $gActifs[$gTitre] = $gKeys; } ?>
     <div class="d-flex flex-wrap gap-2 mb-3 no-print" role="tablist" aria-label="Catégories d'outils" id="toolTabs">
         <button type="button" class="btn btn-sm btn-danger" role="tab" data-g="all" aria-selected="true">Tous <span class="badge text-bg-light"><?= count($visible) ?></span></button>

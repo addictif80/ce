@@ -112,11 +112,21 @@ function renderTermsModal($acceptUrl, $logoutUrl, $pending) {
 }
 
 /** Carte d'avertissement placée en première position de la liste des outils de /tools */
-function renderTermsToolsCard($wide = false) {
+function renderTermsToolsCard($mode = false) {
     $t = getTermsSettings();
     $paras = array_filter(array_map('trim', preg_split('/\R/', $t['text'])));
     ?>
-<?php if ($wide): ?>
+<?php if ($mode === 'half'): ?>
+<div class="col-md-6">
+    <div class="card shadow-sm h-100" style="border:2px solid #f0ad4e;background:#fffaf0">
+        <div class="card-body py-2 px-3 d-flex gap-3 align-items-start">
+            <span style="color:#d98200;font-size:1.6rem" class="flex-shrink-0"><i class="fas fa-triangle-exclamation"></i></span>
+            <div><h2 class="h6 mb-1"><?= e($t['title']) ?></h2>
+            <?php foreach ($paras as $p): ?><p class="small mb-1"><?= e($p) ?></p><?php endforeach; ?></div>
+        </div>
+    </div>
+</div>
+<?php elseif ($mode): ?>
 <div class="col-12">
     <div class="card shadow-sm" style="border:2px solid #f0ad4e;background:#fffaf0">
         <div class="card-body py-2 px-3 d-flex gap-3 align-items-start">

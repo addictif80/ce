@@ -77,7 +77,8 @@
     #tdoc table{border-collapse:collapse;width:100%;font-size:10pt}
     #tdoc td,#tdoc th{border-bottom:1px solid #ddd;padding:3px 6px;text-align:left;vertical-align:top}
     #tdoc td:last-child{text-align:right}
-    #tdoc .td-res{border:1px solid #999;border-radius:4px;padding:10px 12px;margin-bottom:8px;break-inside:avoid;background:#fff!important;color:#000!important}
+    #tdoc .td-res{border:1px solid #999;border-radius:4px;padding:10px 12px;margin-bottom:8px;break-inside:auto;background:#fff!important;color:#000!important}
+    #tdoc .td-res .mm-card,#tdoc .td-res .cap-res,#tdoc .td-res .cap-card{break-inside:auto!important}
     #tdoc .td-res *{color:#000!important;background:transparent!important;box-shadow:none!important;opacity:1!important}
     #tdoc .td-res .big{font-size:15pt;font-weight:700}
     #tdoc .td-res button,#tdoc .td-res .no-print{display:none!important}
