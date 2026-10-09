@@ -278,6 +278,7 @@ const TYPE_ACQ_LABELS={MAISON:'Maison',APPARTEMENT:'Appartement'};
 const TYPE_PROP_LABELS={NU_PROPRIETAIRE:'Nu-propriétaire',USUFRUITIER:'Usufruitier',PLEINE_PROPRIETE:'Pleine propriété',NON_PROPRIETAIRE:'Non propriétaire'};
 const TYPES_LOGEMENT=['T1','T1 bis','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
 function usageChoice(d){
+  if(d.usage_choice!==undefined) return d.usage_choice||'';   // formulaire en cours de saisie (liste déroulante « Usage »)
   if(d.usage_bien==='RL') return d.usage_rl_type==='RL_SECONDAIRE'?'RL_SECONDAIRE':'RL_PRINCIPALE';
   return d.usage_bien||'';
 }
