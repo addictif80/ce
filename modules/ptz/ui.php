@@ -19,13 +19,20 @@ require __DIR__ . '/../_sim/style.php';
     </div></div>
   <div class="cap-card"><h2><i class="fas fa-house me-2 text-danger"></i>L'opération</h2>
     <div class="row g-2">
-      <div class="col-6"><label class="form-label small mb-0">Zone du logement</label>
+      <div class="col-12" id="pz_geo" style="display:none"><div class="row g-2">
+        <div class="col-6"><label class="form-label small mb-0">Département du logement</label>
+          <select class="form-select" id="pz_dep" data-noshare><option value="">Choisir…</option></select></div>
+        <div class="col-6"><label class="form-label small mb-0">Commune</label>
+          <input type="text" class="form-control" id="pz_commune" data-noshare list="pz_communes" autocomplete="off" placeholder="Tapez le nom de la commune" disabled>
+          <datalist id="pz_communes"></datalist></div>
+      </div></div>
+      <div class="col-6"><label class="form-label small mb-0">Zone du logement <span class="text-muted" id="pz_zinfo"></span></label>
         <select class="form-select" id="pz_zone"><option value="A">A bis / A</option><option value="B1">B1</option><option value="B2">B2</option><option value="C">C</option></select></div>
       <div class="col-6"><label class="form-label small mb-0">Type de bien</label>
         <select class="form-select" id="pz_type"><?php foreach ($ptzBareme['types'] as $k => $t): ?><option value="<?= e($k) ?>"><?= e($t['label']) ?></option><?php endforeach; ?></select></div>
       <div class="col-6"><label class="form-label small mb-0">Coût de l'opération (€)</label><input type="number" min="0" step="any" class="form-control" id="pz_cout" value="220000"></div>
     </div>
-    <div class="form-text">La zone dépend de la commune du bien (A bis, A, B1, B2, C).</div>
+    <div class="form-text">La zone dépend de la commune du bien (A bis / A, B1, B2, C) : si vous ne la connaissez pas, utilisez le simulateur de l'ANIL indiqué sous les résultats. Ancien avec travaux : les travaux doivent représenter au moins 25 % du coût total.</div>
   </div>
   <?php if ($capSave) simSaveForm($capLoad, 'pzPrepare'); ?>
  </div>
@@ -36,41 +43,64 @@ require __DIR__ . '/../_sim/style.php';
     <div class="row mt-3 g-3">
       <div class="col-6"><div class="lbl">Tranche de revenus</div><div class="fw-bold" id="pr_tr">–</div></div>
       <div class="col-6"><div class="lbl">Quotité</div><div class="fw-bold" id="pr_q">–</div></div>
-      <div class="col-6"><div class="lbl">Durée / différé</div><div class="fw-bold" id="pr_d">–</div></div>
-      <div class="col-6"><div class="lbl">Mensualité après différé</div><div class="fw-bold" id="pr_m">–</div></div>
+      <div class="col-6"><div class="lbl">Durée totale / différé</div><div class="fw-bold" id="pr_d">–</div></div>
+      <div class="col-6"><div class="lbl">Mensualité pendant le différé</div><div class="fw-bold" id="pr_m1">–</div></div>
+      <div class="col-6"><div class="lbl">Mensualité après le différé</div><div class="fw-bold" id="pr_m">–</div></div>
+      <div class="col-6"><div class="lbl">Revenu retenu (÷ coefficient)</div><div class="fw-bold" id="pr_rv">–</div></div>
       <div class="col-6"><div class="lbl">Plafond de ressources</div><div class="fw-bold" id="pr_pr">–</div></div>
       <div class="col-6"><div class="lbl">Plafond de prix retenu</div><div class="fw-bold" id="pr_po">–</div></div>
     </div>
   </div>
-  <p class="small text-muted">Barème <?= e($ptzBareme['millesime'] ?? '') ?>. Simulation indicative : l'éligibilité définitive est vérifiée sur l'offre de prêt et les justificatifs.</p>
+  <div class="alert alert-warning py-2 small"><i class="fas fa-triangle-exclamation me-1"></i><strong>Résultat indicatif</strong> : il repose uniquement sur les informations saisies et n'a pas de valeur contractuelle. L'éligibilité définitive est vérifiée sur l'offre de prêt et les justificatifs.</div>
+  <p class="small text-muted mb-1">Barème <?= e($ptzBareme['millesime'] ?? '') ?>. Le revenu retenu est le plus élevé du revenu fiscal de référence et du coût de l'opération divisé par <?= e((string)($ptzBareme['diviseur_cout'] ?? 9)) ?>.</p>
+  <p class="small text-muted"><strong>Cas non pris en compte</strong> : location-accession (PSLA), bail réel solidaire (BRS), logement social, TVA à taux réduit (QPV, ANRU), transformation d'un local en logement : les règles diffèrent (voir <a href="https://www.service-public.fr/particuliers/vosdroits/F10871" target="_blank" rel="noopener noreferrer">service-public.fr</a>). Pour connaître la zone d'une commune : <a href="https://www.anil.org/outils/outils-de-calcul/votre-pret-a-taux-zero/" target="_blank" rel="noopener noreferrer">simulateur de l'ANIL</a> (la zone est déduite de la commune saisie).</p>
  </div>
 </div>
+<script><?php readfile(__DIR__ . '/../../assets/js/ptz-calc.js'); ?></script>
 <script>
 (function(){
   const B=<?= json_encode($ptzBareme) ?>;
   const $=id=>document.getElementById(id), n=id=>parseFloat($(id).value)||0;
   const eur=v=>Math.round(v).toLocaleString('fr-FR')+' €', eur2=v=>(Math.round(v*100)/100).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
   const NUM=['pers','rfr','cout'];
-  function calc(p){
-    const np=Math.max(1,Math.round(p.pers)), z=p.zone, t=B.types[p.type];
-    const coeff=B.coeff_familial[Math.min(np,5)-1];
-    const revenu=Math.max(p.rfr,p.cout/B.diviseur_cout);          // revenu retenu : le plus élevé du RFR et du coût / 9
-    const maxRev=B.plafonds_ressources[z][Math.min(np,8)-1];
-    const lim=B.tranches[z], rpc=revenu/coeff;                     // revenu par unité de coefficient familial
-    let tr=lim.findIndex(l=>rpc<=l); if(tr<0) tr=3;
-    const po=B.plafonds_operation[z][Math.min(np,5)-1];
-    const out={coeff,revenu,rpc,maxRev,lim,po,errs:[]};
-    if(!p.primo) out.errs.push("le PTZ est réservé aux primo-accédants");
-    if(!p.rp) out.errs.push("le logement doit être la résidence principale");
-    if(!t||!t.zones.includes(z)) out.errs.push("ce type de logement n'est pas éligible dans cette zone");
-    if(revenu>maxRev) out.errs.push("revenus retenus ("+eur(revenu)+") supérieurs au plafond de la zone ("+eur(maxRev)+")");
-    if(rpc>lim[3]) out.errs.push("revenus au-delà de la tranche 4");
-    out.tr=tr; out.q=t?t.quotites[tr]:0;
-    out.prix=Math.min(p.cout,po); out.mont=out.errs.length?0:Math.round(out.prix*out.q/100);
-    out.d=B.durees[tr]; out.mens=out.mont>0&&out.d.total>out.d.differe?out.mont/((out.d.total-out.d.differe)*12):0;
-    return out;
+  const calc=p=>window.ptzCalc(B,p);
+  // ── Zone déduite du département et de la commune (si la liste a été importée par l'administrateur) ──
+  const ZURL=<?= json_encode($ptzZonageUrl ?? null) ?>;
+  let communes=new Map(), pending=null;
+  const ZMAP={Abis:'A',A:'A',B1:'B1',B2:'B2',C:'C'}, ZLIB={Abis:'A bis',A:'A',B1:'B1',B2:'B2',C:'C'};
+  async function jget(u){const r=await fetch(u,{credentials:'same-origin'});if(!r.ok)throw new Error(r.status);return r.json();}
+  async function loadDeps(){
+    if(!ZURL) return;
+    try{
+      const j=await jget(ZURL); if(!j.available) return;
+      $('pz_dep').innerHTML='<option value="">Choisir…</option>'+j.departements.map(d=>`<option value="${d[0]}">${d[0]} – ${d[1]||''}</option>`).join('');
+      $('pz_geo').style.display='';
+      if(pending){applyPending();}
+    }catch(e){}
   }
-  function params(){return {pers:n('pz_pers'),rfr:n('pz_rfr'),primo:$('pz_primo').checked,rp:$('pz_rp').checked,zone:$('pz_zone').value,type:$('pz_type').value,cout:n('pz_cout')};}
+  async function loadCommunes(dep){
+    communes=new Map(); $('pz_communes').innerHTML=''; $('pz_commune').value=''; $('pz_zinfo').textContent='';
+    $('pz_commune').disabled=!dep; if(!dep) return;
+    try{
+      const j=await jget(ZURL+(ZURL.includes('?')?'&':'?')+'dep='+encodeURIComponent(dep));
+      (j.communes||[]).forEach(c=>communes.set(c[1].toLowerCase(),c));
+      $('pz_communes').innerHTML=(j.communes||[]).map(c=>`<option value="${String(c[1]).replace(/"/g,'&quot;')}">`).join('');
+    }catch(e){}
+  }
+  function pickCommune(){
+    const c=communes.get($('pz_commune').value.trim().toLowerCase());
+    if(c){$('pz_zone').value=ZMAP[c[2]]||'C'; $('pz_zinfo').textContent='(déduite : '+ZLIB[c[2]]+')'; run();}
+    else $('pz_zinfo').textContent='';
+  }
+  async function applyPending(){
+    const g=pending; pending=null; if(!g||!g.dep) return;
+    $('pz_dep').value=g.dep; await loadCommunes(g.dep); if(g.commune){$('pz_commune').value=g.commune; pickCommune();}
+  }
+  $('pz_dep').addEventListener('change',()=>loadCommunes($('pz_dep').value));
+  $('pz_commune').addEventListener('input',pickCommune);
+  $('pz_zone').addEventListener('change',()=>{$('pz_zinfo').textContent='';});
+  window.toolsShare={get:()=>({dep:$('pz_dep').value,commune:$('pz_commune').value}),set:o=>{pending=o;if($('pz_geo').style.display!=='none')applyPending();}};
+  function params(){return {dep:$('pz_dep').value,commune:$('pz_commune').value,pers:n('pz_pers'),rfr:n('pz_rfr'),primo:$('pz_primo').checked,rp:$('pz_rp').checked,zone:$('pz_zone').value,type:$('pz_type').value,cout:n('pz_cout')};}
   function run(){
     const p=params(), r=calc(p);
     $('pr_mont').textContent=eur(r.mont);
@@ -79,14 +109,16 @@ require __DIR__ . '/../_sim/style.php';
     $('pr_q').textContent=r.q+' % du prix plafonné ('+eur(r.prix)+')';
     $('pr_d').textContent=r.d.total+' ans dont '+r.d.differe+' ans de différé';
     $('pr_m').textContent=r.mens>0?eur2(r.mens):'–';
+    $('pr_m1').textContent=r.mont>0?(r.d.differe>0?'0 € (différé de '+r.d.differe+' ans)':'Pas de différé'):'–';
+    $('pr_rv').textContent=eur(r.revenu)+' ÷ '+String(r.coeff).replace('.',',')+' = '+eur(r.rpc);
     $('pr_pr').textContent=eur(r.maxRev); $('pr_po').textContent=eur(r.po);
     return {p,r};
   }
   ['pers','rfr','primo','rp','zone','type','cout'].forEach(k=>$('pz_'+k).addEventListener('input',run));
   window.pzPrepare=function(f){const x=run();f.params.value=JSON.stringify(x.p);f.resultat.value=JSON.stringify({ptz:x.r.mont,eligible:x.r.errs.length===0,tranche:x.r.tr+1,duree:x.r.d.total*12,differe:x.r.d.differe*12});return true;};
   const load=<?= json_encode($capLoad ? json_decode($capLoad['params'] ?? '{}', true) : null) ?>;
-  if(load){NUM.forEach(k=>{if(load[k]!==undefined)$('pz_'+k).value=load[k];});['zone','type'].forEach(k=>{if(load[k])$('pz_'+k).value=load[k];});if('primo' in load)$('pz_primo').checked=!!load.primo;if('rp' in load)$('pz_rp').checked=!!load.rp;}
-  run();
+  if(load){NUM.forEach(k=>{if(load[k]!==undefined)$('pz_'+k).value=load[k];});['zone','type'].forEach(k=>{if(load[k])$('pz_'+k).value=load[k];});if('primo' in load)$('pz_primo').checked=!!load.primo;if('rp' in load)$('pz_rp').checked=!!load.rp;if(load.dep)pending={dep:load.dep,commune:load.commune||''};}
+  run(); loadDeps();
 })();
 </script>
 <?php require __DIR__ . '/../_sim/common_js.php'; ?>

@@ -34,7 +34,7 @@ function ptzDefaultBareme() {
             'ancien_travaux' => ['label' => 'Ancien avec travaux (au moins 25 % du coût)', 'zones' => ['B2', 'C'], 'quotites' => [50, 40, 40, 20]],
         ],
         // Durée totale et différé de remboursement (en années) par tranche
-        'durees' => [['total' => 25, 'differe' => 15], ['total' => 22, 'differe' => 10], ['total' => 20, 'differe' => 5], ['total' => 15, 'differe' => 0]],
+        'durees' => [['total' => 25, 'differe' => 10], ['total' => 20, 'differe' => 8], ['total' => 15, 'differe' => 2], ['total' => 10, 'differe' => 0]],
         // Revenu retenu = le plus élevé du revenu fiscal de référence et du coût de l'opération divisé par ce nombre
         'diviseur_cout' => 9,
     ];

@@ -12,11 +12,11 @@ function baremeCatalog() {
             'help' => 'Conditions de ressources, plafonds de coût, part financée et durées du prêt à taux zéro.',
             'sources' => [
                 ['Service-public.fr – Prêt à taux zéro (PTZ)', 'https://www.service-public.fr/particuliers/vosdroits/F10871', 'Tableaux « Montant auquel votre revenu doit être inférieur… », « Déterminer la tranche de revenus », « Coût maximum de l\'opération » et « Part maximum du PTZ » (choisir « Offre de prêt émise à partir d\'avril 2025 »).'],
-                ['ANIL – Outils de calcul', 'https://www.anil.org/outils/outils-de-calcul/ptz/', 'Simulateur officiel pour comparer un cas concret avec le résultat de notre simulateur.'],
+                ['ANIL – Simulateur « Votre prêt à taux zéro »', 'https://www.anil.org/outils/outils-de-calcul/votre-pret-a-taux-zero/', 'Saisissez un cas concret (commune, personnes, revenu fiscal, coût de l\'opération) et comparez montant maximum, durée, différé et mensualités avec notre simulateur.'],
             ],
-            'verifie' => ['date' => '08/10/2026', 'source' => 'Service-public.fr',
-                'ok' => 'coefficients familiaux, revenus maximaux, limites de tranches, coûts maximaux, parts financées (offres émises à partir d\'avril 2025)',
-                'ko' => 'durées et différés par tranche (la page indique seulement : 25 ans maximum et différé d\'au moins 2 ans) — à confirmer'],
+            'verifie' => ['date' => '08/10/2026', 'source' => 'Service-public.fr et le simulateur de l\'ANIL',
+                'ok' => 'coefficients familiaux, revenus maximaux, limites de tranches, coûts maximaux, parts financées, durées et différés par tranche, revenu retenu (coût ÷ 9) — offres émises à partir d\'avril 2025',
+                'ko' => ''],
             'default' => ptzDefaultBareme(),
         ],
         'notaire' => [
@@ -138,6 +138,49 @@ function baremeCatalog() {
                 ],
             ],
         ],
+        'doublissimo' => [
+            'label' => 'Doublissimo (prêt complémentaire des primo-accédants)', 'icon' => 'fa-clone',
+            'help' => 'Règles de la fiche produit : 20 % du financement total, plafond, durées et offre exceptionnelle (plafond doublé et taux préférentiel pendant la campagne).',
+            'sources' => [
+                ['Fiche produit Doublissimo (intranet / Easydoc) – mise à jour avril 2026', '', 'Fiche interne : montant (20 % du financement total CEMP, plafond 22 500 € hors campagne ; offre exceptionnelle du 1er avril au 30 juin : plafond 45 000 € pour le canal agence, 22 500 € pour la prescription immobilière, taux fixe 1,99 %), durée de 3 mois jusqu\'à la durée du prêt principal (300 mois maximum).'],
+            ],
+            'verifie' => ['date' => '08/10/2026', 'source' => 'la fiche produit interne (avril 2026)',
+                'ok' => 'pourcentage, plafonds, durées, dates et taux de la campagne',
+                'ko' => 'la fiche indique une campagne du 1er avril au 30 juin 2026, mais le logiciel interne applique encore le plafond de 45 000 € : la date de fin est donc laissée vide (campagne ouverte) ; renseignez-la quand la campagne s\'arrête'],
+            'default' => ['pourcentage' => 20, 'plafond' => 22500, 'duree_min_mois' => 3, 'duree_max_mois' => 300,
+                'campagne' => ['debut' => '2026-04-01', 'fin' => '', 'plafond_agence' => 45000, 'plafond_prescription' => 22500, 'taux' => 1.99]],
+        ],
+        'primo_jeune' => [
+            'label' => 'Primo Jeune 0 % (prêt complémentaire au PTZ)', 'icon' => 'fa-child',
+            'help' => 'Règles de la fiche produit : prêt sans intérêt ni frais, plafonné en montant et à un pourcentage du financement total, réservé aux emprunteurs de 35 ans ou moins éligibles au PTZ.',
+            'sources' => [
+                ['Fiche produit Primo Jeune 0 % et présentation « Primo Jeunes et Grandioz » (intranet / Easydoc)', '', 'Fiches internes : montant maximum 20 000 € et 10 % du montant global des financements (PTZ compris), durée maximale 20 ans par multiples de 12 mois, taux 0 %, sans frais de dossier ni IRA, un emprunteur de 35 ans maximum, primo-accédant éligible au PTZ (PTZ obligatoire), résidence principale.'],
+            ],
+            'verifie' => ['date' => '09/10/2026', 'source' => 'la fiche produit interne',
+                'ok' => 'montant, pourcentage, durée et âge maximum',
+                'ko' => 'la fiche produit porte une date de version incohérente (2031) : vérifier auprès de la hiérarchie que le dispositif est toujours commercialisé'],
+            'default' => ['pourcentage' => 10, 'plafond' => 20000, 'duree_max_mois' => 240, 'age_max' => 35],
+        ],
+        'primoz' => [
+            'label' => 'Primoz (prêt amorti avec différé de longue durée)', 'icon' => 'fa-hourglass-half',
+            'help' => 'Règles de la fiche produit : 10 à 20 % du financement, 10 000 à 120 000 €, durée de 20 à 25 ans dont 10 à 15 ans de différé d\'amortissement (intérêts seuls), primo-accédants de moins de 36 ans en CDI.',
+            'sources' => [
+                ['Fiche produit Primoz (intranet / Easydoc) – version du 05/11/2024', '', 'Fiche interne : montant entre 10 % et 20 % du montant financé (10 000 € minimum, 120 000 € maximum), durée de 20 à 25 ans par multiples de 12 mois, différé d\'amortissement en capital de 120 à 180 mois (échéances d\'intérêts seuls), taux selon le barème de la CE, couplé obligatoirement à un prêt principal amortissable, incompatible avec PC-PAS, Primolis et Grandioz.'],
+            ],
+            'verifie' => ['date' => '09/10/2026', 'source' => 'la fiche produit interne',
+                'ok' => 'pourcentages, montants, durées, différé et âge maximum', 'ko' => ''],
+            'default' => ['pct_min' => 10, 'pct_max' => 20, 'montant_min' => 10000, 'montant_max' => 120000, 'duree_min_mois' => 240, 'duree_max_mois' => 300, 'differe_min_mois' => 120, 'differe_max_mois' => 180, 'age_max' => 35],
+        ],
+        'grandioz' => [
+            'label' => 'Grandioz (prêt à échéances progressives)', 'icon' => 'fa-arrow-trend-up',
+            'help' => 'Règles de la présentation « Primo Jeunes et Grandioz » : échéances progressives de 1 % par an, financement minimum, durée de 7 à 25 ans, primo-accédants de 35 ans maximum ; ne se combine pas avec le PTZ.',
+            'sources' => [
+                ['Présentation « Primo Jeunes et Grandioz » (intranet / Easydoc)', '', 'Fiche interne : prêt à taux fixe à échéances progressives (1 % l\'an), financement minimum 50 000 €, durée de 7 à 25 ans, primo-accédant de 35 ans maximum en CDI / titulaire, exclusion des bénéficiaires du PTZ, taux d\'effort de 35 % calculé sur la première échéance.'],
+            ],
+            'verifie' => ['date' => '09/10/2026', 'source' => 'la présentation interne',
+                'ok' => 'progression, montant minimum, durées et âge', 'ko' => ''],
+            'default' => ['progression' => 1, 'montant_min' => 50000, 'duree_min_mois' => 84, 'duree_max_mois' => 300, 'age_max' => 35],
+        ],
         'hcsf' => [
             'label' => 'Plafonds HCSF (endettement et durée)', 'icon' => 'fa-gauge-high',
             'help' => 'Taux d\'endettement maximal et durées maximales recommandées pour les crédits immobiliers.',
@@ -173,6 +216,30 @@ function baremeCheck($cle, $d) {
         foreach ($d['emoluments'] as $t) if (!is_array($t) || count($t) !== 2 || !is_numeric($t[1])) return 'Émoluments : chaque tranche est [borne haute ou null, taux].';
         foreach (['droits_neuf', 'taxe_communale', 'frais_assiette', 'tva', 'csi', 'taux_departemental_defaut'] as $k) if (!isset($d[$k]) || !is_numeric($d[$k])) return "Valeur numérique manquante : $k";
         foreach ((array)($d['departements'] ?? []) as $dep) if (!is_array($dep) || !isset($dep['taux']) || !is_numeric($dep['taux']) || (isset($dep['taux_primo']) && !is_numeric($dep['taux_primo']))) return 'Départements : chaque ligne doit avoir un code et des taux numériques.';
+        return null;
+    }
+    if ($cle === 'doublissimo') {
+        foreach (['pourcentage', 'plafond', 'duree_min_mois', 'duree_max_mois'] as $k) if (!isset($d[$k]) || !is_numeric($d[$k]) || $d[$k] <= 0) return "Valeur positive manquante : $k";
+        $c = $d['campagne'] ?? null;
+        if (!is_array($c)) return 'Campagne : données manquantes.';
+        foreach (['plafond_agence', 'plafond_prescription', 'taux'] as $k) if (!isset($c[$k]) || !is_numeric($c[$k]) || $c[$k] < 0) return "Campagne : valeur manquante ($k).";
+        foreach (['debut', 'fin'] as $k) if (($c[$k] ?? '') !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$c[$k])) return "Campagne : date invalide ($k).";
+        if ($c['debut'] !== '' && $c['fin'] !== '' && $c['fin'] < $c['debut']) return 'Campagne : la date de fin précède la date de début.';
+        if ($d['duree_min_mois'] > $d['duree_max_mois']) return 'Durée minimale supérieure à la durée maximale.';
+        return null;
+    }
+    if ($cle === 'primo_jeune') {
+        foreach (['pourcentage', 'plafond', 'duree_max_mois', 'age_max'] as $k) if (!isset($d[$k]) || !is_numeric($d[$k]) || $d[$k] <= 0) return "Valeur positive manquante : $k";
+        return null;
+    }
+    if ($cle === 'primoz') {
+        foreach (['pct_min', 'pct_max', 'montant_min', 'montant_max', 'duree_min_mois', 'duree_max_mois', 'differe_min_mois', 'differe_max_mois', 'age_max'] as $k) if (!isset($d[$k]) || !is_numeric($d[$k]) || $d[$k] <= 0) return "Valeur positive manquante : $k";
+        if ($d['pct_min'] > $d['pct_max'] || $d['montant_min'] > $d['montant_max'] || $d['duree_min_mois'] > $d['duree_max_mois'] || $d['differe_min_mois'] > $d['differe_max_mois']) return 'Un minimum dépasse son maximum.';
+        return null;
+    }
+    if ($cle === 'grandioz') {
+        foreach (['progression', 'montant_min', 'duree_min_mois', 'duree_max_mois', 'age_max'] as $k) if (!isset($d[$k]) || !is_numeric($d[$k]) || $d[$k] <= 0) return "Valeur positive manquante : $k";
+        if ($d['duree_min_mois'] > $d['duree_max_mois']) return 'Durée minimale supérieure à la durée maximale.';
         return null;
     }
     if ($cle === 'hcsf') {

@@ -48,7 +48,7 @@ function ciControles(d){
       if(l.taux===''||l.taux==null) err(nomL(i)+' : taux manquant');
       if(!c.assRaw.some(a=>(a.ligne??0)===i&&(num(a.taux)>0||num(a.cout_total)>0))) al(nomL(i)+' : aucune assurance');
     }
-    if(l.doublissimo&&Math.abs(num(l.montant)-doublissimoMontant(d))>1) al(nomL(i)+' : montant différent du Doublissimo calculé ('+fmt(doublissimoMontant(d))+' €)');
+
   });
   c.assRaw.forEach(a=>{ if((a.ligne??0)>=c.lignes.length) err('Une assurance est rattachée à une ligne qui n\'existe plus'); if((a.emp??0)>=c.emps.length) err('Une assurance est rattachée à un emprunteur qui n\'existe plus'); });
   c.lignes.forEach((l,i)=>{const b=new Set(c.assRaw.filter(a=>(a.ligne??0)===i&&num(a.taux)>0).map(a=>a.base)); if(b.size>1) al(nomL(i)+' : assurances sur des bases différentes (CI et CRD)');});
@@ -61,6 +61,68 @@ function ciControles(d){
     if(miss.length) al('Pièces non cochées ('+miss.length+') : '+miss.map(k=>CI_DOCS[k]).slice(0,4).join(', ')+(miss.length>4?'…':''));
   }
   if(d.garantie_type==='CEGC'&&ciWfIdx(d)>=CI_WF_ORDER.indexOf('edition_offres')&&d.suivi_cegc_accord!=1) al('Garantie CEGC : accord non enregistré alors que le dossier est au stade « édition des offres »');
+  c.lignes.forEach((l,i)=>{
+    if(!l.doublissimo) return;
+    const pl=doublissimoPlafond(d), p=dblParams(), princ=c.lignes.find(x=>!x.doublissimo&&!x.primo_jeune&&parseInt(x.duree)>0), ps=primoStatut(d);
+    if(num(l.montant)>pl+0.5) err(nomL(i)+' (Doublissimo) : '+fmt(l.montant)+' € supérieur au plafond de '+fmt(pl)+' €');
+    if(num(l.montant)>doublissimoMontant(d)+0.5) al(nomL(i)+' (Doublissimo) : supérieur à '+p.pourcentage+' % du financement total ('+fmt(doublissimoMontant(d))+' €)');
+    const dur=parseInt(l.duree)||0;
+    if(dur>0&&dur<num(p.duree_min_mois)) al(nomL(i)+' (Doublissimo) : durée inférieure au minimum de '+p.duree_min_mois+' mois');
+    if(dur>num(p.duree_max_mois)||(princ&&dur>parseInt(princ.duree))) al(nomL(i)+' (Doublissimo) : durée supérieure à celle du prêt principal ('+(princ?princ.duree:p.duree_max_mois)+' mois, '+p.duree_max_mois+' maximum)');
+    if(ps===''||ps==='NON') al('Doublissimo réservé aux primo-accédants (statut non renseigné ou « Non »)');
+    if(usageChoice(d)!=='RP') al('Doublissimo réservé au financement de la résidence principale');
+    if(d.ptz_actif!=1) al('Doublissimo sans PTZ : joindre l\'attestation sur l\'honneur de primo-accession');
+  });
+  c.lignes.forEach((l,i)=>{
+    if(!l.primo_jeune) return;
+    const p=pjParams(), dur=parseInt(l.duree)||0, ps=primoStatut(d), ages=c.emps.map(e=>ageDe(e.date_naissance)).filter(a=>a!==null);
+    if(num(l.montant)>num(p.plafond)+0.5) err(nomL(i)+' (Primo Jeune) : '+fmt(l.montant)+' € supérieur au maximum de '+fmt(p.plafond)+' €');
+    if(num(l.montant)>pjMontant(d)+0.5) err(nomL(i)+' (Primo Jeune) : supérieur à '+p.pourcentage+' % du financement total ('+fmt(pjMontant(d))+' €)');
+    if(dur>num(p.duree_max_mois)||(dur>0&&dur%12!==0)) al(nomL(i)+' (Primo Jeune) : durée de '+dur+' mois ; maximum '+p.duree_max_mois+' mois, par multiples de 12');
+    if(num(l.taux)!==0||num(l.frais_dossier)!==0) al(nomL(i)+' (Primo Jeune) : le prêt est à 0 % et sans frais de dossier');
+    if(d.ptz_actif!=1) err('Primo Jeune 0 % : le PTZ est obligatoire (prêt complémentaire au PTZ)');
+    if(ps===''||ps==='NON') al('Primo Jeune réservé aux primo-accédants (statut non renseigné ou « Non »)');
+    if(usageChoice(d)!=='RP') al('Primo Jeune réservé au financement de la résidence principale');
+    if(!ages.length) al('Primo Jeune : renseigner la date de naissance des emprunteurs (35 ans maximum pour l\'un d\'eux)');
+    else if(Math.min(...ages)>num(p.age_max)) err('Primo Jeune : aucun emprunteur de '+p.age_max+' ans ou moins (plus jeune : '+Math.min(...ages)+' ans)');
+  });
+  const ageMin=()=>{const a=c.emps.map(e=>ageDe(e.date_naissance)).filter(x=>x!==null);return a.length?Math.min(...a):null;};
+  const ageMax=()=>{const a=c.emps.map(e=>ageDe(e.date_naissance)).filter(x=>x!==null);return a.length?Math.max(...a):null;};
+  c.lignes.forEach((l,i)=>{
+    if(!l.primoz) return;
+    const p=pzParams(), dur=parseInt(l.duree)||0, df=parseInt(l.differe)||0, ft=financementTotal(d), m=num(l.montant), ps=primoStatut(d), am=ageMax();
+    if(m<num(p.montant_min)-0.5||m>num(p.montant_max)+0.5) err(nomL(i)+' (Primoz) : '+fmt(m)+' € hors de la fourchette '+fmt(p.montant_min)+' – '+fmt(p.montant_max)+' €');
+    if(ft>0&&(m<ft*num(p.pct_min)/100-0.5||m>ft*num(p.pct_max)/100+0.5)) al(nomL(i)+' (Primoz) : doit représenter '+p.pct_min+' à '+p.pct_max+' % du financement total ('+fmt(ft*p.pct_min/100)+' à '+fmt(ft*p.pct_max/100)+' €)');
+    if(dur<num(p.duree_min_mois)||dur>num(p.duree_max_mois)||(dur>0&&dur%12!==0)) al(nomL(i)+' (Primoz) : durée de '+dur+' mois ; '+p.duree_min_mois+' à '+p.duree_max_mois+' mois, par multiples de 12');
+    if(df<num(p.differe_min_mois)||df>num(p.differe_max_mois)) al(nomL(i)+' (Primoz) : différé de '+df+' mois ; '+p.differe_min_mois+' à '+p.differe_max_mois+' mois');
+    else if(dur-df<120) al(nomL(i)+' (Primoz) : la phase d\'amortissement ne doit pas être inférieure à 10 ans');
+    if(!c.lignes.some((x,k)=>k!==i&&!x.doublissimo&&!x.primo_jeune&&!x.primoz&&!x.grandioz&&num(x.montant)>0)) al('Primoz : doit être couplé à un prêt principal amortissable');
+    if(c.lignes.some(x=>x.grandioz)) err('Primoz et Grandioz sont incompatibles');
+    if(ps===''||ps==='NON') al('Primoz réservé aux primo-accédants');
+    if(usageChoice(d)!=='RP') al('Primoz réservé au financement de la résidence principale');
+    if(am===null) al('Primoz : renseigner la date de naissance des emprunteurs (moins de 36 ans)'); else if(am>num(p.age_max)) err('Primoz : emprunteur de '+am+' ans (maximum '+p.age_max+' ans, les deux emprunteurs étant concernés)');
+  });
+  c.lignes.forEach((l,i)=>{
+    if(!l.grandioz) return;
+    const p=grParams(), dur=parseInt(l.duree)||0, ps=primoStatut(d), an=ageMin();
+    if(num(l.montant)<num(p.montant_min)-0.5) al(nomL(i)+' (Grandioz) : financement minimum de '+fmt(p.montant_min)+' €');
+    if(dur<num(p.duree_min_mois)||dur>num(p.duree_max_mois)) al(nomL(i)+' (Grandioz) : durée de '+dur+' mois ; '+p.duree_min_mois+' à '+p.duree_max_mois+' mois');
+    if(d.ptz_actif==1) al('Grandioz et PTZ sont peu compatibles (le PTZ ne peut être associé que si le Grandioz est remboursé pendant son différé)');
+    if(ps===''||ps==='NON') al('Grandioz réservé aux primo-accédants');
+    if(usageChoice(d)!=='RP') al('Grandioz réservé à la résidence principale');
+    if(an===null) al('Grandioz : renseigner la date de naissance des emprunteurs (35 ans maximum)'); else if(an>num(p.age_max)) al('Grandioz : aucun emprunteur de '+p.age_max+' ans ou moins (plus jeune : '+an+' ans)');
+  });
+  if(d.ptz_actif==1){
+    const r=ciPtzMaxFor(d);
+    if(!r.indispo){
+      if(r.errs.length) err('PTZ saisi mais non accessible : '+r.errs.join(' ; '));
+      else{
+        if(num(d.ptz_montant)>r.mont+0.5) err('PTZ de '+fmt(d.ptz_montant)+' € supérieur au maximum de '+fmt(r.mont)+' €');
+        if((parseInt(d.ptz_duree)||0)>r.d.total*12) al('Durée du PTZ supérieure au maximum de '+r.d.total*12+' mois');
+        if(ptzDiffere(d)>r.d.differe*12) al('Différé du PTZ supérieur au maximum de '+r.d.differe*12+' mois');
+      }
+    } else if(r.indispo.indexOf('zone')>=0) al('PTZ : '+r.indispo);
+  }
   if(d.ade_reponse==='REFUS'||d.ade_reponse==='Refus') al('Réponse ADE : refus');
   return out;
 }
@@ -224,4 +286,48 @@ function printComparatif(ids){
     <div class="sy-foot">Simulation à titre indicatif, sans valeur contractuelle : l'octroi du crédit reste soumis à l'accord de la Caisse d'Épargne après étude du dossier. Un crédit vous engage et doit être remboursé.</div>
   </div>`;
   printWhenReady();
+}
+
+// ── PTZ : maximum autorisé (même calcul que le simulateur PTZ), zone ABC déduite de l'adresse ──────────────
+const CI_PTZ_TYPES={NEUF_VEFA:'collectif_neuf',CONSTRUCTION_CCMI:'maison_neuve',CONSTRUCTION_SANS_CCMI:'maison_neuve',ANCIEN_AVEC_TRAVAUX:'ancien_travaux'};
+// Renvoie le résultat de ptzCalc pour le dossier d, ou {indispo: 'raison'}
+function ciPtzMaxFor(d){
+  if(typeof ptzCalc==='undefined'||typeof ciPtzBareme==='undefined') return {indispo:'barème PTZ indisponible'};
+  const type=CI_PTZ_TYPES[d.type_projet];
+  if(!type) return {indispo:d.type_projet?"un PTZ n'est possible que pour le neuf, la construction ou l'ancien avec travaux":'type de projet non renseigné'};
+  if(!d.zone_abc) return {indispo:"zone ABC du bien à renseigner (elle se déduit de l'adresse)"};
+  const c=computeAll(d), ps=primoStatut(d);
+  return ptzCalc(ciPtzBareme,{pers:Math.max(1,c.nbPers||1),rfr:c.rfr,cout:getCoutProjet(d),zone:d.zone_abc,type,primo:ps!==''&&ps!=='NON',rp:usageChoice(d)==='RP'});
+}
+function ciPtzMaxHtml(d,px){
+  const r=ciPtzMaxFor(d);
+  if(r.indispo) return `<div class="alert alert-secondary py-1 small mb-0"><i class="fas fa-circle-info"></i> Maximum PTZ non calculé : ${escapeHtml(r.indispo)}.</div>`;
+  if(r.errs.length) return `<div class="alert alert-warning py-1 small mb-0"><i class="fas fa-triangle-exclamation"></i> <strong>PTZ non accessible</strong> : ${escapeHtml(r.errs.join(' ; '))}.</div>`;
+  const dur=r.d.total*12, dif=r.d.differe*12, over=num(d.ptz_montant)>r.mont+0.5||(parseInt(d.ptz_duree)||0)>dur||ptzDiffere(d)>dif;
+  return `<div class="alert alert-${over?'danger':'info'} py-1 small mb-0 d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <span><i class="fas fa-calculator"></i> <strong>PTZ maximum : ${fmt(r.mont)} €</strong> · ${dur} mois maximum · différé ${dif} mois maximum <span class="text-muted">(tranche ${r.tr+1}, ${r.q} % de ${fmt(r.prix)} € ; revenu retenu ${fmt(r.revenu)} € ÷ ${String(r.coeff).replace('.',',')})</span>${over?' — <strong>les valeurs saisies dépassent le maximum</strong>':''}</span>
+    ${px?`<button type="button" class="btn btn-sm btn-outline-primary" onclick="ciApplyPtz('${px}')">Appliquer ces valeurs</button>`:''}</div>`;
+}
+function ciUpdatePtzMax(px,d){
+  const box=document.getElementById(px+'_ptz_max'); if(!box) return;
+  d=d||readForm(px);
+  box.innerHTML=d.ptz_actif==1?ciPtzMaxHtml(d,px):'';
+}
+function ciApplyPtz(px){
+  const d=readForm(px), r=ciPtzMaxFor(d); if(r.indispo||r.errs.length) return;
+  document.getElementById(px+'_ptz_mt').value=r.mont;
+  document.getElementById(px+'_ptz_dur').value=r.d.total*12;
+  document.getElementById(px+'_ptz_diff').value=r.d.differe*12;
+  onFormChange(px);
+}
+// Zone ABC du bien : déduite du code commune de l'adresse (liste importée par l'administrateur), modifiable à la main
+async function ciDeduireZone(px){
+  const ins=(document.getElementById(px+'_bien_insee')||{}).value, sel=document.getElementById(px+'_zone_abc'), info=document.getElementById(px+'_zone_info');
+  if(!ins||!sel||typeof ciZonageUrl==='undefined') return;
+  try{
+    const r=await fetch(ciZonageUrl+'?insee='+encodeURIComponent(ins),{credentials:'same-origin'}), j=await r.json();
+    if(j&&j.zone){sel.value=({Abis:'A'})[j.zone]||j.zone; if(info) info.textContent='(déduite : '+(j.zone==='Abis'?'A bis':j.zone)+' – '+j.commune+')';}
+    else if(info) info.textContent='(commune non trouvée : à saisir)';
+    onFormChange(px);
+  }catch(e){}
 }
