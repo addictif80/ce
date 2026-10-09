@@ -352,6 +352,11 @@ function getDefaultMenuItems() {
         // Items - Références
         ['item_key' => 'codes', 'parent_key' => 'references', 'label' => 'Codes utiles', 'icon' => 'fa-key', 'url' => '/modules/codes/index.php', 'uri_patterns' => '/codes/', 'ordre' => 1],
         ['item_key' => 'contacts', 'parent_key' => 'references', 'label' => 'Contacts utiles', 'icon' => 'fa-address-book', 'url' => '/modules/contacts/index.php', 'uri_patterns' => '/contacts/', 'ordre' => 2],
+        // Section Boîte à outils bancaire (calculs, validateurs, mémos)
+        ['item_key' => 'boite_outils', 'parent_key' => null, 'label' => 'Boîte à outils bancaire', 'icon' => 'fa-toolbox', 'url' => null, 'uri_patterns' => '/dates/,/validateurs/,/calculs/', 'ordre' => 7],
+        ['item_key' => 'dates', 'parent_key' => 'boite_outils', 'label' => 'Calculateur de dates', 'icon' => 'fa-calendar-days', 'url' => '/modules/dates/index.php', 'uri_patterns' => '/dates/', 'ordre' => 1],
+        ['item_key' => 'validateurs', 'parent_key' => 'boite_outils', 'label' => 'Validateurs de numéros', 'icon' => 'fa-shield-halved', 'url' => '/modules/validateurs/index.php', 'uri_patterns' => '/validateurs/', 'ordre' => 2],
+        ['item_key' => 'calculs', 'parent_key' => 'boite_outils', 'label' => 'Boîte à calculs', 'icon' => 'fa-calculator', 'url' => '/modules/calculs/index.php', 'uri_patterns' => '/calculs/', 'ordre' => 3],
         // Section Communication
         ['item_key' => 'communication', 'parent_key' => null, 'label' => 'Communication', 'icon' => 'fa-comments', 'url' => null, 'uri_patterns' => 'messagerie,agenda', 'ordre' => 6],
         ['item_key' => 'messagerie', 'parent_key' => 'communication', 'label' => 'Messagerie', 'icon' => 'fa-comment-dots', 'url' => '/modules/messagerie/index.php', 'uri_patterns' => 'messagerie', 'ordre' => 1],
@@ -899,6 +904,24 @@ function getPublicToolsCatalog() {
             'label' => 'Boîte à outils PDF', 'icon' => 'fa-file-pdf', 'url' => 'pdf.php', 'default' => true,
             'description' => 'Fusionnez, découpez ou faites pivoter des PDF, et convertissez des images en PDF.',
             'note' => 'Le traitement se fait dans votre navigateur : vos fichiers ne sont ni envoyés ni conservés.',
+        ],
+        'dates' => [
+            'added' => '2026-10-09',
+            'label' => 'Calculateur de dates', 'icon' => 'fa-calendar-days', 'url' => 'dates.php', 'default' => true,
+            'description' => 'Ajoutez ou retranchez des jours ouvrés, ouvrables, calendaires, des mois ; mesurez un écart et repérez les délais usuels et les jours fériés.',
+            'note' => 'Les calculs se font dans votre navigateur : rien n\'est envoyé ni conservé.',
+        ],
+        'validateurs' => [
+            'added' => '2026-10-09',
+            'label' => 'Validateurs de numéros', 'icon' => 'fa-shield-halved', 'url' => 'validateurs.php', 'default' => true,
+            'description' => 'Contrôlez la forme d\'un IBAN, d\'un RIB, d\'un SIREN / SIRET, d\'une carte bancaire, d\'un numéro de sécurité sociale ou d\'un BIC.',
+            'note' => 'Les numéros saisis restent dans votre navigateur : ils ne sont ni envoyés ni conservés ni repris dans un lien de partage.',
+        ],
+        'calculs' => [
+            'added' => '2026-10-09',
+            'label' => 'Boîte à calculs', 'icon' => 'fa-calculator', 'url' => 'calculs.php', 'default' => true,
+            'description' => 'Pourcentages, TVA, règle de trois, conversion de durées, prorata, intérêts simples et taux équivalents.',
+            'note' => 'Les calculs se font dans votre navigateur : rien n\'est envoyé ni conservé.',
         ],
         'courrier' => [
             'label' => 'Générateur de courrier', 'icon' => 'fa-envelope-open-text', 'url' => 'courrier.php', 'default' => true,
