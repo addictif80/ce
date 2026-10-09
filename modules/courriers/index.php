@@ -612,6 +612,20 @@ $modeles = $stmt->fetchAll();
 }
 </style>
 
+<?php require_once __DIR__ . '/../../includes/assist.php'; $rdOn = assistEnabled(); ?>
+<?php if ($rdOn): ?>
+<script src="../../assets/js/rediger.js?v=<?= (int)@filemtime(__DIR__ . '/../../assets/js/rediger.js') ?>"></script>
+<script>
+const rdEndpoint = '../../tools/assist.php';
+const rdUserNom = <?= json_encode(trim(($user['prenom'] ?? '') . ' ' . ($user['nom'] ?? ''))) ?>;
+function rdAttach(p) {
+    const g = id => (document.getElementById(id) || {}).value || '';
+    redigerAttach(document.getElementById(p + 'Editor'), {endpoint: rdEndpoint, objet: document.getElementById(p + 'Objet'),
+        ctx: () => ({civilite: g(p + 'Civilite'), nom: g(p + 'NomDest')})});
+}
+document.addEventListener('DOMContentLoaded', () => rdAttach('add'));
+</script>
+<?php endif; ?>
 <script>
 filterTable('searchCourriers', 'tableCourriers');
 
@@ -982,6 +996,7 @@ function editCourrier(id) {
                 </div>
             </div>
         </form>`;
+    if (typeof rdAttach === 'function') rdAttach('edit');
     new bootstrap.Modal(document.getElementById('editModal')).show();
 
     // Auto-détecter les variables dans le corps existant

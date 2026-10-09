@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/_layout.php';
 
+require_once __DIR__ . '/../includes/assist.php';
+$rdOn = assistEnabled(); // aide à la rédaction (clé réglée en administration)
 $templates = getPublicCourrierTemplates(); // modèles choisis par l'admin (lecture seule)
 $logoUrl = 'https://www.img.caisse-epargne.fr/app/uploads/sites/16/2021/05/31152836/ce-logo-midi-pyrennees.png';
 
@@ -24,7 +26,7 @@ toolsHeader('Générateur de courrier', 'courrier', '<style>
 </style>');
 ?>
 <div class="container my-3 no-print">
-    <?php privacyBanner('Le courrier est rédigé et mis en page dans votre navigateur : rien n\'est envoyé, et vous ne pouvez pas enregistrer de modèle. Si vous actualisez la page, tout est effacé.') ?>
+    <?php privacyBanner($rdOn ? 'Le courrier est rédigé et mis en page dans votre navigateur ; rien n\'est enregistré et vous ne pouvez pas enregistrer de modèle. Seul le texte que vous soumettez aux fonctions Corriger, Reformuler ou Répondre à un mail est transmis, le temps du traitement, à un service externe de rédaction. Si vous actualisez la page, tout est effacé.' : 'Le courrier est rédigé et mis en page dans votre navigateur : rien n\'est envoyé, et vous ne pouvez pas enregistrer de modèle. Si vous actualisez la page, tout est effacé.') ?>
 
     <div class="card mb-3"><div class="card-body">
         <h2 class="h6 text-uppercase text-muted">Expéditeur</h2>
@@ -97,6 +99,7 @@ toolsHeader('Générateur de courrier', 'courrier', '<style>
             <button type="button" data-cmd="insertOrderedList" title="Liste numérotée"><i class="fas fa-list-ol"></i></button>
         </div>
         <div id="editor" class="wy-editor" contenteditable="true"></div>
+        <?php if ($rdOn): ?><div class="form-text">Astuce : sélectionnez un passage avant de cliquer sur « Corriger » ou « Reformuler » pour ne traiter que ce passage. Les textes soumis à ces fonctions sont traités par un service externe de rédaction et ne sont pas conservés par ce portail.</div><?php endif; ?>
     </div></div>
 
     <div class="d-flex gap-2 mb-4">
@@ -106,6 +109,11 @@ toolsHeader('Générateur de courrier', 'courrier', '<style>
 </div>
 
 <div id="letter"></div>
+<?php if ($rdOn): ?>
+<script src="../assets/js/rediger.js?v=<?= (int)@filemtime(__DIR__ . '/../assets/js/rediger.js') ?>"></script>
+<script>redigerAttach(document.getElementById('editor'), {endpoint: 'assist.php', objet: document.getElementById('c-objet'),
+    ctx: () => ({civilite: document.getElementById('d-civ').value, nom: document.getElementById('d-nom').value})});</script>
+<?php endif; ?>
 
 <script>
 (function() {
