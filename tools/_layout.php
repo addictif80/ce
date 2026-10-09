@@ -89,6 +89,30 @@ function toolsFooter() {
 <?php }
     if ($key) renderToolTour($key);
     ?>
+<?php // Impression : pas d'en-tête (date, titre de la page) ni de pied de page (adresse) ajoutés par le navigateur ?>
+<style>@page{margin:0}@media print{.tp-frame{width:100%;border-collapse:collapse}.tp-frame>thead>tr>td,.tp-frame>tfoot>tr>td{height:14mm;padding:0!important;border:0!important}.tp-frame>tbody>tr>td{padding:0 15mm!important;border:0!important;text-align:left!important;vertical-align:top}}</style>
+<script>
+(function(){
+  // La marge de page est à 0 (c'est ce qui supprime l'en-tête et le pied du navigateur) : les marges sont recréées par un tableau
+  // dont l'en-tête et le pied vides se répètent sur chaque page imprimée.
+  const ROOTS=['#tdoc','#bgPrint','#pcPrint','#letter','.dom-print-zone'], done=[];
+  window.addEventListener('beforeprint',()=>{
+    ROOTS.forEach(sel=>{
+      const el=document.querySelector(sel); if(!el||el.dataset.tpFramed) return;
+      const t=document.createElement('table'); t.className='tp-frame';
+      t.innerHTML='<thead><tr><td></td></tr></thead><tfoot><tr><td></td></tr></tfoot><tbody><tr><td></td></tr></tbody>';
+      const cell=t.querySelector('tbody td'); while(el.firstChild) cell.appendChild(el.firstChild);
+      el.appendChild(t); el.dataset.tpFramed='1'; done.push(el);
+    });
+  });
+  window.addEventListener('afterprint',()=>{
+    while(done.length){const el=done.pop(); delete el.dataset.tpFramed; const t=el.querySelector(':scope > .tp-frame'); if(!t) continue;
+      const cell=t.querySelector('tbody td'); while(cell.firstChild) el.insertBefore(cell.firstChild,t); t.remove();}
+  });
+})();
+</script>
+<?php
+    ?>
 <script>
 (function(){
   const root=document.documentElement, K='toolsF2f';
