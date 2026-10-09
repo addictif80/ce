@@ -142,6 +142,11 @@ function computeAssurances(lignes,rows){
     const M=(R>0&&n>0)?calcMensualite(cap,t+R,n)-calcMensualite(cap,t,n):0;
     mine.forEach(({a,k})=>{
       const taux=num(a.taux); let m=0;
+      if(taux>0&&a.base==='CRD'&&t===0&&l._crd){ // prêt à 0 % : cotisation = capital restant dû réel × taux ; 1re échéance affichée, total sur le CRD réel
+        m=cap*taux*quotOf(a)/1200;
+        out[k]={monthly:m,total:l._crd.reduce((sum,r)=>sum+(r.crd||0),0)*taux*quotOf(a)/1200};
+        return;
+      }
       if(taux>0&&a.base==='CRD') m=R>0?M*(taux*quotOf(a)/R):0;
       else if(taux>0) m=cap*quotOf(a)*taux/1200;
       else if(num(a.cout_total)>0&&n>0) m=num(a.cout_total)/n; // ancien dossier : coût total saisi
@@ -171,7 +176,10 @@ function computeAll(d){
   const mensPTZ=getMensPTZ(d), mensEco=getMensEcoPTZ(d);
   const mensHorsAssur=mensLignes+mensPTZ+mensEco;
   const assRaw=getAssurances(d);
-  const lignesA=lignesAss(d,lignes);
+  const nPtz1=d.ptz_actif==1?(parseInt(d.ptz_duree)||0):0;
+  const ptzRows1=(d.ptz_actif==1&&ptzMontant(d)>0)?[...Array(ptzDiffere(d)).keys()].map(()=>({crd:ptzMontant(d)})).concat(scheduleLine(ptzMontant(d),0,Math.max(1,nPtz1-ptzDiffere(d))).rows):[];
+  const ecoRows1=(d.ecoptz_actif==1&&ecoMontant(d)>0)?scheduleLine(ecoMontant(d),0,d.ecoptz_duree).rows:[];
+  const lignesA=lignesAss(d,lignes).map((l,i)=>({...l,_crd:i<lignes.length?sch[i].rows:(l.ptz?ptzRows1:ecoRows1)}));
   const ass=computeAssurances(lignesA,assRaw);
   const mensAssur=ass.reduce((t,a)=>t+a.monthly,0), totAssur=ass.reduce((t,a)=>t+a.total,0);
   const mensTout=mensHorsAssur+mensAssur;
@@ -219,6 +227,7 @@ function computeAll(d){
     const garantiePart=montantTaeg>0?garantie*num(l.montant)/montantTaeg:0;
     return n>0?calcTaeg(num(l.montant)-num(l.frais_dossier)-garantiePart,sch[i].rows.map((r,k)=>r.pay+insAt(taegIns[i],k))):null;
   });
+  const insOfIdx=idx=>idx<0?0:ass.reduce((t,a,k)=>t+(((assRaw[k].ligne)??0)===idx?a.monthly:0),0);
   const lineIns=lignes.map((l,i)=>ass.reduce((t,a,k)=>t+(((assRaw[k].ligne)??0)===i?a.monthly:0),0));
   const nPtz=d.ptz_actif==1?(parseInt(d.ptz_duree)||0):0, nEco=d.ecoptz_actif==1?(parseInt(d.ecoptz_duree)||0):0;
   const N=Math.max(0,nPtz,nEco,...lignes.map(l=>parseInt(l.duree)||0));
@@ -231,7 +240,7 @@ function computeAll(d){
   // TAEG du PTZ seul (assurance comprise)
   const taegPtz=nPtz>0?calcTaeg(ptzMontant(d)-(montantTaeg>0?garantie*ptzMontant(d)/montantTaeg:0),Array.from({length:nPtz},(_,k)=>(k>=ptzDiffere(d)?mensPTZ:0)+insAt(insPtz,k))):null;
   const taegGlobal=calcTaeg(lignes.reduce((t,l)=>t+num(l.montant),0)+ptzMontant(d)+ecoMontant(d)-fraisDossier-garantie,flows);
-  return {lignes,lignesA,sch,emps,ass,assRaw,taegPtz,mensActuelle,taegLignes,taegGlobal,taegIns,lineIns,mensLignes,mensPTZ,mensEco,mensHorsAssur,mensAssur,mensTout,totAssur,
+  return {lignes,lignesA,sch,emps,ass,assRaw,taegPtz,mensActuelle,insPtzM:insOfIdx(d.ptz_actif==1?lignes.length:-1),insEcoM:insOfIdx(d.ecoptz_actif==1?lignes.length+(d.ptz_actif==1?1:0):-1),taegLignes,taegGlobal,taegIns,lineIns,mensLignes,mensPTZ,mensEco,mensHorsAssur,mensAssur,mensTout,totAssur,
     revenus,charges,te,reste,restePers:nbPers>0?reste/nbPers:null,nbPers,interets,fraisDossier,garantie,
     coutCredit:interets+totAssur+fraisDossier+garantie,totalFin:getTotalFinancement(d),
     capital:lignes.reduce((t,l)=>t+num(l.montant),0),rfr:emps.reduce((t,e)=>t+num(e.rfr),0),resteAFin:getResteAFinancer(d)};
@@ -1695,10 +1704,10 @@ function ficheKit(d){
   const creditRows=(max,full)=>{
     const nc=full?9:7;
     const row=([l,i])=>`<tr><td>${e(ligneNom(i))}${l.doublissimo&&!/doublissimo/i.test(ligneNom(i))?' <span class="sy-grey">(Doublissimo)</span>':''}${l.primo_jeune&&!/primo jeune/i.test(ligneNom(i))?' <span class="sy-grey">(Primo Jeune 0 %)</span>':''}</td><td class="r">${mm(l.montant)}</td><td class="r">${parseInt(l.duree)||0} m</td><td class="r">${taux2(l.taux)}</td>${full?`<td class="r">${mm(l.frais_dossier)}</td>`:''}<td class="r">${fmt(c.sch[i].mens)}</td><td class="r"><b>${fmt(c.sch[i].mens+ligneAssuranceMensuelle(c,i))}</b></td><td class="r">${taegTxt(c.taegLignes[i])}</td>${full?`<td class="r">${mm(c.sch[i].interets)}</td>`:''}</tr>`;
-    const zero=(lab,mt,du,mens)=>`<tr><td>${lab}</td><td class="r">${mm(mt)}</td><td class="r">${parseInt(du)||0} m</td><td class="r">0 %</td>${full?'<td class="r">—</td>':''}<td class="r">${fmt(mens)}</td><td class="r"><b>${fmt(mens)}</b></td><td class="r">—</td>${full?'<td class="r">0 €</td>':''}</tr>`;
+    const zero=(lab,mt,du,mens,ins,tg)=>`<tr><td>${lab}</td><td class="r">${mm(mt)}</td><td class="r">${parseInt(du)||0} m</td><td class="r">0 %</td>${full?'<td class="r">—</td>':''}<td class="r">${fmt(mens)}</td><td class="r"><b>${fmt(mens+(ins||0))}</b></td><td class="r">${tg?taegTxt(tg):'—'}</td>${full?'<td class="r">0 €</td>':''}</tr>`;
     return cap(c.lignes.map((l,i)=>[l,i]),max,row,'autres lignes',nc)
-      +(d.ptz_actif==1?zero('PTZ'+(ptzDiffere(d)?' <span class="sy-grey">(différé '+ptzDiffere(d)+' m)</span>':''),d.ptz_montant,d.ptz_duree,c.mensPTZ):'')
-      +(d.ecoptz_actif==1?zero('EcoPTZ'+(d.ecoptz_performance_globale==1?' <span class="sy-grey">(perf. globale)</span>':(d.ecoptz_bouquets==1?' <span class="sy-grey">('+(d.ecoptz_nb_bouquets||1)+' bouquet(s))</span>':'')),d.ecoptz_montant,d.ecoptz_duree,c.mensEco):'');
+      +(d.ptz_actif==1?zero('PTZ'+(ptzDiffere(d)?' <span class="sy-grey">(différé '+ptzDiffere(d)+' m)</span>':''),d.ptz_montant,d.ptz_duree,c.mensPTZ,c.insPtzM,c.taegPtz):'')
+      +(d.ecoptz_actif==1?zero('EcoPTZ'+(d.ecoptz_performance_globale==1?' <span class="sy-grey">(perf. globale)</span>':(d.ecoptz_bouquets==1?' <span class="sy-grey">('+(d.ecoptz_nb_bouquets||1)+' bouquet(s))</span>':'')),d.ecoptz_montant,d.ecoptz_duree,c.mensEco,c.insEcoM,null):'');
   };
   const creditHead=full=>`<thead><tr><th>Ligne</th><th class="r">Montant</th><th class="r">Durée</th><th class="r">Taux</th>${full?'<th class="r">Frais doss.</th>':''}<th class="r">Mens. hors ass.</th><th class="r">Mens. avec ass.</th><th class="r">TAEG</th>${full?'<th class="r">Intérêts</th>':''}</tr></thead>`;
   const assHtml=max=>{
