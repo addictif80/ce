@@ -207,6 +207,24 @@ function baremeCatalog() {
                 'ok' => '', 'ko' => 'à adapter aux offres et aux procédures de votre établissement avant de cocher « J\'ai contrôlé »'],
             'default' => memoDefaultEvenements(),
         ],
+        'usure' => [
+            'label' => 'Taux d\'usure (seuils trimestriels)', 'icon' => 'fa-ban',
+            'help' => 'Seuils de l\'usure en vigueur (TAEG maximal autorisé), par catégorie de prêt. À mettre à jour à chaque publication : la Banque de France les publie chaque trimestre (au Journal officiel, avant leur entrée en vigueur) ; saisissez-les ici avec la période d\'application.',
+            'sources' => [
+                ['Banque de France – Taux d\'usure', 'https://www.banque-france.fr/', 'Rubrique « Statistiques » : taux d\'usure par catégorie de crédit, avec la période d\'application.'],
+                ['Journal officiel – avis relatif à l\'application de l\'article L. 314-6 du code de la consommation', 'https://www.legifrance.gouv.fr/', 'Publication officielle des seuils de l\'usure.'],
+            ],
+            'verifie' => ['date' => '09/10/2026', 'source' => 'un article de presse spécialisée (seule source consultée)',
+                'ok' => '',
+                'ko' => 'les seuils du 4e trimestre 2026 proviennent d\'une source secondaire : à comparer avec la publication de la Banque de France avant de cocher « J\'ai contrôlé ». Le seuil des crédits à la consommation n\'est pas renseigné : à saisir'],
+            'default' => ['periode' => '4e trimestre 2026', 'du' => '2026-10-01', 'au' => '2026-12-31', 'categories' => [
+                ['groupe' => 'Prêts immobiliers', 'libelle' => 'Taux fixe, moins de 10 ans', 'taux' => 4.09],
+                ['groupe' => 'Prêts immobiliers', 'libelle' => 'Taux fixe, de 10 ans à moins de 20 ans', 'taux' => 4.68],
+                ['groupe' => 'Prêts immobiliers', 'libelle' => 'Taux fixe, 20 ans et plus', 'taux' => 5.40],
+                ['groupe' => 'Prêts immobiliers', 'libelle' => 'Taux variable', 'taux' => 5.52],
+                ['groupe' => 'Prêts immobiliers', 'libelle' => 'Prêts relais', 'taux' => 6.49],
+            ]],
+        ],
         'saisie' => [
             'label' => 'Saisie des rémunérations et solde bancaire insaisissable', 'icon' => 'fa-gavel',
             'help' => 'Barème annuel des quotités saisissables (tranches de rémunération nette), majoration par personne à charge et montant du solde bancaire insaisissable.',
@@ -402,6 +420,12 @@ function baremeCheck($cle, $d) {
         $prev = 0; foreach ($sx as $v) { if (!is_numeric($v) || $v <= $prev) return 'Les seuils doivent être croissants.'; $prev = $v; }
         foreach ($qx as $v) if (!is_numeric($v) || $v < 0 || $v > 100) return 'Chaque quotité doit être comprise entre 0 et 100 %.';
         foreach (['charge_annuelle', 'rsa_mensuel'] as $k) if (!isset($d[$k]) || !is_numeric($d[$k]) || $d[$k] <= 0) return "Valeur positive manquante : $k";
+        return null;
+    }
+    if ($cle === 'usure') {
+        if (empty($d['categories']) || !is_array($d['categories'])) return 'Au moins une catégorie est attendue.';
+        foreach ($d['categories'] as $c) if (!is_array($c) || trim((string)($c['libelle'] ?? '')) === '' || !isset($c['taux']) || !is_numeric($c['taux']) || $c['taux'] < 0 || $c['taux'] > 100) return 'Chaque catégorie doit avoir un libellé et un taux compris entre 0 et 100 %.';
+        foreach (['du', 'au'] as $k) if (($d[$k] ?? '') !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$d[$k])) return "Date invalide ($k).";
         return null;
     }
     if (baremeIsMemo($cle)) {

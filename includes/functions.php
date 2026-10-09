@@ -356,7 +356,7 @@ function getDefaultMenuItems() {
         ['item_key' => 'codes', 'parent_key' => 'references', 'label' => 'Codes utiles', 'icon' => 'fa-key', 'url' => '/modules/codes/index.php', 'uri_patterns' => '/codes/', 'ordre' => 1],
         ['item_key' => 'contacts', 'parent_key' => 'references', 'label' => 'Contacts utiles', 'icon' => 'fa-address-book', 'url' => '/modules/contacts/index.php', 'uri_patterns' => '/contacts/', 'ordre' => 2],
         // Section Boîte à outils bancaire (calculs, validateurs, mémos)
-        ['item_key' => 'boite_outils', 'parent_key' => null, 'label' => 'Boîte à outils bancaire', 'icon' => 'fa-toolbox', 'url' => null, 'uri_patterns' => '/dates/,/validateurs/,/calculs/,/saisie/,/memo_plafonds/,/memo_delais/,/signataires/,/evenements/', 'ordre' => 7],
+        ['item_key' => 'boite_outils', 'parent_key' => null, 'label' => 'Boîte à outils bancaire', 'icon' => 'fa-toolbox', 'url' => null, 'uri_patterns' => '/dates/,/validateurs/,/calculs/,/saisie/,/memo_plafonds/,/memo_delais/,/signataires/,/evenements/,/usure/', 'ordre' => 7],
         ['item_key' => 'dates', 'parent_key' => 'boite_outils', 'label' => 'Calculateur de dates', 'icon' => 'fa-calendar-days', 'url' => '/modules/dates/index.php', 'uri_patterns' => '/dates/', 'ordre' => 1],
         ['item_key' => 'validateurs', 'parent_key' => 'boite_outils', 'label' => 'Validateurs de numéros', 'icon' => 'fa-shield-halved', 'url' => '/modules/validateurs/index.php', 'uri_patterns' => '/validateurs/', 'ordre' => 2],
         ['item_key' => 'calculs', 'parent_key' => 'boite_outils', 'label' => 'Boîte à calculs', 'icon' => 'fa-calculator', 'url' => '/modules/calculs/index.php', 'uri_patterns' => '/calculs/', 'ordre' => 3],
@@ -365,6 +365,7 @@ function getDefaultMenuItems() {
         ['item_key' => 'memo_delais', 'parent_key' => 'boite_outils', 'label' => 'Mémo : délais légaux', 'icon' => 'fa-hourglass-half', 'url' => '/modules/memo_delais/index.php', 'uri_patterns' => '/memo_delais/', 'ordre' => 6],
         ['item_key' => 'signataires', 'parent_key' => 'boite_outils', 'label' => 'Qui peut signer quoi ?', 'icon' => 'fa-signature', 'url' => '/modules/signataires/index.php', 'uri_patterns' => '/signataires/', 'ordre' => 7],
         ['item_key' => 'evenements', 'parent_key' => 'boite_outils', 'label' => 'Événements de vie', 'icon' => 'fa-route', 'url' => '/modules/evenements/index.php', 'uri_patterns' => '/evenements/', 'ordre' => 8],
+        ['item_key' => 'usure', 'parent_key' => 'boite_outils', 'label' => 'Taux d\'usure', 'icon' => 'fa-ban', 'url' => '/modules/usure/index.php', 'uri_patterns' => '/usure/', 'ordre' => 9],
         // Section Épargne et patrimoine
         ['item_key' => 'epargne_patrimoine', 'parent_key' => null, 'label' => 'Épargne et patrimoine', 'icon' => 'fa-piggy-bank', 'url' => null, 'uri_patterns' => '/modules/epargne/,/assurancevie/,/modules/per/,/epargnecredit/', 'ordre' => 8],
         ['item_key' => 'epargne', 'parent_key' => 'epargne_patrimoine', 'label' => 'Simulateur d\'épargne', 'icon' => 'fa-piggy-bank', 'url' => '/modules/epargne/index.php', 'uri_patterns' => '/modules/epargne/', 'ordre' => 1],
@@ -1008,6 +1009,12 @@ function getPublicToolsCatalog() {
             'label' => 'Parcours événements de vie', 'icon' => 'fa-route', 'url' => 'evenements.php', 'default' => true,
             'description' => 'Pour chaque événement (naissance, mariage, décès, retraite…), les démarches, les solutions à proposer et les pièces à demander, avec une liste à cocher.',
             'note' => 'La liste se construit dans votre navigateur : rien n\'est envoyé ni conservé.',
+        ],
+        'usure' => [
+            'added' => '2026-10-09',
+            'label' => 'Taux d\'usure', 'icon' => 'fa-ban', 'url' => 'usure.php', 'default' => true,
+            'description' => 'Seuils de l\'usure en vigueur par catégorie de prêt, et contrôle du TAEG d\'une offre.',
+            'note' => 'Consultation sans enregistrement : rien n\'est envoyé ni conservé.',
         ],
         'courrier' => [
             'label' => 'Générateur de courrier', 'icon' => 'fa-envelope-open-text', 'url' => 'courrier.php', 'default' => true,

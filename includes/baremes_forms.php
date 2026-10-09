@@ -62,6 +62,19 @@ function baremeRenderForm($cle, array $d) {
             <tr><td>Durée maximale (mois)</td><td><?= bfNum('[duree_max_mois]', $d['duree_max_mois'], '12') ?></td></tr>
             <tr><td>Âge maximum de l'un des emprunteurs (ans, inclus)</td><td><?= bfNum('[age_max]', $d['age_max'], '1') ?></td></tr>
         </tbody></table>
+    <?php } elseif ($cle === 'usure') { $cats = array_merge($d['categories'], array_fill(0, 4, ['groupe' => '', 'libelle' => '', 'taux' => ''])); ?>
+        <?= bfHelp('Saisissez les seuils publiés (TAEG maximal autorisé, en %) et leur période d\'application. Une ligne dont le libellé est vide est ignorée ; le groupe regroupe les catégories à l\'affichage (ex. « Prêts immobiliers », « Crédits à la consommation »).') ?>
+        <table class="table table-sm align-middle w-auto"><tbody>
+            <tr><td>Période d\'application (libellé)</td><td><input name="d[periode]" value="<?= e($d['periode'] ?? '') ?>" class="form-control form-control-sm" style="width:240px" placeholder="4e trimestre 2026"></td></tr>
+            <tr><td>Du</td><td><input type="date" name="d[du]" value="<?= e($d['du'] ?? '') ?>" class="form-control form-control-sm" style="width:160px"></td></tr>
+            <tr><td>Au</td><td><input type="date" name="d[au]" value="<?= e($d['au'] ?? '') ?>" class="form-control form-control-sm" style="width:160px"></td></tr>
+        </tbody></table>
+        <table class="table table-sm align-middle"><thead><tr><th>Groupe</th><th>Catégorie</th><th>Seuil (%)</th></tr></thead><tbody>
+        <?php foreach ($cats as $i => $c): ?><tr>
+            <td style="width:24%"><input name="d[categories][<?= $i ?>][groupe]" value="<?= e($c['groupe'] ?? '') ?>" class="form-control form-control-sm"></td>
+            <td><input name="d[categories][<?= $i ?>][libelle]" value="<?= e($c['libelle'] ?? '') ?>" class="form-control form-control-sm"></td>
+            <td style="width:110px"><input type="number" step="0.01" name="d[categories][<?= $i ?>][taux]" value="<?= e((string)($c['taux'] ?? '')) ?>" class="form-control form-control-sm text-end"></td></tr><?php endforeach; ?>
+        </tbody></table>
     <?php } elseif ($cle === 'saisie') { $q = bfNumList($d['quotites']); ?>
         <?= bfHelp('Tranches de rémunération nette <strong>annuelle</strong> : la quotité de chaque tranche s\'applique à la part de rémunération comprise dans cette tranche. Au-delà du dernier seuil, tout est saisissable.') ?>
         <table class="table table-sm align-middle w-auto"><thead><tr><th>Tranche</th><th>Jusqu\'à (€ par an)</th><th>Part saisissable (%)</th></tr></thead><tbody>
@@ -212,6 +225,15 @@ function baremeCollect($cle, array $p) {
     $row = fn($a) => array_map($n, array_values((array)$a));
     if ($cle === 'hcsf') {
         return ['taux_endettement_max' => $n($p['taux_endettement_max'] ?? 0), 'duree_max_annees' => $n($p['duree_max_annees'] ?? 0), 'duree_max_annees_neuf' => $n($p['duree_max_annees_neuf'] ?? 0)];
+    }
+    if ($cle === 'usure') {
+        $cats = [];
+        foreach ((array)($p['categories'] ?? []) as $c) {
+            $lib = mb_substr(trim((string)($c['libelle'] ?? '')), 0, 150); if ($lib === '' || trim((string)($c['taux'] ?? '')) === '') continue;
+            $cats[] = ['groupe' => mb_substr(trim((string)($c['groupe'] ?? '')), 0, 100), 'libelle' => $lib, 'taux' => $n($c['taux'])];
+        }
+        $date = fn($v) => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$v) ? $v : '';
+        return ['periode' => mb_substr(trim((string)($p['periode'] ?? '')), 0, 80), 'du' => $date($p['du'] ?? ''), 'au' => $date($p['au'] ?? ''), 'categories' => $cats];
     }
     if ($cle === 'saisie') {
         return ['seuils' => $row($p['seuils'] ?? []), 'quotites' => $row($p['quotites'] ?? []), 'charge_annuelle' => $n($p['charge_annuelle'] ?? 0), 'rsa_mensuel' => $n($p['rsa_mensuel'] ?? 0)];
