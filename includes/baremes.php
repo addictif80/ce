@@ -509,7 +509,7 @@ function baremeNotice(array $cles) {
         if ($order[$st] > $order[$worst]) $worst = $st;
     }
     if (!$parts) return '';
-    $cls = ['ok' => 'text-success', 'ancien' => 'text-danger', 'provisoire' => 'text-warning'][$worst];
+    $cls = ['ok' => 'text-success', 'ancien' => 'text-danger', 'provisoire' => 'text-warning-emphasis'][$worst];
     $icon = $worst === 'ok' ? 'fa-circle-check' : 'fa-triangle-exclamation';
     $txt = 'Barème utilisé — ' . implode(' · ', $parts);
     return '<div class="small ' . $cls . ' mb-2 no-client" data-bareme-note="' . htmlspecialchars($txt, ENT_QUOTES) . '"><i class="fas ' . $icon . ' me-1"></i>' . htmlspecialchars($txt) . '</div>';

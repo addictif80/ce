@@ -34,7 +34,7 @@ require __DIR__ . '/../_sim/style.php';
   </div>
   <div class="cap-card"><h2><i class="fas fa-stopwatch me-2 text-danger"></i>Délais usuels à partir d'une date</h2>
     <div class="row g-2 mb-2"><div class="col-6"><label class="form-label small mb-0">Date de réception / de départ</label><input type="date" class="form-control" id="dt_pre"></div></div>
-    <table class="table table-sm mb-1"><tbody id="dr_pre"></tbody></table>
+    <div class="table-responsive"><table class="table table-sm mb-1"><tbody id="dr_pre"></tbody></table></div>
     <div class="form-text">Délais courants, calculés en jours calendaires. À confirmer selon le contrat et la réglementation applicables au dossier (voir le mémo des délais légaux).</div>
   </div>
   <div class="cap-card"><h2><i class="fas fa-flag me-2 text-danger"></i>Jours fériés de l'année</h2>
@@ -84,7 +84,7 @@ require __DIR__ . '/../_sim/style.php';
     } else $('dr_diff').innerHTML='<tr><td colspan="2">Renseignez les deux dates.</td></tr>';
     const pre=parse($('dt_pre').value);
     const PRE=[['Offre de prêt immobilier : acceptation possible à partir du',d=>addDays(d,11),'11e jour après la réception (délai de réflexion de 10 jours)'],['Offre de prêt immobilier : validité minimale jusqu\'au',d=>addDays(d,30),'30 jours minimum'],['Crédit à la consommation : fin du délai de rétractation',d=>addDays(d,14),'14 jours calendaires après l\'acceptation'],['Offre de crédit à la consommation : maintenue jusqu\'au',d=>addDays(d,15),'15 jours minimum'],['Prélèvement autorisé : contestation possible jusqu\'au',d=>addDays(d,56),'8 semaines'],['Opération non autorisée : contestation possible jusqu\'au',d=>addMonths(d,13),'13 mois']];
-    $('dr_pre').innerHTML=pre?PRE.map(x=>{const r=x[1](pre);return `<tr><td>${x[0]}<div class="text-muted small">${x[2]}</div></td><td class="text-end text-nowrap">${fmt(r)}</td></tr>`;}).join(''):'<tr><td class="text-muted">Renseignez une date.</td></tr>';
+    $('dr_pre').innerHTML=pre?PRE.map(x=>{const r=x[1](pre);return `<tr><td>${x[0]}<div class="text-muted small">${x[2]}</div></td><td class="text-end">${fmt(r)}</td></tr>`;}).join(''):'<tr><td class="text-muted">Renseignez une date.</td></tr>';
     const yr=parseInt($('dt_year').value)||new Date().getFullYear();
     $('dr_ferie').innerHTML='<div class="row">'+feries(yr).list.sort((a,b)=>a[0]-b[0]).map(x=>`<div class="col-6 d-flex justify-content-between"><span>${x[1]}</span><span class="text-muted">${J[x[0].getDay()].slice(0,3)}. ${x[0].getDate()} ${M[x[0].getMonth()].slice(0,4)}.</span></div>`).join('')+'</div>';
     return {st:$('dt_start').value,n,sg,u,a:$('dt_a').value,b:$('dt_b').value,pre:$('dt_pre').value,res:$('dr_date').textContent};
