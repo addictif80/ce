@@ -1508,6 +1508,25 @@ function searchToolsGlobal($query) {
             }
         }
     }
+    // Mémos et fiches de référence (plafonds, délais, signataires, événements de vie, taux d'usure) : lignes dont le texte contient la recherche
+    try {
+        require_once __DIR__ . '/baremes.php';
+        foreach ([['memo_plafonds', 'Mémo : plafonds et seuils', 'memo_plafonds.php?q='], ['memo_delais', 'Mémo : délais légaux', 'memo_delais.php?q='],
+                  ['signataires', 'Qui peut signer quoi ?', 'signataires.php'], ['evenements', 'Événement de vie', 'evenements.php']] as [$k, $type, $url]) {
+            if (!in_array($k, $active, true)) continue;
+            $n = 0;
+            foreach ((baremeGet($k)['data']['groupes'] ?? []) as $g) foreach ($g['lignes'] as $l) {
+                if ($n >= 6) break 2;
+                if (mb_strpos(mb_strtolower($g['titre'] . ' ' . $l['libelle'] . ' ' . $l['valeur'] . ' ' . ($l['note'] ?? '')), $needle) !== false) {
+                    $results[] = ['type' => $type, 'titre' => $l['libelle'], 'detail' => $g['titre'] . ' – ' . mb_substr((string)$l['valeur'], 0, 100), 'url' => $url . (substr($url, -3) === 'q=' ? $enc : '')];
+                    $n++;
+                }
+            }
+        }
+        if (in_array('usure', $active, true)) foreach ((baremeGet('usure')['data']['categories'] ?? []) as $c) {
+            if (mb_strpos(mb_strtolower($c['groupe'] . ' ' . $c['libelle']), $needle) !== false) $results[] = ['type' => 'Taux d\'usure', 'titre' => $c['libelle'], 'detail' => number_format((float)$c['taux'], 2, ',', ' ') . ' %', 'url' => 'usure.php'];
+        }
+    } catch (Throwable $e) {}
     // Raccourci : vérifier la recherche dans l'outil RGE
     if (in_array('rge', $active, true)) {
         $results[] = ['type' => 'Vérification RGE', 'titre' => 'Vérifier « ' . $query . ' » (RGE)', 'detail' => 'Rechercher une entreprise par nom, SIREN ou SIRET', 'url' => 'rge.php?q=' . $enc];

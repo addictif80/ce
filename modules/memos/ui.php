@@ -6,7 +6,7 @@ $mb = baremeGet($memoKey); $groupes = $mb['data']['groupes'] ?? [];
 <style>.mm-card{background:#fff;border:1px solid #e8e8e8;border-radius:12px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,.05);break-inside:avoid}.mm-card h2{font-size:1rem;font-weight:700;margin:0;padding:12px 16px;border-bottom:2px solid #e4002b}.mm-row{display:flex;gap:12px;justify-content:space-between;padding:8px 16px;border-bottom:1px solid #f0f0f0}.mm-row:last-child{border-bottom:0}.mm-val{font-weight:700;text-align:right;white-space:nowrap}.mm-note{font-size:.8rem;color:#6c757d}.mm-hit{background:#fff3cd}@media (max-width:600px){.mm-row{flex-direction:column;gap:2px}.mm-val{text-align:left;white-space:normal}}@media print{.mm-card{box-shadow:none}}</style>
 <?= baremeNotice([$memoKey]) ?>
 <div class="d-flex gap-2 flex-wrap mb-3 no-print">
-  <input type="search" class="form-control" id="mm_q" data-noshare placeholder="Filtrer le mémo…" style="max-width:340px" aria-label="Filtrer le mémo">
+  <input type="search" class="form-control" id="mm_q" data-noshare value="<?= e($_GET['q'] ?? '') ?>" placeholder="Filtrer le mémo…" style="max-width:340px" aria-label="Filtrer le mémo">
   <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()"><i class="fas fa-print me-1"></i>Imprimer</button>
 </div>
 <div id="mm_list" class="js-result">
@@ -30,6 +30,7 @@ $mb = baremeGet($memoKey); $groupes = $mb['data']['groupes'] ?? [];
       g.style.display=any?'':'none';
     });
   });
+  if(q.value) q.dispatchEvent(new Event('input'));
 })();
 </script>
 <?php require __DIR__ . '/../_sim/common_js.php'; ?>

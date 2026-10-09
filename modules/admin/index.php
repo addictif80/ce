@@ -701,6 +701,9 @@ try {
         <a class="nav-link <?= $activeTab === 'nouveautes' ? 'active' : '' ?>" href="?tab=nouveautes"><i class="fas fa-bullhorn"></i> Nouveautés</a>
     </li>
     <li class="nav-item">
+        <a class="nav-link <?= $activeTab === 'stats' ? 'active' : '' ?>" href="?tab=stats"><i class="fas fa-chart-column"></i> Statistiques /tools</a>
+    </li>
+    <li class="nav-item">
         <?php $nbBar = baremesAReviser(); ?>
         <a class="nav-link <?= $activeTab === 'baremes' ? 'active' : '' ?>" href="?tab=baremes"><i class="fas fa-scale-balanced"></i> Barèmes<?php if ($nbBar): ?> <span class="badge bg-warning text-dark"><?= $nbBar ?></span><?php endif; ?></a>
     </li>
@@ -2304,6 +2307,8 @@ $feedbackTypes = ['bug' => 'Problème', 'suggestion' => 'Suggestion', 'question'
 
 <?php elseif ($activeTab === 'conditions'): ?>
 <?php require __DIR__ . '/tab_conditions.php'; ?>
+<?php elseif ($activeTab === 'stats'): ?>
+<?php require __DIR__ . '/tab_stats.php'; ?>
 <?php elseif ($activeTab === 'nouveautes'): ?>
 <?php require __DIR__ . '/tab_nouveautes.php'; ?>
 <?php elseif ($activeTab === 'popups'): ?>

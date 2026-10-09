@@ -7,11 +7,13 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/nouveautes.php';
 require_once __DIR__ . '/../includes/tool_tours.php';
 require_once __DIR__ . '/../includes/tour.php';
+require_once __DIR__ . '/../includes/stats.php';
 
 function toolsHeader($title, $key = null, $extraHead = '') {
     $GLOBALS['toolsCurrentKey'] = $key;
     if ($key !== null) requirePublicTool($key);
     elseif (empty($GLOBALS['toolsNoGate'])) requireToolsAccess();
+    if ($key !== null) statsHit($key, 'view'); elseif (empty($GLOBALS['toolsNoGate'])) statsHit('accueil', 'view');
     ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -39,6 +41,7 @@ function toolsHeader($title, $key = null, $extraHead = '') {
         #f2fBar button { background:transparent; border:1px solid rgba(255,255,255,.5); color:#fff; border-radius:999px; padding:1px 12px; margin-left:10px; font-size:.8rem; }
         @media print { #f2fBar { display:none !important; } }
     </style>
+    <script>window.toolsStatHit=function(ev){try{const f=new FormData();f.append('k',<?= json_encode($key ?? 'accueil') ?>);f.append('e',ev);navigator.sendBeacon('stat.php',f);}catch(e){}};</script>
     <?= $extraHead ?>
 </head>
 <body>
@@ -92,7 +95,7 @@ function toolsFooter() {
   const get=()=>{try{return sessionStorage.getItem(K)==='1';}catch(e){return false;}};
   const set=v=>{root.classList.toggle('f2f',v);try{sessionStorage.setItem(K,v?'1':'0');}catch(e){}};
   set(get());
-  const b=document.getElementById('f2fBtn'); if(b) b.onclick=()=>set(!root.classList.contains('f2f'));
+  const b=document.getElementById('f2fBtn'); if(b) b.onclick=()=>{const on=!root.classList.contains('f2f');set(on);if(on&&window.toolsStatHit) window.toolsStatHit('f2f');};
   const x=document.getElementById('f2fExit'); if(x) x.onclick=()=>set(false);
   const n=document.getElementById('newsBtn');
   if(n){try{const l=n.dataset.latest, s=localStorage.getItem('toolsNewsSeen')||''; if(l&&l>s) n.querySelector('.nb').style.display='block';}catch(e){}}

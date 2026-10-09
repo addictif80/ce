@@ -126,7 +126,7 @@ window.ciSlideshow=function(root,opts){
     else if(e.key==='ArrowLeft') go(cur-1);
   });
   if(opts.exportAs) window[opts.exportAs]=open;
-  if(opts.replaySelector) document.querySelectorAll(opts.replaySelector).forEach(a=>a.addEventListener('click',e=>{e.preventDefault();open(a);}));
+  if(opts.replaySelector) document.querySelectorAll(opts.replaySelector).forEach(a=>a.addEventListener('click',e=>{e.preventDefault();if(opts.stat&&window.toolsStatHit) window.toolsStatHit(opts.stat);open(a);}));
   if(opts.autoOpen&&!seen()) setTimeout(open,350);
   return {open,close};
 };
@@ -174,5 +174,5 @@ function renderToolTour($key) {
     <div class="ci-dots" role="tablist"></div>
 </div>
 <?php slideshowAssets(); ?>
-<script>ciSlideshow(document.getElementById(<?= json_encode($id) ?>),{duration:9500,replaySelector:'[data-tour=<?= e($key) ?>]'});</script>
+<script>ciSlideshow(document.getElementById(<?= json_encode($id) ?>),{duration:9500,stat:'tour',replaySelector:'[data-tour=<?= e($key) ?>]'});</script>
 <?php }

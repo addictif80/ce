@@ -38,9 +38,11 @@
       let ok=false;try{ok=document.execCommand('copy');}catch(_){} t.remove();return ok;}
   }
   function flash(btn,txt){const h=btn.innerHTML;btn.innerHTML='<i class="fas fa-check me-1"></i>'+txt;setTimeout(()=>btn.innerHTML=h,1600);}
+  // Compteur anonyme d'usage (page /tools uniquement) : aucune donnée de saisie n'est envoyée
+  const stat=ev=>{if(window.toolsStatHit) window.toolsStatHit(ev);};
   document.addEventListener('click',async e=>{
     const b=e.target.closest('[data-tool-action]'); if(!b) return;
-    const a=b.dataset.toolAction;
+    const a=b.dataset.toolAction; if(a!=='print') stat(a);
     if(a==='link'){history.replaceState(null,'',shareUrl().slice(location.origin.length)); flash(b,(await copy(shareUrl()))?'Lien copié':'Copie impossible');}
     else if(a==='copy'){flash(b,(await copy(resultText()))?'Résultat copié':'Copie impossible');}
     else if(a==='print'){window.print();}
@@ -123,6 +125,7 @@
   }
   const st=document.createElement('style'); st.textContent=CSS; document.head.appendChild(st);
   window.addEventListener('beforeprint',()=>{
+    if(window.toolsStatHit) window.toolsStatHit('print');
     if(window.toolsOwnPrint) return;
     let box=document.getElementById('tdoc'); if(!box){box=document.createElement('div');box.id='tdoc';document.body.appendChild(box);}
     document.documentElement.classList.remove('tdoc-on');   // la page doit être visible pour lire les champs et les résultats
