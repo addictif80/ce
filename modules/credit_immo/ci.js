@@ -250,7 +250,7 @@ function computeAll(d){
   return {lignes,lignesA,sch,emps,ass,assRaw,taegPtz,mensActuelle,insPtzM:insOfIdx(d.ptz_actif==1?lignes.length:-1),insEcoM:insOfIdx(d.ecoptz_actif==1?lignes.length+(d.ptz_actif==1?1:0):-1),taegLignes,taegGlobal,taegIns,lineIns,mensLignes,mensPTZ,mensEco,mensHorsAssur,mensAssur,mensTout,totAssur,
     revenus,charges,te,reste,restePers:nbPers>0?reste/nbPers:null,nbPers,interets,fraisDossier,garantie,
     coutCredit:interets+totAssur+fraisDossier+garantie,totalFin:getTotalFinancement(d),
-    capital:lignes.reduce((t,l)=>t+num(l.montant),0),rfr:emps.reduce((t,e)=>t+num(e.rfr),0),resteAFin:getResteAFinancer(d)};
+    capital:montantLignes+ptzMontant(d)+ecoMontant(d),capitalLignes:montantLignes,rfr:emps.reduce((t,e)=>t+num(e.rfr),0),resteAFin:getResteAFinancer(d)};
 }
 
 function badgeEndett(t){
@@ -1531,7 +1531,7 @@ function showAmortissement(id){
   }
   document.getElementById('amortContent').innerHTML=`
     <div class="row g-3 mb-3">
-      <div class="col-md-3"><div class="stat-card"><div class="stat-number">${fmt(c.capital+ptzMontant(d)+ecoMontant(d))} €</div><div class="stat-label">Capital emprunté (toutes lignes)</div></div></div>
+      <div class="col-md-3"><div class="stat-card"><div class="stat-number">${fmt(c.capital)} €</div><div class="stat-label">Capital emprunté (toutes lignes)</div></div></div>
       <div class="col-md-3"><div class="stat-card"><div class="stat-number">${fmt(ti)} €</div><div class="stat-label">Coût total intérêts</div></div></div>
       <div class="col-md-3"><div class="stat-card"><div class="stat-number">${fmt(ta)} €</div><div class="stat-label">Coût total assurances</div></div></div>
       <div class="col-md-3"><div class="stat-card"><div class="stat-number">${fmt(tt)} €</div><div class="stat-label">Total remboursé (assurances incluses)</div></div></div>
