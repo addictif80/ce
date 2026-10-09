@@ -182,7 +182,7 @@ toolsHeader('Outils en libre accès');
     const a=cols[order.indexOf(k)].querySelector('a'); if(!a&&!cols[order.indexOf(k)].closest('a')) return;
     const href=(a||cols[order.indexOf(k)].closest('a')).getAttribute('href'); if(!href) return;
     const el=document.createElement('a'); el.href=href; el.className='badge text-bg-light border text-decoration-none me-1';
-    el.textContent=cols[order.indexOf(k)].querySelector('h2').textContent; list.appendChild(el);
+    el.textContent=(cols[order.indexOf(k)].querySelector('h3')||cols[order.indexOf(k)]).textContent.trim(); list.appendChild(el);
   });
   if(list.children.length) document.getElementById('recentBar').style.display='';
   // onglets de catégories (dernier choix mémorisé dans ce navigateur)

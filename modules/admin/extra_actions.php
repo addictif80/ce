@@ -76,6 +76,29 @@ if ($action === 'save_news' || $action === 'delete_news') {
     exit;
 }
 
+if ($action === 'save_assist') {
+    require_once __DIR__ . '/../../includes/assist.php';
+    setToolsSetting('assist_on', isset($_POST['enabled']) ? '1' : '0');
+    $k = trim($_POST['assist_key'] ?? '');
+    if (isset($_POST['clear_key'])) setToolsSetting('assist_key', '');
+    elseif ($k !== '') setToolsSetting('assist_key', mb_substr($k, 0, 500));
+    $m = trim($_POST['assist_model'] ?? '');
+    setToolsSetting('assist_model', preg_match('/^[A-Za-z0-9._\/:-]{1,60}$/', $m) ? $m : '');
+    header('Location: index.php?tab=redaction&msg=assist_saved');
+    exit;
+}
+
+if ($action === 'test_assist') {
+    require_once __DIR__ . '/../../includes/assist.php';
+    if (assistKey() === '') { $_SESSION['assist_test'] = ['ko', 'Aucune clé API enregistrée.']; }
+    else {
+        [$out, $detail] = assistCall("Corrige uniquement les fautes de ce texte et réponds par le texte corrigé seul : « Je vous remerci pour votre message, nous resterons a votre dispositon. »");
+        $_SESSION['assist_test'] = $out === null ? ['ko', 'Échec : ' . $detail] : ['ok', $out];
+    }
+    header('Location: index.php?tab=redaction#assist-test');
+    exit;
+}
+
 if ($action === 'save_intro') {
     setToolsSetting('tools_intro_enabled', isset($_POST['enabled']) ? '1' : '0');
     header('Location: index.php?tab=popups&msg=popup_saved#intro-card');
