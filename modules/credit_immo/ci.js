@@ -39,7 +39,7 @@ function sumCharges(arr){return (arr||[]).reduce((t,c)=>t+(c.non_conserve?0:num(
 
 // Coût du projet (hors frais de dossier, portés par les lignes de crédit)
 function totalHorsDossier(d){
-  return num(d.montant_acquisition)+num(d.frais_notaire)+num(d.frais_negociation)+num(d.frais_divers)+num(d.frais_agence)
+  return num(d.montant_acquisition)+num(d.montant_travaux)+num(d.frais_notaire)+num(d.frais_negociation)+num(d.frais_divers)+num(d.frais_agence)
     +(d.frais_midi_epargne==1?num(d.montant_midi_epargne):0)+num(d.tva_financee)+num(d.garantie_montant);
 }
 function ptzMontant(d){return d.ptz_actif==1?num(d.ptz_montant):0;}
@@ -59,11 +59,12 @@ function getLignes(d){
 function getFraisDossier(d){return getLignes(d).reduce((t,l)=>t+num(l.frais_dossier),0);}
 function getTotalFinancement(d){return totalHorsDossier(d)+getFraisDossier(d);}
 // Base du Doublissimo : acquisition + frais de notaire + frais de négociation (ni garantie, ni frais divers, ni frais de dossier)
-function getCoutProjet(d){return num(d.montant_acquisition)+num(d.frais_notaire)+num(d.frais_negociation)+num(d.frais_agence);}
+function getCoutProjet(d){return num(d.montant_acquisition)+num(d.montant_travaux)+num(d.frais_notaire)+num(d.frais_negociation)+num(d.frais_agence);}
 function getResteAFinancer(d){
   return getTotalFinancement(d)-num(d.apport)-num(d.pret_patronal)-ptzMontant(d)-ecoMontant(d)-getLignes(d).reduce((t,l)=>t+num(l.montant),0);
 }
 // Financement total CEMP = coût du projet (frais de notaire, garantie et frais de dossier compris) − apport − prêt 1 % patronal.
+// Doublissimo : 20 % de (coût du projet − apport − prêt patronal) ; Primo Jeune : 10 % du montant financé (frais et garantie compris).
 // Les prêts aidés (PTZ, EcoPTZ) n'en sont PAS déduits : ils sont indépendants des montants Doublissimo, Primo Jeune, Primoz.
 function financementTotal(d){return Math.max(0,getTotalFinancement(d)-num(d.apport)-num(d.pret_patronal));}
 // Doublissimo (fiche produit) : pourcentage du financement total (coût du projet − apport), plafonné ; plafond relevé et taux préférentiel pendant la campagne
@@ -88,7 +89,7 @@ function pzParams(){return (typeof ciPrimoz!=='undefined'&&ciPrimoz)||PZ_DEF;}
 function grParams(){return (typeof ciGrandioz!=='undefined'&&ciGrandioz)||GR_DEF;}
 function pzMontantDefaut(d){const p=pzParams();return Math.round(Math.min(num(p.montant_max),Math.max(num(p.montant_min),num(p.pct_min)/100*financementTotal(d))));}
 function ageDe(iso){if(!/^\d{4}-\d{2}-\d{2}$/.test(iso||''))return null;const n=new Date(),b=new Date(iso);let a=n.getFullYear()-b.getFullYear();if(n.getMonth()<b.getMonth()||(n.getMonth()===b.getMonth()&&n.getDate()<b.getDate()))a--;return a;}
-function doublissimoMontant(d){return Math.max(0,Math.min(num(dblParams().pourcentage)/100*financementTotal(d),doublissimoPlafond(d)));}
+function doublissimoMontant(d){return Math.max(0,Math.min(num(dblParams().pourcentage)/100*Math.max(0,getCoutProjet(d)-num(d.apport)-num(d.pret_patronal)),doublissimoPlafond(d)));}
 
 // Échéancier d'une ligne : mensualité, capital restant dû avant chaque échéance, intérêts
 //  opt.differe : mois de différé d'amortissement en capital (échéances d'intérêts seuls, ex. Primoz) ;
@@ -119,6 +120,13 @@ function scheduleLine(montant,taux,duree,opt){
 function ligneOpt(l){return {differe:l&&l.primoz?l.differe:0,prog:l&&l.grandioz?(l.progression??1):0};}
 
 function getAssurances(d){return parseArr(d.ade_json);}
+// Lignes assurables : les crédits, puis le PTZ et l'EcoPTZ (prêts à 0 % assurés eux aussi, ligne d'assurance = numéro après les crédits)
+function lignesAss(d,lignes){
+  const out=[...lignes];
+  if(d.ptz_actif==1) out.push({libelle:'PTZ',montant:num(d.ptz_montant),duree:parseInt(d.ptz_duree)||0,taux:0,ptz:true});
+  if(d.ecoptz_actif==1) out.push({libelle:'EcoPTZ',montant:num(d.ecoptz_montant),duree:parseInt(d.ecoptz_duree)||0,taux:0,eco:true});
+  return out;
+}
 // Assurance emprunteur : une ligne d'assurance = un emprunteur sur une ligne de crédit.
 //  - Capital initial : cotisation constante = capital × quotité × taux / 12.
 //  - Capital restant dû (méthode du logiciel de crédit, mensualité lissée) : la mensualité tout inclus est celle d'un prêt au taux
@@ -163,13 +171,15 @@ function computeAll(d){
   const mensPTZ=getMensPTZ(d), mensEco=getMensEcoPTZ(d);
   const mensHorsAssur=mensLignes+mensPTZ+mensEco;
   const assRaw=getAssurances(d);
-  const ass=computeAssurances(lignes,assRaw);
+  const lignesA=lignesAss(d,lignes);
+  const ass=computeAssurances(lignesA,assRaw);
   const mensAssur=ass.reduce((t,a)=>t+a.monthly,0), totAssur=ass.reduce((t,a)=>t+a.total,0);
   const mensTout=mensHorsAssur+mensAssur;
   const revenus=emps.reduce((t,e)=>t+sumRevenus(e.revenus),0);
   const charges=emps.reduce((t,e)=>t+sumCharges(e.charges),0);
   const te=revenus>0?(mensTout+charges)/revenus*100:null;
-  const reste=revenus-charges-mensTout;
+  const mensActuelle=mensTout-(ptzDiffere(d)>0?mensPTZ:0);   // mensualités effectivement payées au départ (PTZ en différé : assurance seule)
+  const reste=revenus-charges-mensActuelle;
   const nbPers=parseInt(d.nb_personnes_foyer)||(emps.length+(parseInt(d.nb_enfants)||0)+(parseInt(d.nb_personnes_charge_supp)||0));
   const interets=sch.reduce((t,s)=>t+s.interets,0);
   const fraisDossier=getFraisDossier(d), garantie=num(d.garantie_montant);
@@ -178,7 +188,7 @@ function computeAll(d){
   //  - assurance : celle d'un seul emprunteur par ligne (« le moins cher » par défaut), réglable (taeg_assurance).
   const taegMode=d.taeg_assurance||'MIN';
   const montantLignes=lignes.reduce((t,l)=>t+num(l.montant),0);
-  const taegIns=lignes.map((l,li)=>{
+  const taegInsFor=(l,li)=>{
     const rows=assRaw.filter(a=>(a.ligne??0)===li).map(a=>({...a,ligne:0}));
     const cost=r=>computeAssurances([l],[r])[0].monthly;
     let sel=rows;
@@ -189,7 +199,9 @@ function computeAll(d){
       sel=priced.length?[priced[0]]:[];
     }
     return computeAssurances([l],sel).reduce((t,x)=>t+x.monthly,0);
-  });
+  };
+  const taegInsAll=lignesA.map((l,li)=>taegInsFor(l,li));
+  const taegIns=taegInsAll.slice(0,lignes.length);
   const taegLignes=lignes.map((l,i)=>{
     const n=parseInt(l.duree)||0;
     const garantiePart=montantLignes>0?garantie*num(l.montant)/montantLignes:0;
@@ -200,10 +212,14 @@ function computeAll(d){
   const N=Math.max(0,nPtz,nEco,...lignes.map(l=>parseInt(l.duree)||0));
   const flows=Array(N).fill(0);
   lignes.forEach((l,i)=>{const n=parseInt(l.duree)||0; for(let k=0;k<n;k++) flows[k]+=(sch[i].rows[k]?sch[i].rows[k].pay:sch[i].mens)+taegIns[i];});
-  for(let k=ptzDiffere(d);k<nPtz;k++) flows[k]+=mensPTZ;
-  for(let k=0;k<nEco;k++) flows[k]+=mensEco;
+  const iPtz=d.ptz_actif==1?lignes.length:-1, iEco=d.ecoptz_actif==1?lignes.length+(d.ptz_actif==1?1:0):-1;
+  const insPtz=iPtz>=0?taegInsAll[iPtz]:0, insEco=iEco>=0?taegInsAll[iEco]:0;
+  for(let k=0;k<nPtz;k++) flows[k]+=(k>=ptzDiffere(d)?mensPTZ:0)+insPtz;
+  for(let k=0;k<nEco;k++) flows[k]+=mensEco+insEco;
+  // TAEG du PTZ seul (assurance comprise)
+  const taegPtz=nPtz>0?calcTaeg(ptzMontant(d),Array.from({length:nPtz},(_,k)=>(k>=ptzDiffere(d)?mensPTZ:0)+insPtz)):null;
   const taegGlobal=calcTaeg(lignes.reduce((t,l)=>t+num(l.montant),0)+ptzMontant(d)+ecoMontant(d)-fraisDossier-garantie,flows);
-  return {lignes,sch,emps,ass,assRaw,taegLignes,taegGlobal,taegIns,lineIns,mensLignes,mensPTZ,mensEco,mensHorsAssur,mensAssur,mensTout,totAssur,
+  return {lignes,lignesA,sch,emps,ass,assRaw,taegPtz,mensActuelle,taegLignes,taegGlobal,taegIns,lineIns,mensLignes,mensPTZ,mensEco,mensHorsAssur,mensAssur,mensTout,totAssur,
     revenus,charges,te,reste,restePers:nbPers>0?reste/nbPers:null,nbPers,interets,fraisDossier,garantie,
     coutCredit:interets+totAssur+fraisDossier+garantie,totalFin:getTotalFinancement(d),
     capital:lignes.reduce((t,l)=>t+num(l.montant),0),rfr:emps.reduce((t,e)=>t+num(e.rfr),0),resteAFin:getResteAFinancer(d)};
@@ -355,7 +371,7 @@ function buildEmprunteurPanel(px,i,e){
     </div>
     <div class="row g-2 mb-3">
       ${st('bdf','Interro. Banque de France',e.bdf)}${st('drc','Interro. DRC',e.drc)}${st('topcc','TopCC',e.topcc)}
-      <div class="col-md-3"><label class="form-label small mb-0">Revenu fiscal de référence (€)</label><input type="number" step="0.01" min="0" class="form-control form-control-sm" data-ef="rfr" value="${e.rfr??''}" oninput="onFormChange('${px}')"></div>
+      <div class="col-md-3"><label class="form-label small mb-0" title="Avec un PTZ, c'est le RFR N-2 qui est pris en compte">RFR N-2 (€) <i class="fas fa-circle-info text-muted"></i></label><input type="number" step="0.01" min="0" class="form-control form-control-sm" data-ef="rfr" value="${e.rfr??''}" oninput="onFormChange('${px}')"></div>
     </div>
     <h6>Revenus</h6><div id="${px}_e${i}_revenus_list" class="ci-json-list mb-2"></div>
     <button type="button" class="btn btn-sm btn-outline-primary mb-3" onclick="addRow('${px}',${i},'revenus')"><i class="fas fa-plus"></i> Ajouter un revenu</button>
@@ -568,7 +584,7 @@ function readAssurances(px){
 // Régénère la grille emprunteur × ligne en conservant les valeurs déjà saisies
 function renderAssurances(px,initial){
   const prev=initial||readAssurances(px);
-  const emps=collectEmprunteurs(px), lignes=readLignes(px);
+  const emps=collectEmprunteurs(px), lignes=lignesAss({ptz_actif:document.getElementById(px+'_ptz_cb')?.checked?1:0,ecoptz_actif:document.getElementById(px+'_ecoptz_cb')?.checked?1:0},readLignes(px));
   const byKey={}; prev.forEach(a=>{byKey[(a.emp??0)+'_'+(a.ligne??0)]=a;});
   let html='';
   emps.forEach((e,ei)=>lignes.forEach((l,li)=>{
@@ -745,6 +761,8 @@ function buildFormTabs(px,d){
         <div class="card mb-3"><div class="card-header"><strong>Montants</strong></div><div class="card-body"><div class="row g-3">
           ${money('montant_acquisition','mont_acq',"Acquisition (€)",d.montant_acquisition)}
           ${money('dont_mobilier_financable','mob',"Dont mobilier financable (€)",d.dont_mobilier_financable)}
+          ${money('montant_travaux','travaux',"Travaux (€)",d.montant_travaux)}
+          ${money('travaux_ecoptz','travaux_eco',"Dont travaux éligibles EcoPTZ (€)",d.travaux_ecoptz)}
           ${money('frais_notaire','frais_notaire',"Frais de notaire (€)",d.frais_notaire)}
           ${money('frais_negociation','frais_neg',"Frais de négociation – agence immo (€)",nego)}
           ${money('frais_divers','frais_div',"Frais divers (€)",d.frais_divers)}
@@ -1095,12 +1113,12 @@ function toggleFME(px){
 function togglePTZ(px){
   const cb=document.getElementById(px+'_ptz_cb'), w=document.getElementById(px+'_ptz_wrap');
   if(w) w.style.display=cb?.checked?'':'none';
-  updatePiecesEco(px);
+  updatePiecesEco(px); renderAssurances(px);
 }
 function toggleEcoPTZ(px){
   const cb=document.getElementById(px+'_ecoptz_cb'), w=document.getElementById(px+'_ecoptz_wrap');
   if(w) w.style.display=cb?.checked?'':'none';
-  updatePiecesEco(px);
+  updatePiecesEco(px); renderAssurances(px);
 }
 function onGarantieChange(px){
   const v=document.getElementById(px+'_gar_type')?.value;
@@ -1248,6 +1266,7 @@ function showDetail(id){
     <tr><td colspan="2" class="fw-bold bg-light">Montants</td></tr>
     <tr><td>Acquisition</td><td>${money(num(d.montant_acquisition))}</td></tr>
     <tr><td>Dont mobilier financable</td><td>${money(num(d.dont_mobilier_financable))}</td></tr>
+    ${num(d.montant_travaux)>0?`<tr><td>Travaux</td><td>${money(num(d.montant_travaux))}</td></tr>`:''}
     <tr><td>Frais de notaire</td><td>${money(num(d.frais_notaire))}</td></tr>
     <tr><td>Frais de négociation (agence)</td><td>${money(num(d.frais_negociation)+num(d.frais_agence))}</td></tr>
     <tr><td>Frais divers</td><td>${money(num(d.frais_divers))}</td></tr>
@@ -1267,7 +1286,7 @@ function showDetail(id){
   const lignesRows=c.lignes.map((l,i)=>`<tr><td>${escapeHtml(l.libelle||('Ligne '+(i+1)))}${l.doublissimo?' <span class="badge bg-info">Doublissimo</span>':''}${l.primo_jeune?' <span class="badge bg-info">Primo Jeune 0 %</span>':''}${l.primoz?' <span class="badge bg-info">Primoz</span>':''}${l.grandioz?' <span class="badge bg-info">Grandioz</span>':''}</td><td>${money(num(l.montant))}</td><td>${parseInt(l.duree)||0} mois</td><td>${num(l.taux).toFixed(3).replace('.',',')} %</td><td>${money(num(l.frais_dossier))}</td><td><strong>${money(c.sch[i].mens)}</strong></td><td><strong>${money(c.sch[i].mens+ligneAssuranceMensuelle(c,i))}</strong></td><td>${taegTxt(c.taegLignes[i])}${c.taegLignes[i]?`<div class="small text-muted">simple ${parseFloat(c.taegLignes[i].prop).toFixed(2).replace('.',',')} %</div>`:''}</td><td>${money(c.sch[i].interets)}</td></tr>`).join('');
   const assRows=getAssurances(d).map((a,i)=>{
     const cost=c.ass[i]||{monthly:0,total:0};
-    return `<tr><td>${escapeHtml((c.emps[a.emp??0]?.nom)||('Emprunteur '+((a.emp??0)+1)))} — ${escapeHtml((c.lignes[a.ligne??0]?.libelle)||('Ligne '+((a.ligne??0)+1)))}</td>
+    return `<tr><td>${escapeHtml((c.emps[a.emp??0]?.nom)||('Emprunteur '+((a.emp??0)+1)))} — ${escapeHtml((c.lignesA[a.ligne??0]?.libelle)||('Ligne '+((a.ligne??0)+1)))}</td>
       <td>${a.taux!==''&&a.taux!=null?num(a.taux).toFixed(3).replace('.',',')+' % ('+(a.base==='CRD'?'CRD':'CI')+')':'—'}</td><td>${num(a.quotite)||100} %</td>
       <td>${escapeHtml((a.couverture||[]).join(', ')||'—')}</td><td>${escapeHtml([a.type,a.franchise,a.ipp].filter(Boolean).join(' · ')||'—')}</td>
       <td>${money(cost.monthly)}</td><td>${money(cost.total)}</td></tr>`;}).join('');
@@ -1292,7 +1311,7 @@ function showDetail(id){
       <tr><td>Reste à financer</td><td>${money(c.resteAFin)}</td></tr>
       ${d.doublissimo==1?'<tr><td>Doublissimo</td><td>Oui</td></tr>':''}${d.primo_jeune==1?'<tr><td>Primo Jeune 0 %</td><td>Oui</td></tr>':''}${d.primoz==1?'<tr><td>Primoz</td><td>Oui</td></tr>':''}${d.grandioz==1?'<tr><td>Grandioz</td><td>Oui</td></tr>':''}
     </tbody></table>
-    ${d.ptz_actif==1?`<div class="alert alert-info py-1">PTZ : ${money(num(d.ptz_montant))} / ${d.ptz_duree} mois${ptzDiffere(d)?' dont '+ptzDiffere(d)+' mois de différé (0 € pendant le différé)':''} → mensualité : ${money(c.mensPTZ)}</div>`:''}
+    ${d.ptz_actif==1?`<div class="alert alert-info py-1">PTZ : ${money(num(d.ptz_montant))} / ${d.ptz_duree} mois${ptzDiffere(d)?' dont '+ptzDiffere(d)+' mois de différé (0 € pendant le différé)':''} → mensualité : ${money(c.mensPTZ)}${c.taegPtz?' · TAEG '+taegTxt(c.taegPtz):''}</div>`:''}
     ${d.ecoptz_actif==1?`<div class="alert alert-info py-1">EcoPTZ : ${money(num(d.ecoptz_montant))} / ${d.ecoptz_duree} mois → mensualité : ${money(c.mensEco)}</div>`:''}
     </div><div class="col-md-7">
       <h6>Lignes de crédit</h6>
@@ -1452,13 +1471,13 @@ function allScheduleLines(d){
     const df=ptzDiffere(d), n=parseInt(d.ptz_duree)||0, mt=num(d.ptz_montant), sp=scheduleLine(mt,0,Math.max(1,n-df));
     // pendant le différé : aucune échéance (capital restant dû constant), puis amortissement linéaire
     const rows=[...Array(df).keys()].map(()=>({crd:mt,interet:0,capital:0,pay:0})).concat(sp.rows);
-    lines.push({label:'PTZ',s:{mens:sp.mens,rows,interets:0,differe:df},ligneIdx:null,montant:mt});
+    lines.push({label:'PTZ',s:{mens:sp.mens,rows,interets:0,differe:df},ligneIdx:c.lignes.length,montant:mt});
   }
-  if(d.ecoptz_actif==1&&num(d.ecoptz_duree)>0) lines.push({label:'EcoPTZ',s:scheduleLine(num(d.ecoptz_montant),0,d.ecoptz_duree),ligneIdx:null,montant:num(d.ecoptz_montant)});
+  if(d.ecoptz_actif==1&&num(d.ecoptz_duree)>0) lines.push({label:'EcoPTZ',s:scheduleLine(num(d.ecoptz_montant),0,d.ecoptz_duree),ligneIdx:c.lignes.length+(d.ptz_actif==1?1:0),montant:num(d.ecoptz_montant)});
   return {c,lines};
 }
 function assuranceByMonth(d,c,ligneIdx,m){ // cotisation d'assurance du mois m pour une ligne (constante sur la durée de la ligne)
-  if(m>(parseInt(c.lignes[ligneIdx]?.duree)||0)) return 0;
+  if(m>(parseInt(c.lignesA[ligneIdx]?.duree)||0)) return 0;
   return c.ass.reduce((t,a,k)=>t+(((c.assRaw[k].ligne)??0)===ligneIdx?a.monthly:0),0);
 }
 function showAmortissement(id){
@@ -1616,7 +1635,7 @@ function ficheKit(d){
   const cap=(arr,n,row,label,cols)=>arr.slice(0,n).map(row).join('')+(arr.length>n?`<tr><td colspan="${cols||2}" class="sy-grey">… + ${arr.length-n} ${label}</td></tr>`:'');
   const ages=parseArr(d.enfants_ages_json).filter(a=>a!==null&&a!=='');
   const nomEmp=i=>(c.emps[i]&&c.emps[i].nom)?c.emps[i].nom:('Emprunteur '+(i+1));
-  const ligneNom=i=>(c.lignes[i]&&c.lignes[i].libelle)?c.lignes[i].libelle:('Ligne '+(i+1));
+  const ligneNom=i=>(c.lignesA[i]&&c.lignesA[i].libelle)?c.lignesA[i].libelle:('Ligne '+(i+1));
   const foyerN=(d.nb_personnes_foyer!==null&&d.nb_personnes_foyer!==undefined&&d.nb_personnes_foyer!=='')?d.nb_personnes_foyer:c.nbPers;
   const taux2=t=>num(t).toFixed(2).replace('.',',')+' %';
 
@@ -1644,6 +1663,7 @@ function ficheKit(d){
   const planRows=()=>{
     const plan=[]; const add=(l,v,cls)=>plan.push(`<tr class="${cls||''}"><td>${l}</td><td class="r">${v}</td></tr>`);
     add('Acquisition'+(num(d.dont_mobilier_financable)>0?' <span class="sy-grey">(dont mobilier '+mm(d.dont_mobilier_financable)+')</span>':''),mm(d.montant_acquisition));
+    if(num(d.montant_travaux)>0) add('Travaux',mm(d.montant_travaux));
     add('Frais de notaire',mm(d.frais_notaire));
     if(num(d.frais_negociation)+num(d.frais_agence)>0) add('Frais de négociation',mm(num(d.frais_negociation)+num(d.frais_agence)));
     add('Montant du projet',mm(getCoutProjet(d)),'tot');
