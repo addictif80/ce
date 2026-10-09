@@ -179,4 +179,5 @@ $bval = function ($field) use ($budget) {
     toggleConj();
 })();
 </script>
+<script>window.toolsOwnPrint=true; // document imprimé propre à cet outil</script>
 <?php require __DIR__ . '/../_sim/common_js.php'; ?>

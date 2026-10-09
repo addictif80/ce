@@ -138,4 +138,5 @@ if (!empty($currentUser)) { // portail : coordonnées du conseiller connecté
   draw();
 })();
 </script>
+<script>window.toolsOwnPrint=true; // document imprimé propre à cet outil</script>
 <?php require __DIR__ . '/../_sim/common_js.php'; ?>

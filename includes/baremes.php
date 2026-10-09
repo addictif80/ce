@@ -290,3 +290,27 @@ function baremesAReviser() {
     foreach (array_keys(baremeCatalog()) as $k) if (baremeStatut(baremeGet($k)) !== 'ok') $n++;
     return $n;
 }
+
+
+/**
+ * Bandeau discret « barème utilisé » affiché sur les simulateurs : état du contrôle et date.
+ * Le texte est repris dans le pied du document imprimé (attribut data-bareme-note).
+ * @param string[] $cles clés de barèmes (catalogue)
+ */
+function baremeNotice(array $cles) {
+    $cat = baremeCatalog(); $parts = []; $worst = 'ok'; $order = ['ok' => 0, 'ancien' => 1, 'provisoire' => 2];
+    foreach ($cles as $k) {
+        if (!isset($cat[$k])) continue;
+        $b = baremeGet($k); $st = baremeStatut($b);
+        $name = preg_replace('/\s*\(.*$/u', '', $cat[$k]['label']);
+        if ($st === 'ok') $parts[] = $name . ' : contrôlé le ' . date('d/m/Y', strtotime($b['date']));
+        elseif ($st === 'ancien') $parts[] = $name . ' : dernier contrôle le ' . ($b['date'] ? date('d/m/Y', strtotime($b['date'])) : '—') . ' (à revoir)';
+        else $parts[] = $name . ' : à confirmer';
+        if ($order[$st] > $order[$worst]) $worst = $st;
+    }
+    if (!$parts) return '';
+    $cls = ['ok' => 'text-success', 'ancien' => 'text-danger', 'provisoire' => 'text-warning'][$worst];
+    $icon = $worst === 'ok' ? 'fa-circle-check' : 'fa-triangle-exclamation';
+    $txt = 'Barème utilisé — ' . implode(' · ', $parts);
+    return '<div class="small ' . $cls . ' mb-2 no-client" data-bareme-note="' . htmlspecialchars($txt, ENT_QUOTES) . '"><i class="fas ' . $icon . ' me-1"></i>' . htmlspecialchars($txt) . '</div>';
+}

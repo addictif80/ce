@@ -5,6 +5,7 @@ $capLoad = $capLoad ?? null;
 ?>
 <?php require __DIR__ . '/../_sim/style.php'; require_once __DIR__ . '/../../includes/baremes.php'; $hcsf = baremeGet('hcsf')['data']; ?>
 <?php require __DIR__ . '/../_sim/actions.php'; ?>
+<?php require_once __DIR__ . '/../../includes/baremes.php'; echo baremeNotice(['hcsf']); ?>
 <div class="row g-3">
  <div class="col-lg-6">
   <div class="cap-card"><h2><i class="fas fa-wallet me-2 text-danger"></i>Ressources et charges (par mois)</h2>

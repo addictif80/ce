@@ -10,6 +10,7 @@ $ntDeps = (array)($ntData['departements'] ?? []);
 ksort($ntDeps);
 ?>
 <?php require __DIR__ . '/../_sim/actions.php'; ?>
+<?php require_once __DIR__ . '/../../includes/baremes.php'; echo baremeNotice(['notaire']); ?>
 <div class="row g-3">
  <div class="col-lg-6">
   <div class="cap-card"><h2><i class="fas fa-house me-2 text-danger"></i>Le bien</h2>
