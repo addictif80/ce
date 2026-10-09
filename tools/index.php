@@ -26,7 +26,7 @@ toolsHeader('Outils en libre accès');
                 <div class="h4 mb-1">Aucune donnée n'est enregistrée</div>
                 <div>Ces outils sont accessibles sans connexion ni création de compte. Rien de ce que vous saisissez n'est stocké par ce portail :
                     tout reste dans votre navigateur et disparaît à la fermeture de la page.
-                    <span class="small d-block mt-1">Seules exceptions, volontaires : envoyer un retour à l'administrateur, ou proposer un ajout ou une modification (procédures, codes utiles, contacts utiles), qui est transmis pour validation.</span></div>
+                    <span class="small d-block mt-1">Seules exceptions, volontaires : envoyer un retour à l'administrateur, ou proposer un ajout ou une modification (procédures, codes utiles, contacts utiles), qui est transmis pour validation. Le portail tient en outre des compteurs anonymes de fréquentation (nombre d'ouvertures par outil), sans identifiant ni cookie.</span></div>
             </div>
         </div>
         <?php if ($message !== ''): ?>
@@ -95,9 +95,25 @@ toolsHeader('Outils en libre accès');
         <div class="row g-4 mb-3"><?php renderTermsToolsCard(); ?></div>
         <div class="alert alert-info">Aucun outil n'est disponible pour le moment.</div>
     <?php else: ?>
+    <?php
+    // Regroupement par intention ; un outil absent de la liste va dans « Autres outils »
+    $groupes = [
+        'Financer un projet' => ['calculateur', 'capacite', 'notaire', 'ptz', 'creditsspeciaux', 'plan', 'scenarios', 'relais', 'rachat', 'usure'],
+        'Épargne et patrimoine' => ['epargne', 'assurancevie', 'per', 'epargnecredit'],
+        'Conseil et conformité' => ['signataires', 'evenements', 'pieces', 'saisie', 'memo_plafonds', 'memo_delais'],
+        'Boîte à outils' => ['dates', 'validateurs', 'calculs', 'pdf', 'courrier', 'bureau_dom'],
+        'Références' => ['dpe', 'rge', 'procedures', 'codes', 'contacts'],
+    ];
+    $placed = array_merge(...array_values($groupes));
+    $autres = array_values(array_diff($visible, $placed));
+    if ($autres) $groupes['Autres outils'] = $autres;
+    ?>
+    <div class="row g-4 mb-2"><?php renderTermsToolsCard(); // avertissement : toujours la première carte ?></div>
+    <div class="mb-3 no-print" style="max-width:420px"><label class="visually-hidden" for="toolFilter">Filtrer les outils</label><input type="search" id="toolFilter" class="form-control" placeholder="Filtrer les outils de cette page…" autocomplete="off"></div>
+    <?php foreach ($groupes as $gTitre => $gKeys): $gKeys = array_values(array_filter($gKeys, fn($k) => in_array($k, $visible, true))); if (!$gKeys) continue; ?>
+    <section class="tool-group"><h2 class="h5 mt-4 mb-3 border-bottom pb-2"><?= e($gTitre) ?></h2>
     <div class="row g-4">
-        <?php renderTermsToolsCard(); // avertissement : toujours la première carte ?>
-        <?php foreach ($visible as $key): $t = $catalog[$key]; $off = $status[$key]['state'] === 'indisponible'; ?>
+        <?php foreach ($gKeys as $key): $t = $catalog[$key]; $off = $status[$key]['state'] === 'indisponible'; ?>
         <div class="col-md-6 col-lg-4 tool-col" data-key="<?= e($key) ?>">
             <<?= $off ? 'div' : 'a href="' . e($t['url']) . '"' ?> class="text-decoration-none text-dark d-block h-100" <?= $off ? 'aria-disabled="true"' : '' ?>>
                 <div class="card h-100 shadow-sm border-0" style="<?= $off ? 'opacity:.6;filter:grayscale(1);cursor:not-allowed' : '' ?>">
@@ -126,7 +142,8 @@ toolsHeader('Outils en libre accès');
             </<?= $off ? 'div' : 'a' ?>>
         </div>
         <?php endforeach; ?>
-    </div>
+    </div></section>
+    <?php endforeach; ?>
     <?php endif; ?>
 
     <div class="text-center mt-5">
@@ -139,6 +156,8 @@ toolsHeader('Outils en libre accès');
   const set=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}};
   const cols=[...document.querySelectorAll('.tool-col')], main=cols.length?cols[0].parentNode:null;
   const order=cols.map(c=>c.dataset.key);
+  // repère de chaque carte dans son groupe : retour à la place d'origine quand un favori est retiré
+  const ph=cols.map(c=>{const p=document.createElement('span');p.hidden=true;c.parentNode.insertBefore(p,c);return p;});
   function render(){
     const fav=get('toolsFav').filter(k=>order.includes(k));
     cols.forEach(c=>{
@@ -148,7 +167,7 @@ toolsHeader('Outils en libre accès');
     const favRow=document.getElementById('favRow');
     // favoris en tête (dans l'ordre choisi), les autres à leur place d'origine
     fav.forEach(k=>favRow.appendChild(cols[order.indexOf(k)]));
-    cols.filter(c=>!fav.includes(c.dataset.key)).forEach(c=>main.appendChild(c)); // ordre du catalogue conservé
+    cols.forEach((c,i)=>{if(!fav.includes(c.dataset.key)) ph[i].parentNode.insertBefore(c,ph[i].nextSibling);}); // retour à la place d'origine
     document.getElementById('favSection').style.display=fav.length?'':'none';
   }
   document.addEventListener('click',e=>{
@@ -166,6 +185,13 @@ toolsHeader('Outils en libre accès');
     el.textContent=cols[order.indexOf(k)].querySelector('h2').textContent; list.appendChild(el);
   });
   if(list.children.length) document.getElementById('recentBar').style.display='';
+  // filtre instantané des cartes (les groupes vides se masquent)
+  const flt=document.getElementById('toolFilter'), norm=s=>s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  if(flt) flt.addEventListener('input',()=>{
+    const t=norm(flt.value.trim());
+    cols.forEach(c=>{c.style.display=!t||norm(c.textContent).includes(t)?'':'none';});
+    document.querySelectorAll('.tool-group').forEach(g=>{g.style.display=[...g.querySelectorAll('.tool-col')].some(c=>c.style.display!=='none')?'':'none';});
+  });
 })();
 </script>
 <?php

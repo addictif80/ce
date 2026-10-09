@@ -38,9 +38,11 @@
       let ok=false;try{ok=document.execCommand('copy');}catch(_){} t.remove();return ok;}
   }
   function flash(btn,txt){const h=btn.innerHTML;btn.innerHTML='<i class="fas fa-check me-1"></i>'+txt;setTimeout(()=>btn.innerHTML=h,1600);}
+  // Compteur anonyme d'usage (page /tools uniquement) : aucune donnée de saisie n'est envoyée
+  const stat=ev=>{if(window.toolsStatHit) window.toolsStatHit(ev);};
   document.addEventListener('click',async e=>{
     const b=e.target.closest('[data-tool-action]'); if(!b) return;
-    const a=b.dataset.toolAction;
+    const a=b.dataset.toolAction; if(a!=='print') stat(a);
     if(a==='link'){history.replaceState(null,'',shareUrl().slice(location.origin.length)); flash(b,(await copy(shareUrl()))?'Lien copié':'Copie impossible');}
     else if(a==='copy'){flash(b,(await copy(resultText()))?'Résultat copié':'Copie impossible');}
     else if(a==='print'){window.print();}
@@ -50,4 +52,84 @@
     }
   });
   window.addEventListener('load',restore);
+})();
+
+// ── Document client unifié ───────────────────────────────────────────────────
+// À l'impression (bouton « Imprimer » ou Ctrl+P), les outils sans document propre impriment un document standard :
+// en-tête Caisse d'Épargne, titre, date, données saisies, résultats, mentions légales et barèmes utilisés.
+// Un outil peut fournir son propre document (window.toolsOwnPrint = true) ou compléter celui-ci (window.toolsDoc = () => ({title, inputs:[[libellé, valeur]], html})).
+(function(){
+  if(window.__toolsDoc) return; window.__toolsDoc=true;
+  const LOGO='https://www.img.caisse-epargne.fr/app/uploads/sites/16/2021/05/31152836/ce-logo-midi-pyrennees.png';
+  const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const CSS=`
+  #tdoc{display:none}
+  @media print{
+    html.tdoc-on body > *:not(#tdoc){display:none!important}
+    html.tdoc-on body{background:#fff!important}
+    html.tdoc-on #tdoc{display:block;font-family:Arial,Helvetica,sans-serif;color:#000;font-size:10.5pt;line-height:1.35}
+    #tdoc .td-head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #e4002b;padding-bottom:8px;margin-bottom:14px}
+    #tdoc .td-head img{height:38px}
+    #tdoc .td-head .td-date{font-size:9pt;color:#555;text-align:right}
+    #tdoc h1{font-size:17pt;margin:0 0 4px;color:#000}
+    #tdoc .td-sub{color:#e4002b;font-weight:700;font-size:9pt;text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px}
+    #tdoc h2{font-size:11.5pt;margin:14px 0 6px;padding-bottom:3px;border-bottom:1px solid #999;break-after:avoid}
+    #tdoc table{border-collapse:collapse;width:100%;font-size:10pt}
+    #tdoc td,#tdoc th{border-bottom:1px solid #ddd;padding:3px 6px;text-align:left;vertical-align:top}
+    #tdoc td:last-child{text-align:right}
+    #tdoc .td-res{border:1px solid #999;border-radius:4px;padding:10px 12px;margin-bottom:8px;break-inside:avoid;background:#fff!important;color:#000!important}
+    #tdoc .td-res *{color:#000!important;background:transparent!important;box-shadow:none!important;opacity:1!important}
+    #tdoc .td-res .big{font-size:15pt;font-weight:700}
+    #tdoc .td-res button,#tdoc .td-res .no-print{display:none!important}
+    #tdoc .td-foot{margin-top:18px;border-top:1px solid #999;padding-top:6px;font-size:8pt;color:#444}
+    #tdoc .td-foot p{margin:0 0 3px}
+  }`;
+  function label(el){
+    let t='';
+    if(el.id){const l=document.querySelector('label[for="'+el.id+'"]'); if(l) t=l.textContent;}
+    if(!t&&el.previousElementSibling&&el.previousElementSibling.tagName==='LABEL') t=el.previousElementSibling.textContent;
+    if(!t){const c=el.closest('.col-6,.col-md-3,.col-md-4,.col-md-6,.col-12,.mb-3,div'); const l=c&&c.querySelector('label'); if(l) t=l.textContent;}
+    if(!t) t=el.getAttribute('aria-label')||el.getAttribute('placeholder')||'';
+    return t.replace(/\s+/g,' ').replace(/\*/g,'').trim();
+  }
+  function visible(el){return !el.closest('[hidden],.d-none,.no-print-doc')&&(el.offsetParent!==null||el.type==='hidden'&&false);}
+  function inputs(){
+    const rows=[], seen=new Set();
+    document.querySelectorAll('input[id],select[id],textarea[id]').forEach(el=>{
+      if(['file','password','hidden','submit','button'].includes(el.type)||el.matches('[data-noshare],.modal *,form[role=search] *')||el.id.startsWith('search')) return;
+      if(!visible(el)||el.closest('.js-result')) return;
+      let v;
+      if(el.type==='checkbox') {if(!el.checked) return; v='Oui';}
+      else if(el.type==='radio') {if(!el.checked) return; v=label(el)||'Oui';}
+      else if(el.tagName==='SELECT') {v=el.selectedIndex>=0?el.options[el.selectedIndex].text:''; if(!el.value) return;}
+      else v=el.value;
+      v=String(v).trim(); if(v==='') return;
+      const l=label(el); if(!l) return;
+      const key=l+'|'+v; if(seen.has(key)) return; seen.add(key);
+      rows.push([l,v+(el.dataset&&el.dataset.unit?' '+el.dataset.unit:'')]);
+    });
+    return rows;
+  }
+  function build(){
+    const extra=window.toolsDoc?window.toolsDoc():{};
+    const title=extra.title||((document.querySelector('h1')||document.querySelector('h4')||{}).textContent||document.title).trim();
+    const rows=extra.inputs||inputs();
+    const res=[...document.querySelectorAll('.js-result,.js-print')].filter(el=>el.offsetParent!==null).map(el=>{const c=el.cloneNode(true);const src=[...el.querySelectorAll('input[type=checkbox]')];[...c.querySelectorAll('input[type=checkbox]')].forEach((x,i)=>{const t=document.createElement('span');t.textContent=src[i]&&src[i].checked?'\u2611':'\u2610';t.style.marginRight='6px';x.replaceWith(t);});c.querySelectorAll('button,.no-print,[data-print-skip],script,style').forEach(x=>x.remove());return '<div class="td-res">'+c.innerHTML+'</div>';}).join('');
+    const notes=[...document.querySelectorAll('[data-bareme-note]')].map(n=>'<p>'+esc(n.dataset.baremeNote)+'</p>').join('');
+    const d=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+    return '<div class="td-head"><img src="'+LOGO+'" alt="Caisse d\'Épargne" onerror="this.style.display=\'none\'"><div class="td-date">Édité le '+esc(d)+'</div></div>'
+      +'<h1>'+esc(title)+'</h1><div class="td-sub">Simulation non contractuelle</div>'
+      +(rows.length?'<h2>Données saisies</h2><table>'+rows.map(r=>'<tr><td>'+esc(r[0])+'</td><td>'+esc(r[1])+'</td></tr>').join('')+'</table>':'')
+      +(res||extra.html?'<h2>Résultat</h2>'+(res||'')+(extra.html||''):'')
+      +'<div class="td-foot"><p>Simulation indicative établie à partir des informations saisies, sans valeur contractuelle ni précontractuelle : elle ne constitue pas une offre de prêt ni un conseil personnalisé. Les résultats sont à vérifier avant toute décision.</p>'+notes+'<p>Caisse d\'Épargne et de Prévoyance de Midi-Pyrénées — document généré par un outil d\'aide, qui ne se substitue pas aux outils internes du groupe BPCE.</p></div>';
+  }
+  const st=document.createElement('style'); st.textContent=CSS; document.head.appendChild(st);
+  window.addEventListener('beforeprint',()=>{
+    if(window.toolsStatHit) window.toolsStatHit('print');
+    if(window.toolsOwnPrint) return;
+    let box=document.getElementById('tdoc'); if(!box){box=document.createElement('div');box.id='tdoc';document.body.appendChild(box);}
+    document.documentElement.classList.remove('tdoc-on');   // la page doit être visible pour lire les champs et les résultats
+    box.innerHTML=build(); document.documentElement.classList.add('tdoc-on');
+  });
+  window.addEventListener('afterprint',()=>{document.documentElement.classList.remove('tdoc-on'); const b=document.getElementById('tdoc'); if(b) b.innerHTML='';});
 })();

@@ -650,7 +650,7 @@ try {
         'event_added'    => 'Événement ajouté avec succès.',
         'event_updated'  => 'Événement modifié avec succès.',
         'event_deleted'  => 'Événement supprimé.',
-        'popup_saved' => 'Popup enregistrée.', 'zonage_vide' => 'Liste des communes vidée.',
+        'popup_saved' => 'Popup enregistrée.', 'news_saved' => 'Nouveauté enregistrée.', 'news_deleted' => 'Nouveauté supprimée.', 'zonage_vide' => 'Liste des communes vidée.',
         'terms_saved' => 'Conditions d\'utilisation enregistrées.',
         'bareme_saved' => 'Barème enregistré.', 'bareme_reset' => 'Barème remis aux valeurs par défaut.',
         'bareme_invalide' => 'Barème refusé : voir le message sous le barème concerné.', 'bareme_inconnu' => 'Barème inconnu.',
@@ -696,6 +696,12 @@ try {
     </li>
     <li class="nav-item">
         <a class="nav-link <?= $activeTab === 'popups' ? 'active' : '' ?>" href="?tab=popups"><i class="fas fa-window-restore"></i> Popups</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link <?= $activeTab === 'nouveautes' ? 'active' : '' ?>" href="?tab=nouveautes"><i class="fas fa-bullhorn"></i> Nouveautés</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link <?= $activeTab === 'stats' ? 'active' : '' ?>" href="?tab=stats"><i class="fas fa-chart-column"></i> Statistiques /tools</a>
     </li>
     <li class="nav-item">
         <?php $nbBar = baremesAReviser(); ?>
@@ -2301,6 +2307,10 @@ $feedbackTypes = ['bug' => 'Problème', 'suggestion' => 'Suggestion', 'question'
 
 <?php elseif ($activeTab === 'conditions'): ?>
 <?php require __DIR__ . '/tab_conditions.php'; ?>
+<?php elseif ($activeTab === 'stats'): ?>
+<?php require __DIR__ . '/tab_stats.php'; ?>
+<?php elseif ($activeTab === 'nouveautes'): ?>
+<?php require __DIR__ . '/tab_nouveautes.php'; ?>
 <?php elseif ($activeTab === 'popups'): ?>
 <?php require __DIR__ . '/tab_popups.php'; ?>
 <?php elseif ($activeTab === 'baremes'): ?>

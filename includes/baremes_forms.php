@@ -62,6 +62,78 @@ function baremeRenderForm($cle, array $d) {
             <tr><td>Durée maximale (mois)</td><td><?= bfNum('[duree_max_mois]', $d['duree_max_mois'], '12') ?></td></tr>
             <tr><td>Âge maximum de l'un des emprunteurs (ans, inclus)</td><td><?= bfNum('[age_max]', $d['age_max'], '1') ?></td></tr>
         </tbody></table>
+    <?php } elseif ($cle === 'usure') { $cats = array_merge($d['categories'], array_fill(0, 4, ['groupe' => '', 'libelle' => '', 'taux' => ''])); ?>
+        <?= bfHelp('Saisissez les seuils publiés (TAEG maximal autorisé, en %) et leur période d\'application. Une ligne dont le libellé est vide est ignorée ; le groupe regroupe les catégories à l\'affichage (ex. « Prêts immobiliers », « Crédits à la consommation »).') ?>
+        <table class="table table-sm align-middle w-auto"><tbody>
+            <tr><td>Période d\'application (libellé)</td><td><input name="d[periode]" value="<?= e($d['periode'] ?? '') ?>" class="form-control form-control-sm" style="width:240px" placeholder="4e trimestre 2026"></td></tr>
+            <tr><td>Du</td><td><input type="date" name="d[du]" value="<?= e($d['du'] ?? '') ?>" class="form-control form-control-sm" style="width:160px"></td></tr>
+            <tr><td>Au</td><td><input type="date" name="d[au]" value="<?= e($d['au'] ?? '') ?>" class="form-control form-control-sm" style="width:160px"></td></tr>
+        </tbody></table>
+        <table class="table table-sm align-middle"><thead><tr><th>Groupe</th><th>Catégorie</th><th>Seuil (%)</th></tr></thead><tbody>
+        <?php foreach ($cats as $i => $c): ?><tr>
+            <td style="width:24%"><input name="d[categories][<?= $i ?>][groupe]" value="<?= e($c['groupe'] ?? '') ?>" class="form-control form-control-sm"></td>
+            <td><input name="d[categories][<?= $i ?>][libelle]" value="<?= e($c['libelle'] ?? '') ?>" class="form-control form-control-sm"></td>
+            <td style="width:110px"><input type="number" step="0.01" name="d[categories][<?= $i ?>][taux]" value="<?= e((string)($c['taux'] ?? '')) ?>" class="form-control form-control-sm text-end"></td></tr><?php endforeach; ?>
+        </tbody></table>
+    <?php } elseif ($cle === 'saisie') { $q = bfNumList($d['quotites']); ?>
+        <?= bfHelp('Tranches de rémunération nette <strong>annuelle</strong> : la quotité de chaque tranche s\'applique à la part de rémunération comprise dans cette tranche. Au-delà du dernier seuil, tout est saisissable.') ?>
+        <table class="table table-sm align-middle w-auto"><thead><tr><th>Tranche</th><th>Jusqu\'à (€ par an)</th><th>Part saisissable (%)</th></tr></thead><tbody>
+        <?php foreach (bfNumList($d['seuils']) as $i => $v): ?><tr><td>Tranche <?= $i + 1 ?></td><td><?= bfNum("[seuils][$i]", $v, '1') ?></td><td><?= bfNum("[quotites][$i]", $q[$i] ?? 0, 'any') ?></td></tr><?php endforeach; ?>
+        <tr><td>Au-delà</td><td class="text-muted">—</td><td><?= bfNum('[quotites][6]', $q[6] ?? 100, 'any') ?></td></tr>
+        </tbody></table>
+        <table class="table table-sm align-middle w-auto"><tbody>
+            <tr><td>Majoration par personne à charge (€ par an)</td><td><?= bfNum('[charge_annuelle]', $d['charge_annuelle'], '1') ?></td></tr>
+            <tr><td>RSA pour une personne seule (€ par mois) = solde bancaire insaisissable</td><td><?= bfNum('[rsa_mensuel]', $d['rsa_mensuel'], '0.01') ?></td></tr>
+        </tbody></table>
+    <?php } elseif (baremeIsMemo($cle)) { $gi = 0; $ch = baremeCatalog()[$cle]['champs'] ?? ['Libellé', 'Valeur', 'Précision (facultatif)']; ?>
+        <?= bfHelp('Chaque groupe est un encadré du mémo. Une ligne vide est ignorée ; pour supprimer une ligne, videz son libellé. Le champ « Valeur » est libre (montant, durée, texte).') ?>
+        <div id="memoGroups-<?= e($cle) ?>">
+        <?php foreach ($d['groupes'] as $g): $li = 0; ?>
+            <div class="border rounded p-2 mb-3 memo-group"><input name="d[groupes][<?= $gi ?>][titre]" value="<?= e($g['titre']) ?>" class="form-control fw-bold mb-2" placeholder="Titre du groupe">
+            <table class="table table-sm align-middle mb-1"><tbody>
+            <?php foreach (array_merge($g['lignes'], [['libelle' => '', 'valeur' => '', 'note' => '']]) as $l): ?>
+                <tr><td style="width:34%"><input name="d[groupes][<?= $gi ?>][lignes][<?= $li ?>][libelle]" value="<?= e($l['libelle']) ?>" class="form-control form-control-sm" placeholder="<?= e($ch[0]) ?>"></td>
+                    <td style="width:22%"><input name="d[groupes][<?= $gi ?>][lignes][<?= $li ?>][valeur]" value="<?= e($l['valeur']) ?>" class="form-control form-control-sm" placeholder="<?= e($ch[1]) ?>"></td>
+                    <td><input name="d[groupes][<?= $gi ?>][lignes][<?= $li ?>][note]" value="<?= e($l['note'] ?? '') ?>" class="form-control form-control-sm" placeholder="<?= e($ch[2]) ?>"></td></tr>
+            <?php $li++; endforeach; ?></tbody></table></div>
+        <?php $gi++; endforeach; ?>
+        <div class="border rounded p-2 mb-3 memo-group bg-light"><input name="d[groupes][<?= $gi ?>][titre]" class="form-control fw-bold mb-2" placeholder="Nouveau groupe (titre) — laissez vide pour ne rien ajouter">
+            <table class="table table-sm align-middle mb-1"><tbody>
+            <?php for ($li = 0; $li < 4; $li++): ?>
+                <tr><td style="width:34%"><input name="d[groupes][<?= $gi ?>][lignes][<?= $li ?>][libelle]" class="form-control form-control-sm" placeholder="<?= e($ch[0]) ?>"></td>
+                    <td style="width:22%"><input name="d[groupes][<?= $gi ?>][lignes][<?= $li ?>][valeur]" class="form-control form-control-sm" placeholder="<?= e($ch[1]) ?>"></td>
+                    <td><input name="d[groupes][<?= $gi ?>][lignes][<?= $li ?>][note]" class="form-control form-control-sm" placeholder="<?= e($ch[2]) ?>"></td></tr>
+            <?php endfor; ?></tbody></table></div>
+        </div>
+    <?php } elseif ($cle === 'fiscalite') { $F = $d; ?>
+        <?= bfHelp('Paramètres d\'estimation : ils ne remplacent pas un calcul fiscal personnalisé.') ?>
+        <?= bfTitle(1, 'Prélèvements sur les revenus de l\'épargne') ?>
+        <table class="table table-sm align-middle w-auto"><tbody>
+            <tr><td>Impôt forfaitaire (PFU, part impôt sur le revenu) (%)</td><td><?= bfNum('[pfu_ir]', $F['pfu_ir'], '0.1') ?></td></tr>
+            <tr><td>Prélèvements sociaux : produits financiers (PEA, compte-titres, comptes à terme…) (%)</td><td><?= bfNum('[ps_standard]', $F['ps_standard'], '0.1') ?></td></tr>
+            <tr><td>Prélèvements sociaux : assurance-vie et épargne logement (%)</td><td><?= bfNum('[ps_assurance_vie]', $F['ps_assurance_vie'], '0.1') ?></td></tr>
+        </tbody></table>
+        <?= bfTitle(2, 'Assurance-vie') ?>
+        <table class="table table-sm align-middle w-auto"><tbody>
+            <tr><td>Rachat après 8 ans : taux d\'impôt sur les gains, après abattement (%)</td><td><?= bfNum('[av_taux_8ans]', $F['av_taux_8ans'], '0.1') ?></td></tr>
+            <tr><td>Rachat après 8 ans : abattement annuel, personne seule (€)</td><td><?= bfNum('[av_abattement_seul]', $F['av_abattement_seul'], '1') ?></td></tr>
+            <tr><td>Rachat après 8 ans : abattement annuel, couple (€)</td><td><?= bfNum('[av_abattement_couple]', $F['av_abattement_couple'], '1') ?></td></tr>
+            <tr><td>Rachat après 8 ans : seuil de primes versées au taux réduit (€)</td><td><?= bfNum('[av_seuil_primes]', $F['av_seuil_primes'], '1') ?></td></tr>
+            <tr><td>Décès : abattement par bénéficiaire, primes versées avant 70 ans (€)</td><td><?= bfNum('[av_990i_abattement]', $F['av_990i_abattement'], '1') ?></td></tr>
+            <tr><td>Décès : taux jusqu\'au seuil (%)</td><td><?= bfNum('[av_990i_taux1]', $F['av_990i_taux1'], '0.01') ?></td></tr>
+            <tr><td>Décès : seuil de la première tranche, après abattement (€)</td><td><?= bfNum('[av_990i_seuil]', $F['av_990i_seuil'], '1') ?></td></tr>
+            <tr><td>Décès : taux au-delà (%)</td><td><?= bfNum('[av_990i_taux2]', $F['av_990i_taux2'], '0.01') ?></td></tr>
+        </tbody></table>
+        <?= bfTitle(3, 'Impôt sur le revenu (revenus de l\'année précédente)') ?>
+        <table class="table table-sm align-middle w-auto"><thead><tr><th>Tranche</th><th>Jusqu\'à (€ par part)</th><th>Taux (%)</th></tr></thead><tbody>
+        <?php $tt = bfNumList($F['ir_taux']); foreach (bfNumList($F['ir_seuils']) as $i => $v): ?><tr><td>Tranche <?= $i + 1 ?></td><td><?= bfNum("[ir_seuils][$i]", $v, '1') ?></td><td><?= bfNum("[ir_taux][$i]", $tt[$i] ?? 0, '0.1') ?></td></tr><?php endforeach; ?>
+        <tr><td>Au-delà</td><td class="text-muted">—</td><td><?= bfNum('[ir_taux][4]', $tt[4] ?? 45, '0.1') ?></td></tr></tbody></table>
+        <?= bfTitle(4, 'PER') ?>
+        <table class="table table-sm align-middle w-auto"><tbody>
+            <tr><td>Plafond annuel de la Sécurité sociale de l\'année précédente (€)</td><td><?= bfNum('[pass_n1]', $F['pass_n1'], '1') ?></td></tr>
+            <tr><td>Plafond de déduction : part des revenus professionnels (%)</td><td><?= bfNum('[per_pct]', $F['per_pct'], '0.1') ?></td></tr>
+            <tr><td>Plafond maximal : nombre de PASS pris en compte</td><td><?= bfNum('[per_plafond_pass]', $F['per_plafond_pass'], '1') ?></td></tr>
+        </tbody></table>
     <?php } elseif ($cle === 'hcsf') { ?>
         <?= bfHelp('Les grandes règles du Haut Conseil de stabilité financière (HCSF) appliquées aux crédits immobiliers.') ?>
         <table class="table table-sm align-middle w-auto"><tbody>
@@ -153,6 +225,36 @@ function baremeCollect($cle, array $p) {
     $row = fn($a) => array_map($n, array_values((array)$a));
     if ($cle === 'hcsf') {
         return ['taux_endettement_max' => $n($p['taux_endettement_max'] ?? 0), 'duree_max_annees' => $n($p['duree_max_annees'] ?? 0), 'duree_max_annees_neuf' => $n($p['duree_max_annees_neuf'] ?? 0)];
+    }
+    if ($cle === 'usure') {
+        $cats = [];
+        foreach ((array)($p['categories'] ?? []) as $c) {
+            $lib = mb_substr(trim((string)($c['libelle'] ?? '')), 0, 150); if ($lib === '' || trim((string)($c['taux'] ?? '')) === '') continue;
+            $cats[] = ['groupe' => mb_substr(trim((string)($c['groupe'] ?? '')), 0, 100), 'libelle' => $lib, 'taux' => $n($c['taux'])];
+        }
+        $date = fn($v) => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$v) ? $v : '';
+        return ['periode' => mb_substr(trim((string)($p['periode'] ?? '')), 0, 80), 'du' => $date($p['du'] ?? ''), 'au' => $date($p['au'] ?? ''), 'categories' => $cats];
+    }
+    if ($cle === 'saisie') {
+        return ['seuils' => $row($p['seuils'] ?? []), 'quotites' => $row($p['quotites'] ?? []), 'charge_annuelle' => $n($p['charge_annuelle'] ?? 0), 'rsa_mensuel' => $n($p['rsa_mensuel'] ?? 0)];
+    }
+    if (baremeIsMemo($cle)) {
+        $groupes = [];
+        foreach ((array)($p['groupes'] ?? []) as $g) {
+            $titre = mb_substr(trim((string)($g['titre'] ?? '')), 0, 120); $lignes = [];
+            foreach ((array)($g['lignes'] ?? []) as $l) {
+                $lib = mb_substr(trim((string)($l['libelle'] ?? '')), 0, 200); if ($lib === '') continue;
+                $lignes[] = ['libelle' => $lib, 'valeur' => mb_substr(trim((string)($l['valeur'] ?? '')), 0, 400), 'note' => mb_substr(trim((string)($l['note'] ?? '')), 0, 600)];
+            }
+            if ($titre !== '' && $lignes) $groupes[] = ['titre' => $titre, 'lignes' => $lignes];
+        }
+        return ['groupes' => $groupes];
+    }
+    if ($cle === 'fiscalite') {
+        $out = [];
+        foreach (['pfu_ir', 'ps_standard', 'ps_assurance_vie', 'av_taux_8ans', 'av_abattement_seul', 'av_abattement_couple', 'av_seuil_primes', 'av_990i_abattement', 'av_990i_taux1', 'av_990i_seuil', 'av_990i_taux2', 'pass_n1', 'per_pct', 'per_plafond_pass'] as $k) $out[$k] = $n($p[$k] ?? 0);
+        $out['ir_seuils'] = $row($p['ir_seuils'] ?? []); $out['ir_taux'] = $row($p['ir_taux'] ?? []);
+        return $out;
     }
     if ($cle === 'primoz' || $cle === 'grandioz') {
         $out = [];

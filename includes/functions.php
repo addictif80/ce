@@ -308,7 +308,7 @@ function getDefaultMenuItems() {
         ['item_key' => 'activite', 'parent_key' => null, 'label' => 'Mon activité', 'icon' => 'fa-briefcase', 'url' => null, 'uri_patterns' => 'instances,rappels,demandes_clients,offres,interets_clients,rappels_clients,signatures,envoi_documents,kanban,gestion_portefeuille', 'ordre' => 1],
         ['item_key' => 'formation', 'parent_key' => null, 'label' => 'Formation', 'icon' => 'fa-graduation-cap', 'url' => null, 'uri_patterns' => 'formations', 'ordre' => 2],
         ['item_key' => 'commercial', 'parent_key' => null, 'label' => 'Commercial', 'icon' => 'fa-handshake', 'url' => null, 'uri_patterns' => 'production,phoning,eai,mobilites', 'ordre' => 3],
-        ['item_key' => 'outils', 'parent_key' => null, 'label' => 'Outils', 'icon' => 'fa-tools', 'url' => null, 'uri_patterns' => 'credit_immo,calculateur,courriers,courriers_internes,blocnotes,procedures,bureau_dom,retraits,dpe,/rge/,/capacite/,/notaire/,/ptz/,/rachat/,/pieces/,/modules/pdf/,/modules/stock/', 'ordre' => 4],
+        ['item_key' => 'outils', 'parent_key' => null, 'label' => 'Outils', 'icon' => 'fa-tools', 'url' => null, 'uri_patterns' => 'credit_immo,calculateur,courriers,courriers_internes,blocnotes,procedures,bureau_dom,retraits,dpe,/rge/,/capacite/,/notaire/,/ptz/,/rachat/,/pieces/,/modules/pdf/,/modules/stock/,/creditsspeciaux/,/modules/plan/,/modules/scenarios/', 'ordre' => 4],
         ['item_key' => 'references', 'parent_key' => null, 'label' => 'Références', 'icon' => 'fa-bookmark', 'url' => null, 'uri_patterns' => '/codes/,/contacts/', 'ordre' => 5],
         // Items - Mon activité
         ['item_key' => 'kanban', 'parent_key' => 'activite', 'label' => 'Vue Kanban', 'icon' => 'fa-columns', 'url' => '/modules/kanban/index.php', 'uri_patterns' => 'kanban', 'ordre' => 0],
@@ -348,10 +348,30 @@ function getDefaultMenuItems() {
         ['item_key' => 'rachat', 'parent_key' => 'outils', 'label' => 'Prêt relais / rachat', 'icon' => 'fa-arrows-rotate', 'url' => '/modules/rachat/index.php', 'uri_patterns' => '/rachat/', 'ordre' => 15],
         ['item_key' => 'pieces', 'parent_key' => 'outils', 'label' => 'Pièces justificatives', 'icon' => 'fa-list-check', 'url' => '/modules/pieces/index.php', 'uri_patterns' => '/pieces/', 'ordre' => 16],
         ['item_key' => 'pdf', 'parent_key' => 'outils', 'label' => 'Boîte à outils PDF', 'icon' => 'fa-file-pdf', 'url' => '/modules/pdf/index.php', 'uri_patterns' => '/modules/pdf/', 'ordre' => 17],
+        ['item_key' => 'creditsspeciaux', 'parent_key' => 'outils', 'label' => 'Crédits spéciaux', 'icon' => 'fa-gift', 'url' => '/modules/creditsspeciaux/index.php', 'uri_patterns' => '/creditsspeciaux/', 'ordre' => 18],
+        ['item_key' => 'plan', 'parent_key' => 'outils', 'label' => 'Plan de financement', 'icon' => 'fa-diagram-project', 'url' => '/modules/plan/index.php', 'uri_patterns' => '/modules/plan/', 'ordre' => 19],
+        ['item_key' => 'scenarios', 'parent_key' => 'outils', 'label' => 'Comparateur de scénarios', 'icon' => 'fa-code-compare', 'url' => '/modules/scenarios/index.php', 'uri_patterns' => '/modules/scenarios/', 'ordre' => 20],
         ['item_key' => 'dpe', 'parent_key' => 'outils', 'label' => 'Recherche DPE', 'icon' => 'fa-leaf', 'url' => '/modules/dpe/index.php', 'uri_patterns' => '/dpe/', 'ordre' => 10],
         // Items - Références
         ['item_key' => 'codes', 'parent_key' => 'references', 'label' => 'Codes utiles', 'icon' => 'fa-key', 'url' => '/modules/codes/index.php', 'uri_patterns' => '/codes/', 'ordre' => 1],
         ['item_key' => 'contacts', 'parent_key' => 'references', 'label' => 'Contacts utiles', 'icon' => 'fa-address-book', 'url' => '/modules/contacts/index.php', 'uri_patterns' => '/contacts/', 'ordre' => 2],
+        // Section Boîte à outils bancaire (calculs, validateurs, mémos)
+        ['item_key' => 'boite_outils', 'parent_key' => null, 'label' => 'Boîte à outils bancaire', 'icon' => 'fa-toolbox', 'url' => null, 'uri_patterns' => '/dates/,/validateurs/,/calculs/,/saisie/,/memo_plafonds/,/memo_delais/,/signataires/,/evenements/,/usure/', 'ordre' => 7],
+        ['item_key' => 'dates', 'parent_key' => 'boite_outils', 'label' => 'Calculateur de dates', 'icon' => 'fa-calendar-days', 'url' => '/modules/dates/index.php', 'uri_patterns' => '/dates/', 'ordre' => 1],
+        ['item_key' => 'validateurs', 'parent_key' => 'boite_outils', 'label' => 'Validateurs de numéros', 'icon' => 'fa-shield-halved', 'url' => '/modules/validateurs/index.php', 'uri_patterns' => '/validateurs/', 'ordre' => 2],
+        ['item_key' => 'calculs', 'parent_key' => 'boite_outils', 'label' => 'Boîte à calculs', 'icon' => 'fa-calculator', 'url' => '/modules/calculs/index.php', 'uri_patterns' => '/calculs/', 'ordre' => 3],
+        ['item_key' => 'saisie', 'parent_key' => 'boite_outils', 'label' => 'Quotité saisissable', 'icon' => 'fa-gavel', 'url' => '/modules/saisie/index.php', 'uri_patterns' => '/saisie/', 'ordre' => 4],
+        ['item_key' => 'memo_plafonds', 'parent_key' => 'boite_outils', 'label' => 'Mémo : plafonds et seuils', 'icon' => 'fa-gauge-high', 'url' => '/modules/memo_plafonds/index.php', 'uri_patterns' => '/memo_plafonds/', 'ordre' => 5],
+        ['item_key' => 'memo_delais', 'parent_key' => 'boite_outils', 'label' => 'Mémo : délais légaux', 'icon' => 'fa-hourglass-half', 'url' => '/modules/memo_delais/index.php', 'uri_patterns' => '/memo_delais/', 'ordre' => 6],
+        ['item_key' => 'signataires', 'parent_key' => 'boite_outils', 'label' => 'Qui peut signer quoi ?', 'icon' => 'fa-signature', 'url' => '/modules/signataires/index.php', 'uri_patterns' => '/signataires/', 'ordre' => 7],
+        ['item_key' => 'evenements', 'parent_key' => 'boite_outils', 'label' => 'Événements de vie', 'icon' => 'fa-route', 'url' => '/modules/evenements/index.php', 'uri_patterns' => '/evenements/', 'ordre' => 8],
+        ['item_key' => 'usure', 'parent_key' => 'boite_outils', 'label' => 'Taux d\'usure', 'icon' => 'fa-ban', 'url' => '/modules/usure/index.php', 'uri_patterns' => '/usure/', 'ordre' => 9],
+        // Section Épargne et patrimoine
+        ['item_key' => 'epargne_patrimoine', 'parent_key' => null, 'label' => 'Épargne et patrimoine', 'icon' => 'fa-piggy-bank', 'url' => null, 'uri_patterns' => '/modules/epargne/,/assurancevie/,/modules/per/,/epargnecredit/', 'ordre' => 8],
+        ['item_key' => 'epargne', 'parent_key' => 'epargne_patrimoine', 'label' => 'Simulateur d\'épargne', 'icon' => 'fa-piggy-bank', 'url' => '/modules/epargne/index.php', 'uri_patterns' => '/modules/epargne/', 'ordre' => 1],
+        ['item_key' => 'assurancevie', 'parent_key' => 'epargne_patrimoine', 'label' => 'Assurance-vie', 'icon' => 'fa-shield-heart', 'url' => '/modules/assurancevie/index.php', 'uri_patterns' => '/assurancevie/', 'ordre' => 2],
+        ['item_key' => 'per', 'parent_key' => 'epargne_patrimoine', 'label' => 'Simulateur PER', 'icon' => 'fa-umbrella-beach', 'url' => '/modules/per/index.php', 'uri_patterns' => '/modules/per/', 'ordre' => 3],
+        ['item_key' => 'epargnecredit', 'parent_key' => 'epargne_patrimoine', 'label' => 'Épargne ou crédit ?', 'icon' => 'fa-code-compare', 'url' => '/modules/epargnecredit/index.php', 'uri_patterns' => '/epargnecredit/', 'ordre' => 4],
         // Section Communication
         ['item_key' => 'communication', 'parent_key' => null, 'label' => 'Communication', 'icon' => 'fa-comments', 'url' => null, 'uri_patterns' => 'messagerie,agenda', 'ordre' => 6],
         ['item_key' => 'messagerie', 'parent_key' => 'communication', 'label' => 'Messagerie', 'icon' => 'fa-comment-dots', 'url' => '/modules/messagerie/index.php', 'uri_patterns' => 'messagerie', 'ordre' => 1],
@@ -900,6 +920,102 @@ function getPublicToolsCatalog() {
             'description' => 'Fusionnez, découpez ou faites pivoter des PDF, et convertissez des images en PDF.',
             'note' => 'Le traitement se fait dans votre navigateur : vos fichiers ne sont ni envoyés ni conservés.',
         ],
+        'dates' => [
+            'added' => '2026-10-09',
+            'label' => 'Calculateur de dates', 'icon' => 'fa-calendar-days', 'url' => 'dates.php', 'default' => true,
+            'description' => 'Ajoutez ou retranchez des jours ouvrés, ouvrables, calendaires, des mois ; mesurez un écart et repérez les délais usuels et les jours fériés.',
+            'note' => 'Les calculs se font dans votre navigateur : rien n\'est envoyé ni conservé.',
+        ],
+        'validateurs' => [
+            'added' => '2026-10-09',
+            'label' => 'Validateurs de numéros', 'icon' => 'fa-shield-halved', 'url' => 'validateurs.php', 'default' => true,
+            'description' => 'Contrôlez la forme d\'un IBAN, d\'un RIB, d\'un SIREN / SIRET, d\'une carte bancaire, d\'un numéro de sécurité sociale ou d\'un BIC.',
+            'note' => 'Les numéros saisis restent dans votre navigateur : ils ne sont ni envoyés ni conservés ni repris dans un lien de partage.',
+        ],
+        'calculs' => [
+            'added' => '2026-10-09',
+            'label' => 'Boîte à calculs', 'icon' => 'fa-calculator', 'url' => 'calculs.php', 'default' => true,
+            'description' => 'Pourcentages, TVA, règle de trois, conversion de durées, prorata, intérêts simples et taux équivalents.',
+            'note' => 'Les calculs se font dans votre navigateur : rien n\'est envoyé ni conservé.',
+        ],
+        'saisie' => [
+            'added' => '2026-10-09',
+            'label' => 'Quotité saisissable', 'icon' => 'fa-gavel', 'url' => 'saisie.php', 'default' => true,
+            'description' => 'Calculez la part saisissable d\'une rémunération selon le barème, les personnes à charge et le solde bancaire insaisissable.',
+            'note' => 'Les calculs se font dans votre navigateur : rien n\'est envoyé ni conservé.',
+        ],
+        'memo_plafonds' => [
+            'added' => '2026-10-09',
+            'label' => 'Mémo : plafonds et seuils', 'icon' => 'fa-gauge-high', 'url' => 'memo_plafonds.php', 'default' => true,
+            'description' => 'Plafonds des livrets, espèces et paiements, garantie des dépôts, abattements de donation et d\'assurance-vie.',
+            'note' => 'Consultation sans enregistrement.',
+        ],
+        'memo_delais' => [
+            'added' => '2026-10-09',
+            'label' => 'Mémo : délais légaux', 'icon' => 'fa-hourglass-half', 'url' => 'memo_delais.php', 'default' => true,
+            'description' => 'Délais de réflexion, de rétractation, de contestation, de réclamation et de succession les plus courants.',
+            'note' => 'Consultation sans enregistrement.',
+        ],
+        'epargne' => [
+            'added' => '2026-10-09',
+            'label' => 'Simulateur d\'épargne', 'icon' => 'fa-piggy-bank', 'url' => 'epargne.php', 'default' => true,
+            'description' => 'Estimez le capital constitué, le versement ou la durée nécessaire pour atteindre un objectif d\'épargne.',
+            'note' => 'Les calculs se font dans votre navigateur : rien n\'est envoyé ni conservé.',
+        ],
+        'assurancevie' => [
+            'added' => '2026-10-09',
+            'label' => 'Simulateur d\'assurance-vie', 'icon' => 'fa-shield-heart', 'url' => 'assurancevie.php', 'default' => true,
+            'description' => 'Projetez un contrat, estimez la fiscalité d\'un rachat et du capital décès.',
+            'note' => 'Les calculs se font dans votre navigateur : rien n\'est envoyé ni conservé.',
+        ],
+        'per' => [
+            'added' => '2026-10-09',
+            'label' => 'Simulateur PER', 'icon' => 'fa-umbrella-beach', 'url' => 'per.php', 'default' => true,
+            'description' => 'Estimez l\'économie d\'impôt d\'un versement sur un plan d\'épargne retraite.',
+            'note' => 'Les calculs se font dans votre navigateur : rien n\'est envoyé ni conservé.',
+        ],
+        'epargnecredit' => [
+            'added' => '2026-10-09',
+            'label' => 'Épargne ou crédit ?', 'icon' => 'fa-code-compare', 'url' => 'epargnecredit.php', 'default' => true,
+            'description' => 'Comparez le coût d\'un financement par votre épargne, par un crédit ou par un mélange des deux.',
+            'note' => 'Les calculs se font dans votre navigateur : rien n\'est envoyé ni conservé.',
+        ],
+        'creditsspeciaux' => [
+            'added' => '2026-10-09',
+            'label' => 'Crédits spéciaux', 'icon' => 'fa-gift', 'url' => 'creditsspeciaux.php', 'default' => true,
+            'description' => 'Éligibilité et montant du PTZ, du Doublissimo, du Primo Jeune 0 %, du Primoz et du Grandioz pour un projet et des emprunteurs donnés.',
+            'note' => 'Les calculs se font dans votre navigateur. Seule la liste des communes d\'un département est demandée à ce portail : rien de ce que vous saisissez n\'est conservé.',
+        ],
+        'plan' => [
+            'added' => '2026-10-09',
+            'label' => 'Plan de financement complet', 'icon' => 'fa-diagram-project', 'url' => 'plan.php', 'default' => true,
+            'description' => 'Montez le financement d\'un projet : PTZ, prêts spéciaux et prêt principal, avec mensualité, endettement, reste à vivre et TAEG.',
+            'note' => 'Les calculs se font dans votre navigateur. Seule la liste des communes d\'un département est demandée à ce portail : rien de ce que vous saisissez n\'est conservé.',
+        ],
+        'scenarios' => [
+            'added' => '2026-10-09',
+            'label' => 'Comparateur de scénarios', 'icon' => 'fa-code-compare', 'url' => 'scenarios.php', 'default' => true,
+            'description' => 'Comparez jusqu\'à trois montages de financement côte à côte (apport, durée, prêts aidés et spéciaux).',
+            'note' => 'Les calculs se font dans votre navigateur. Seule la liste des communes d\'un département est demandée à ce portail : rien de ce que vous saisissez n\'est conservé.',
+        ],
+        'signataires' => [
+            'added' => '2026-10-09',
+            'label' => 'Qui peut signer quoi ?', 'icon' => 'fa-signature', 'url' => 'signataires.php', 'default' => true,
+            'description' => 'Selon la situation du client (majeur protégé, mineur, société, indivision…), qui peut effectuer chaque opération et avec quelles pièces.',
+            'note' => 'Consultation sans enregistrement : rien n\'est envoyé ni conservé.',
+        ],
+        'evenements' => [
+            'added' => '2026-10-09',
+            'label' => 'Parcours événements de vie', 'icon' => 'fa-route', 'url' => 'evenements.php', 'default' => true,
+            'description' => 'Pour chaque événement (naissance, mariage, décès, retraite…), les démarches, les solutions à proposer et les pièces à demander, avec une liste à cocher.',
+            'note' => 'La liste se construit dans votre navigateur : rien n\'est envoyé ni conservé.',
+        ],
+        'usure' => [
+            'added' => '2026-10-09',
+            'label' => 'Taux d\'usure', 'icon' => 'fa-ban', 'url' => 'usure.php', 'default' => true,
+            'description' => 'Seuils de l\'usure en vigueur par catégorie de prêt, et contrôle du TAEG d\'une offre.',
+            'note' => 'Consultation sans enregistrement : rien n\'est envoyé ni conservé.',
+        ],
         'courrier' => [
             'label' => 'Générateur de courrier', 'icon' => 'fa-envelope-open-text', 'url' => 'courrier.php', 'default' => true,
             'description' => 'Rédigez un courrier mis en forme, avec variables, puis imprimez-le ou enregistrez-le en PDF.',
@@ -1001,6 +1117,15 @@ function requirePublicTool($key, $json = false) {
         . ($unavailable ? '<a class="btn btn-outline-secondary" href="' . (strpos($_SERVER['SCRIPT_NAME'] ?? '', '/modules/') !== false ? '../../tools/' : './') . '">Retour aux outils</a>' : '')
         . '</div></div></div></body></html>';
     exit;
+}
+
+/** Comme requirePublicTool(), mais accepte n'importe lequel des outils listés (ressource partagée par plusieurs outils). */
+function requireAnyPublicTool(array $keys, $json = false) {
+    if (toolsVisitorIsLoggedIn()) return;
+    requireToolsAccess($json);
+    $status = getPublicToolsStatus();
+    foreach ($keys as $k) if (($status[$k]['state'] ?? 'masque') === 'actif') return;
+    requirePublicTool($keys[0], $json);
 }
 
 function ensureToolsFeedbackSchema() {
@@ -1383,6 +1508,25 @@ function searchToolsGlobal($query) {
             }
         }
     }
+    // Mémos et fiches de référence (plafonds, délais, signataires, événements de vie, taux d'usure) : lignes dont le texte contient la recherche
+    try {
+        require_once __DIR__ . '/baremes.php';
+        foreach ([['memo_plafonds', 'Mémo : plafonds et seuils', 'memo_plafonds.php?q='], ['memo_delais', 'Mémo : délais légaux', 'memo_delais.php?q='],
+                  ['signataires', 'Qui peut signer quoi ?', 'signataires.php'], ['evenements', 'Événement de vie', 'evenements.php']] as [$k, $type, $url]) {
+            if (!in_array($k, $active, true)) continue;
+            $n = 0;
+            foreach ((baremeGet($k)['data']['groupes'] ?? []) as $g) foreach ($g['lignes'] as $l) {
+                if ($n >= 6) break 2;
+                if (mb_strpos(mb_strtolower($g['titre'] . ' ' . $l['libelle'] . ' ' . $l['valeur'] . ' ' . ($l['note'] ?? '')), $needle) !== false) {
+                    $results[] = ['type' => $type, 'titre' => $l['libelle'], 'detail' => $g['titre'] . ' – ' . mb_substr((string)$l['valeur'], 0, 100), 'url' => $url . (substr($url, -3) === 'q=' ? $enc : '')];
+                    $n++;
+                }
+            }
+        }
+        if (in_array('usure', $active, true)) foreach ((baremeGet('usure')['data']['categories'] ?? []) as $c) {
+            if (mb_strpos(mb_strtolower($c['groupe'] . ' ' . $c['libelle']), $needle) !== false) $results[] = ['type' => 'Taux d\'usure', 'titre' => $c['libelle'], 'detail' => number_format((float)$c['taux'], 2, ',', ' ') . ' %', 'url' => 'usure.php'];
+        }
+    } catch (Throwable $e) {}
     // Raccourci : vérifier la recherche dans l'outil RGE
     if (in_array('rge', $active, true)) {
         $results[] = ['type' => 'Vérification RGE', 'titre' => 'Vérifier « ' . $query . ' » (RGE)', 'detail' => 'Rechercher une entreprise par nom, SIREN ou SIRET', 'url' => 'rge.php?q=' . $enc];
