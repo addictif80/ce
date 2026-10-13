@@ -527,6 +527,17 @@ $cRefusees = count(array_filter($dossiers, fn($d) => ($d['workflow_status']??'')
 <div id="printArea" class="print-dossier" style="display:none;"></div>
 
 <script>
+// Un fichier de script qui ne se charge pas (réponse 502 du serveur, coupure réseau) : une nouvelle tentative automatique, puis un message clair
+function ciScriptFail(el){
+    let n=0; try{ n=parseInt(sessionStorage.getItem('ciReload')||'0'); }catch(e){}
+    if(n<2){ try{ sessionStorage.setItem('ciReload',String(n+1)); }catch(e){} setTimeout(function(){ location.reload(); },1200); return; }
+    try{ sessionStorage.removeItem('ciReload'); }catch(e){}
+    const b=document.createElement('div'); b.className='alert alert-danger no-print'; b.style.cssText='position:fixed;bottom:12px;left:12px;right:12px;z-index:2000;max-width:760px;font-size:13px';
+    b.innerHTML='<strong>Le chargement de la page est incomplet</strong> (le serveur n\'a pas fourni <code>'+String(el.src||'').split('/').pop().split('?')[0]+'</code>). Les boutons ne répondront pas : actualisez la page (Ctrl+F5) ou réessayez dans quelques minutes.';
+    document.body.appendChild(b);
+}
+</script>
+<script>
 const dossiersData   = <?= json_encode(array_values($dossiers), JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_UNESCAPED_UNICODE) ?: '[]' ?>;
 const workflowLabels = <?= json_encode($workflowLabels, JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_UNESCAPED_UNICODE) ?: '{}' ?>;
 const conseillerData = <?= json_encode(['nom' => $currentUser['nom'] ?? '', 'prenom' => $currentUser['prenom'] ?? '', 'email' => $currentUser['email_pro'] ?? '', 'tel' => $currentUser['tel_pro'] ?? ''], JSON_UNESCAPED_UNICODE) ?>;
@@ -539,9 +550,9 @@ const ciZonageUrl = '../../tools/zonage.php';
 const ciBaremes = <?= json_encode(['tauxEndettementMax' => (float)baremeGet('hcsf')['data']['taux_endettement_max']]) ?>;
 const workflowSteps  = ['etude','dossier_complet','synthese_envoyee','controle','edition_offres','envoi_signature','offre_signee','deblocage','termine'];
 </script>
-<script src="../../assets/js/ptz-calc.js?v=<?= (int)@filemtime(__DIR__ . '/../../assets/js/ptz-calc.js') ?>"></script>
-<script src="ci.js?v=<?= (int)@filemtime(__DIR__ . '/ci.js') ?>"></script>
-<script src="ci_extra.js?v=<?= (int)@filemtime(__DIR__ . '/ci_extra.js') ?>"></script>
+<script src="../../assets/js/ptz-calc.js?v=<?= (int)@filemtime(__DIR__ . '/../../assets/js/ptz-calc.js') ?>" onerror="ciScriptFail(this)"></script>
+<script src="ci.js?v=<?= (int)@filemtime(__DIR__ . '/ci.js') ?>" onerror="ciScriptFail(this)"></script>
+<script src="ci_extra.js?v=<?= (int)@filemtime(__DIR__ . '/ci_extra.js') ?>" onerror="ciScriptFail(this)"></script>
 <script>
 // Si une action de la liste échoue (script en erreur), l'erreur est affichée au lieu d'un bouton muet
 window.addEventListener('error', function(ev){
@@ -553,6 +564,7 @@ window.addEventListener('error', function(ev){
 });
 </script>
 <script>
+if(typeof showDetail==='function'){ try{ sessionStorage.removeItem('ciReload'); }catch(e){} } // scripts bien chargés : on repart de zéro
 // Auto-ouverture du dossier après enregistrement ou depuis la recherche globale
 const urlParams = new URLSearchParams(window.location.search);
 const openId = urlParams.get('open');
