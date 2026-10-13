@@ -527,14 +527,14 @@ $cRefusees = count(array_filter($dossiers, fn($d) => ($d['workflow_status']??'')
 <div id="printArea" class="print-dossier" style="display:none;"></div>
 
 <script>
-const dossiersData   = <?= json_encode(array_values($dossiers)) ?>;
-const workflowLabels = <?= json_encode($workflowLabels) ?>;
+const dossiersData   = <?= json_encode(array_values($dossiers), JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_UNESCAPED_UNICODE) ?: '[]' ?>;
+const workflowLabels = <?= json_encode($workflowLabels, JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_UNESCAPED_UNICODE) ?: '{}' ?>;
 const conseillerData = <?= json_encode(['nom' => $currentUser['nom'] ?? '', 'prenom' => $currentUser['prenom'] ?? '', 'email' => $currentUser['email_pro'] ?? '', 'tel' => $currentUser['tel_pro'] ?? ''], JSON_UNESCAPED_UNICODE) ?>;
-const ciPtzBareme = <?= json_encode(ptzGetBareme()) ?>;
-const ciDoublissimo = <?= json_encode(baremeGet('doublissimo')['data']) ?>;
-const ciPrimoJeune = <?= json_encode(baremeGet('primo_jeune')['data']) ?>;
-const ciPrimoz = <?= json_encode(baremeGet('primoz')['data']) ?>;
-const ciGrandioz = <?= json_encode(baremeGet('grandioz')['data']) ?>;
+const ciPtzBareme = <?= json_encode(ptzGetBareme(), JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_UNESCAPED_UNICODE) ?: '{}' ?>;
+const ciDoublissimo = <?= json_encode(baremeGet('doublissimo')['data'], JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_UNESCAPED_UNICODE) ?: '{}' ?>;
+const ciPrimoJeune = <?= json_encode(baremeGet('primo_jeune')['data'], JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_UNESCAPED_UNICODE) ?: '{}' ?>;
+const ciPrimoz = <?= json_encode(baremeGet('primoz')['data'], JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_UNESCAPED_UNICODE) ?: '{}' ?>;
+const ciGrandioz = <?= json_encode(baremeGet('grandioz')['data'], JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_UNESCAPED_UNICODE) ?: '{}' ?>;
 const ciZonageUrl = '../../tools/zonage.php';
 const ciBaremes = <?= json_encode(['tauxEndettementMax' => (float)baremeGet('hcsf')['data']['taux_endettement_max']]) ?>;
 const workflowSteps  = ['etude','dossier_complet','synthese_envoyee','controle','edition_offres','envoi_signature','offre_signee','deblocage','termine'];
@@ -542,6 +542,16 @@ const workflowSteps  = ['etude','dossier_complet','synthese_envoyee','controle',
 <script src="../../assets/js/ptz-calc.js?v=<?= (int)@filemtime(__DIR__ . '/../../assets/js/ptz-calc.js') ?>"></script>
 <script src="ci.js?v=<?= (int)@filemtime(__DIR__ . '/ci.js') ?>"></script>
 <script src="ci_extra.js?v=<?= (int)@filemtime(__DIR__ . '/ci_extra.js') ?>"></script>
+<script>
+// Si une action de la liste échoue (script en erreur), l'erreur est affichée au lieu d'un bouton muet
+window.addEventListener('error', function(ev){
+    if(!ev||!ev.message) return;
+    let b=document.getElementById('ciErrBanner');
+    if(!b){ b=document.createElement('div'); b.id='ciErrBanner'; b.className='alert alert-danger alert-dismissible no-print'; b.style.cssText='position:fixed;bottom:12px;left:12px;right:12px;z-index:2000;max-width:760px;font-size:13px';
+        b.innerHTML='<strong>Une erreur empêche cette action.</strong> Merci de la transmettre : <code class="ci-err-msg"></code><button type="button" class="btn-close" onclick="this.parentNode.remove()"></button>'; document.body.appendChild(b); }
+    b.querySelector('.ci-err-msg').textContent=ev.message+' ('+String(ev.filename||'').split('/').pop()+':'+(ev.lineno||'?')+')';
+});
+</script>
 <script>
 // Auto-ouverture du dossier après enregistrement ou depuis la recherche globale
 const urlParams = new URLSearchParams(window.location.search);
