@@ -180,9 +180,22 @@ $aiOn    = assistDossierEnabled();
                     . '<td class="text-nowrap">' . e(formatDate($m['date_ajout'] ?? '')) . '</td></tr>';
             });
             ficheRenderSection('Crédits immobiliers', 'fas fa-house', $fiche['credit_immo'], function ($c) {
-                return '<tr><td>' . e($c['type_credit'] ?? '') . '</td>'
+                $emps = json_decode((string)($c['emprunteurs_json'] ?? ''), true);
+                $noms = [];
+                if (is_array($emps)) {
+                    foreach ($emps as $em) {
+                        $nm = trim((string)($em['nom'] ?? ''));
+                        $np = trim((string)($em['num_personne'] ?? ''));
+                        $lbl = trim($nm . ($np !== '' ? ' (' . $np . ')' : ''));
+                        if ($lbl !== '') $noms[] = $lbl;
+                    }
+                }
+                $offreSignee = (int)($c['suivi_offre_signee'] ?? 0) === 1;
+                return '<tr><td><strong>Dossier ' . e($c['numero_personne'] ?? '') . '</strong>'
+                    . ($noms ? '<div class="small text-muted">' . e(implode(' / ', $noms)) . '</div>' : '')
+                    . (!empty($c['type_credit']) ? '<div class="small text-muted">' . e($c['type_credit']) . '</div>' : '') . '</td>'
                     . '<td class="text-nowrap">' . e(number_format((float)($c['montant_acquisition'] ?? 0), 0, ',', ' ') . ' €') . '</td>'
-                    . '<td><span class="badge bg-' . ((int)($c['suivi_offre_signee'] ?? 0) ? 'success' : 'warning text-dark') . '">offre ' . ((int)($c['suivi_offre_signee'] ?? 0) ? 'signée' : 'à suivre') . '</span></td>'
+                    . '<td><span class="badge bg-' . ($offreSignee ? 'success' : 'warning text-dark') . '">offre ' . ($offreSignee ? 'signée' : 'à suivre') . '</span></td>'
                     . '<td class="text-nowrap">' . e(formatDate($c['date_ajout'] ?? '')) . '</td></tr>';
             });
             ficheRenderSection('Envois de documents', 'fas fa-paper-plane', $fiche['envois'], function ($e2) {

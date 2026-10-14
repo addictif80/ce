@@ -12,10 +12,47 @@
  *   - nom_prenom_dest (+ nom_dest / prenom_dest)
  *   - client_nom
  *
+ * Cas particulier — crédit immobilier : dans ce module, `numero_personne` est en
+ * réalité le **numéro de dossier** (« N° dossier »). L'identité du client se
+ * trouve dans `emprunteurs_json` (num_personne + nom de chaque emprunteur). Le
+ * rattachement à la fiche passe donc par ce JSON, pas par `numero_personne`.
+ *
  * Toutes les lectures sont limitées à ce que le conseiller connecté a saisi
  * (user_id), pour respecter la confidentialité.
  */
 require_once __DIR__ . '/functions.php';
+
+/**
+ * Normalise un nom pour comparaison : minuscules, sans accents, sans civilité
+ * (« MME », « M. »…), mots triés. Permet de rapprocher « MME DUPONT Marie » et
+ * « DUPONT Marie ». Retourne '' si rien d'exploitable.
+ */
+function ficheNormNom($nom) {
+    $n = mb_strtolower(trim((string)$nom), 'UTF-8');
+    $n = strtr($n, [
+        'à'=>'a','á'=>'a','â'=>'a','ä'=>'a','ã'=>'a','å'=>'a','ç'=>'c',
+        'è'=>'e','é'=>'e','ê'=>'e','ë'=>'e','ì'=>'i','í'=>'i','î'=>'i','ï'=>'i',
+        'ò'=>'o','ó'=>'o','ô'=>'o','ö'=>'o','õ'=>'o','ù'=>'u','ú'=>'u','û'=>'u','ü'=>'u',
+        'ý'=>'y','ÿ'=>'y','ñ'=>'n','œ'=>'oe','æ'=>'ae',
+    ]);
+    $toks = preg_split('/[^a-z0-9]+/', $n, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+    $civ = ['m','mr','mme','mlle','monsieur','madame','mademoiselle','me','mmes','mrs','ms'];
+    $toks = array_values(array_filter($toks, fn($t) => !in_array($t, $civ, true)));
+    $toks = array_values(array_unique($toks));
+    sort($toks);
+    return implode(' ', $toks);
+}
+
+/**
+ * Tokens significatifs (longueur >= 3) d'un nom, hors civilité — utilisés pour
+ * rechercher le client dans `credit_immobilier.emprunteurs_json` même quand
+ * l'ordre des mots diffère.
+ */
+function ficheNomTokens($nom) {
+    $sig = ficheNormNom($nom);
+    if ($sig === '') return [];
+    return array_values(array_filter(explode(' ', $sig), fn($t) => mb_strlen($t) >= 3));
+}
 
 function ensureFicheClientSchema() {
     $db = getDB();
@@ -55,7 +92,15 @@ function searchClients($db, $q, $userId) {
         $numero = trim((string)$numero);
         $nom = trim((string)$nom);
         if ($numero === '' && $nom === '') return;
-        $key = $numero !== '' ? 'N:' . $numero : 'M:' . mb_strtolower($nom);
+        // Clé de regroupement : le n° de personne prime ; sinon le nom normalisé
+        // (sans civilité type « MME », sans accents, mots triés) pour qu'un même
+        // client n'apparaisse pas deux fois selon l'orthographe saisie.
+        if ($numero !== '') {
+            $key = 'N:' . $numero;
+        } else {
+            $sig = ficheNormNom($nom);
+            $key = 'M:' . ($sig !== '' ? $sig : mb_strtolower($nom));
+        }
         if (!isset($clients[$key])) $clients[$key] = ['numero' => $numero, 'nom' => $nom, 'sources' => []];
         if ($nom !== '' && $clients[$key]['nom'] === '') $clients[$key]['nom'] = $nom;
         if (!in_array($source, $clients[$key]['sources'], true)) $clients[$key]['sources'][] = $source;
@@ -83,8 +128,33 @@ function searchClients($db, $q, $userId) {
          [$userId, $like, $like], 'signatures', 'numero_personne', 'nom_client');
     $run("SELECT numero_personne, nom_client FROM mobilites WHERE user_id = ? AND (numero_personne LIKE ? OR nom_client LIKE ?) LIMIT 30",
          [$userId, $like, $like], 'mobilites', 'numero_personne', 'nom_client');
-    $run("SELECT numero_personne FROM credit_immobilier WHERE user_id = ? AND (numero_personne LIKE ? OR adresse_bien LIKE ?) LIMIT 30",
-         [$userId, $like, $like], 'credit_immo', 'numero_personne');
+    // Crédit immobilier : « numero_personne » y est un n° de dossier ; l'identité du client
+    // se trouve dans emprunteurs_json (num_personne + nom de chaque emprunteur). On ajoute
+    // donc un « client » par emprunteur, ce qui rapproche aussi ce dossier des autres modules.
+    try {
+        $stmt = $db->prepare("SELECT numero_personne, emprunteurs_json FROM credit_immobilier WHERE user_id = ? AND (numero_personne LIKE ? OR emprunteurs_json LIKE ? OR adresse_bien LIKE ?) LIMIT 30");
+        $stmt->execute([$userId, $like, $like, $like]);
+        foreach ($stmt->fetchAll() as $r) {
+            $dnum = trim((string)($r['numero_personne'] ?? ''));
+            $empsJson = (string)($r['emprunteurs_json'] ?? '');
+            $dossierHit = (stripos($dnum, $q) !== false) || (stripos($empsJson, $q) !== false);
+            $emps = json_decode($empsJson, true);
+            $ok = false;
+            if (is_array($emps)) {
+                foreach ($emps as $em) {
+                    $num = trim((string)($em['num_personne'] ?? ''));
+                    $nm  = trim((string)($em['nom'] ?? ''));
+                    if ($num === '' && $nm === '') continue;
+                    // On ne remonte un emprunteur que s'il correspond à la recherche, ou si le
+                    // dossier lui-même a été trouvé (n° de dossier / emprunteurs). Évite de
+                    // remonter un client sans rapport quand la recherche portait sur l'adresse.
+                    $hit = $dossierHit || ($nm !== '' && stripos($nm, $q) !== false) || ($num !== '' && stripos($num, $q) !== false);
+                    if ($hit) { $add($clients, $num, $nm, 'credit_immo'); $ok = true; }
+                }
+            }
+            if (!$ok && $dnum !== '' && stripos($dnum, $q) !== false) $add($clients, $dnum, '', 'credit_immo');
+        }
+    } catch (Exception $e) {}
     $run("SELECT numero_personne, CONCAT(prenom_client, ' ', nom_client) AS nom_complet FROM envois_documents WHERE user_id = ? AND (numero_personne LIKE ? OR nom_client LIKE ? OR prenom_client LIKE ?) LIMIT 30",
          [$userId, $like, $like, $like], 'envois', 'numero_personne', 'nom_complet');
     $run("SELECT numero_personne FROM appels_phoning WHERE user_id = ? AND numero_personne LIKE ? LIMIT 30",
@@ -99,6 +169,28 @@ function searchClients($db, $q, $userId) {
          [$userId, $like], 'courriers', null, 'nom_prenom_dest');
     $run("SELECT nom_prenom_dest FROM courriers_internes WHERE user_id = ? AND nom_prenom_dest LIKE ? LIMIT 30",
          [$userId, $like], 'courriers_internes', null, 'nom_prenom_dest');
+
+    // Fusion finale : une entrée « nom seul » rejoint l'entrée portant le MÊME nom et un
+    // numéro de personne (le crédit immobilier fournit ce lien via ses emprunteurs). Cela
+    // corrige les doublons du type « MME DUPONT » (courrier) vs « DUPONT » (phoning).
+    $sigToKey = [];
+    foreach ($clients as $k => $c) {
+        if ($c['numero'] !== '' && $c['nom'] !== '') {
+            $s = ficheNormNom($c['nom']);
+            if ($s !== '' && !isset($sigToKey[$s])) $sigToKey[$s] = $k;
+        }
+    }
+    foreach ($clients as $k => $c) {
+        if ($c['numero'] !== '' || $c['nom'] === '') continue;
+        $s = ficheNormNom($c['nom']);
+        if ($s === '' || !isset($sigToKey[$s])) continue;
+        $target = $sigToKey[$s];
+        if ($target === $k || !isset($clients[$target])) continue;
+        foreach ($c['sources'] as $src) {
+            if (!in_array($src, $clients[$target]['sources'], true)) $clients[$target]['sources'][] = $src;
+        }
+        unset($clients[$k]);
+    }
 
     // Tri : d'abord les entrées portant un numéro, puis par nom
     $out = array_values($clients);
@@ -159,8 +251,24 @@ function getFicheClient($db, $numero, $nom, $userId) {
     // Signatures et mobilités : numéro ou nom
     if ($w = $buildWhere(['numero_personne'], ['nom_client'])) $fetch("SELECT * FROM dossiers_signature WHERE user_id = ? AND {$w[0]} ORDER BY date_envoi DESC LIMIT 50", $w[1], 'signatures');
     if ($w = $buildWhere(['numero_personne'], ['nom_client'])) $fetch("SELECT * FROM mobilites WHERE user_id = ? AND {$w[0]} ORDER BY date_ajout DESC LIMIT 50", $w[1], 'mobilites');
-    // Crédit immobilier : numéro de personne
-    if ($w = $buildWhere(['numero_personne'], [])) $fetch("SELECT * FROM credit_immobilier WHERE user_id = ? AND {$w[0]} ORDER BY date_ajout DESC LIMIT 50", $w[1], 'credit_immo');
+    // Crédit immobilier : dans ce module, `numero_personne` est un n° de dossier ; le client
+    // est identifié par les emprunteurs (num_personne / nom dans emprunteurs_json). On
+    // rattache donc par n° de dossier OU par identité d'emprunteur (n° de personne ou nom).
+    $ciConds = []; $ciParams = [$userId];
+    if ($numeroOk) {
+        $ciConds[] = 'numero_personne = ?';        $ciParams[] = $numero;
+        $ciConds[] = 'emprunteurs_json LIKE ?';    $ciParams[] = '%' . $numero . '%';
+    }
+    if ($nomOk) {
+        $toks = ficheNomTokens($nom);
+        if (!$toks) { $s = ficheNormNom($nom); if ($s !== '') $toks = [$s]; }
+        if ($toks) {
+            $sub = [];
+            foreach ($toks as $t) { $sub[] = 'emprunteurs_json LIKE ?'; $ciParams[] = '%' . $t . '%'; }
+            $ciConds[] = '(' . implode(' AND ', $sub) . ')'; // tous les mots du nom doivent être présents
+        }
+    }
+    if ($ciConds) $fetch("SELECT * FROM credit_immobilier WHERE user_id = ? AND (" . implode(' OR ', $ciConds) . ") ORDER BY date_ajout DESC LIMIT 50", $ciParams, 'credit_immo');
     // Envois de documents : numéro ou nom
     if ($w = $buildWhere(['numero_personne'], ['nom_client'])) $fetch("SELECT * FROM envois_documents WHERE user_id = ? AND {$w[0]} ORDER BY date_envoi DESC LIMIT 50", $w[1], 'envois');
     // Phoning : numéro de personne
