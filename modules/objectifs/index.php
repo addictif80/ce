@@ -43,6 +43,22 @@ $objectifs = getObjectifs($db, $targetUserId, $from, $to);
 $realise   = getKpiRealise($db, $targetUserId, $from, $to);
 $sections  = getObjectifsSections();
 
+// ---------- Pré-remplissage depuis les attendus EAI ----------
+// Les attendus EAI (onglet « Attendus ») sont des cibles HEBDOMADAIRES globales.
+// On les convertit pour la période : les taux (%) sont repris tels quels, les
+// volumes et nombres sont multipliés par le nombre de semaines de la période.
+$eaiAttendus = getEaiAttendus($db);
+$periodDays  = max(1, (int)round((strtotime($to) - strtotime($from)) / 86400) + 1);
+$weeks       = max(1, round($periodDays / 7, 1));
+$eaiMap      = ['rdv' => 'rdv_s1', 'rdv_anv' => 'rdv_anv_s1']; // RDV agrégés ← « semaine en cours » EAI
+$eaiPrefill  = [];
+foreach (getKpiDefs() as $def) {
+    $srcCle = $eaiMap[$def['cle']] ?? $def['cle'];
+    if (empty($eaiAttendus[$srcCle])) continue;
+    $v = (float)$eaiAttendus[$srcCle];
+    $eaiPrefill[$def['cle']] = ($def['unite'] === '%') ? $v : round($v * $weeks, 2);
+}
+
 // Totaux (pour un petit indicateur global)
 $nbAtteints = 0; $nbEvalues = 0;
 foreach ($objectifs as $cle => $o) {
@@ -215,8 +231,10 @@ function objectifsEcartClass($att, $real) {
     <?php endforeach; ?>
 
     <?php if ($canEdit): ?>
-        <div class="col-12">
+        <div class="col-12 d-flex flex-wrap gap-2 align-items-center">
             <button class="btn btn-ce"><i class="fas fa-save"></i> Enregistrer les objectifs<?= $targetUserId === $userId ? '' : ' de ' . e($targetName) ?></button>
+            <button type="button" class="btn btn-outline-secondary" onclick="prefillEai()"><i class="fas fa-wand-magic-sparkles"></i> Pré-remplir depuis les attendus EAI</button>
+            <span class="small text-muted">Reprend les cibles EAI de la semaine, converties pour la période (×&nbsp;<?= e((string)$weeks) ?>&nbsp;sem.).</span>
         </div>
     <?php else: ?>
         <div class="col-12"><div class="alert alert-info mb-0">Consultation seule.</div></div>
@@ -228,6 +246,23 @@ function objectifsEcartClass($att, $real) {
     <i class="fas fa-circle-info"></i>
     Les indicateurs marqués <i class="fas fa-bolt"></i> sont calculés automatiquement sur la période depuis vos modules
     (production, phoning). Ceux marqués <i class="fas fa-pen"></i> (portefeuille, taux de réponse aux mails) sont à saisir manuellement.
+    <br>
+    <i class="fas fa-bullseye"></i> Les cibles peuvent être reprises du module <strong>EAI</strong> (attendus hebdomadaires,
+    définis par un administrateur) via le bouton « Pré-remplir depuis les attendus EAI » : les volumes sont convertis au prorata
+    des semaines de la période, les taux sont repris tels quels.
 </div>
+
+<script>
+const EAI_PREFILL = <?= json_encode($eaiPrefill, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+function prefillEai() {
+    let n = 0;
+    Object.keys(EAI_PREFILL).forEach(function (cle) {
+        const inp = document.querySelector('input[name="attendus[' + cle + ']"]');
+        if (inp && inp.value.trim() === '') { inp.value = EAI_PREFILL[cle]; n++; }
+    });
+    if (n === 0) alert("Aucun champ vide à pré-remplir (ou aucun attendu EAI défini).");
+    else alert(n + " objectif(s) pré-rempli(s) depuis les attendus EAI. Vérifiez les montants puis enregistrez.");
+}
+</script>
 
 <?php require_once __DIR__ . '/../../templates/footer.php'; ?>

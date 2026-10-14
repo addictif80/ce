@@ -12,6 +12,7 @@
  * de la saisie de production, afin que les chiffres restent cohérents.
  */
 require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/kpi.php';
 
 function ensureObjectifsSchema() {
     $db = getDB();
@@ -53,40 +54,16 @@ function getObjectifsSections() {
 }
 
 /**
- * Définition des indicateurs.
+ * Définition des indicateurs suivis par le module Objectifs.
+ * S'appuie sur le catalogue partagé (includes/kpi.php) : seuls les indicateurs
+ * marqués « obj » sont retenus (les RDV sont agrégés sur la période, sans la
+ * ventilation hebdomadaire propre au rapport EAI).
+ *
  *  - source : 'production_count' | 'production_sum' (via eai_cle)
  *             | 'appels_sum' | 'decroche' | 'rdv' | 'rdv_anv' | 'manuel'
  */
 function getKpiDefs() {
-    return [
-        // Ventes (calculé depuis suivi_production)
-        ['cle' => 'ventes_brut_anv',       'libelle' => 'Ventes brut ANV',            'section' => 'ventes',       'unite' => '',  'source' => 'production_count', 'eai_cle' => 'ventes_brut_anv',       'ordre' => 1],
-        ['cle' => 'volume_pret_perso',      'libelle' => 'Volume Prêt Personnel',      'section' => 'ventes',       'unite' => '€', 'source' => 'production_sum',   'eai_cle' => 'volume_pret_perso',     'ordre' => 2],
-        ['cle' => 'cartes_hdg_dd',          'libelle' => 'Cartes HDG / DD',            'section' => 'ventes',       'unite' => '',  'source' => 'production_count', 'eai_cle' => 'cartes_hdg_dd',         'ordre' => 3],
-        ['cle' => 'izicartes',              'libelle' => 'Izicartes',                  'section' => 'ventes',       'unite' => '',  'source' => 'production_count', 'eai_cle' => 'izicartes',             'ordre' => 4],
-        ['cle' => 'forfaits',               'libelle' => 'Forfaits',                   'section' => 'ventes',       'unite' => '',  'source' => 'production_count', 'eai_cle' => 'forfaits',              'ordre' => 5],
-        ['cle' => 'volume_collecte',        'libelle' => 'Volume Collecte',            'section' => 'ventes',       'unite' => '€', 'source' => 'production_sum',   'eai_cle' => 'volume_collecte',       'ordre' => 6],
-        ['cle' => 'livrets',                'libelle' => 'Livrets',                    'section' => 'ventes',       'unite' => '',  'source' => 'production_count', 'eai_cle' => 'livrets',               'ordre' => 7],
-        ['cle' => 'pel_quadreto',           'libelle' => 'PEL / Quadreto',             'section' => 'ventes',       'unite' => '',  'source' => 'production_count', 'eai_cle' => 'pel_quadreto',          'ordre' => 8],
-        ['cle' => 'assvie_peri',            'libelle' => 'AssVie / PERi',              'section' => 'ventes',       'unite' => '',  'source' => 'production_count', 'eai_cle' => 'assvie_peri',           'ordre' => 9],
-        ['cle' => 'volume_parts_sociales',  'libelle' => 'Volume Parts Sociales',      'section' => 'ventes',       'unite' => '€', 'source' => 'production_sum',   'eai_cle' => 'volume_parts_sociales', 'ordre' => 10],
-        ['cle' => 'nouveau_societaire',     'libelle' => 'Nouveau Sociétaire',         'section' => 'ventes',       'unite' => '',  'source' => 'production_count', 'eai_cle' => 'nouveau_societaire',    'ordre' => 11],
-        ['cle' => 'bp_jbp',                 'libelle' => 'BP / jBP',                   'section' => 'ventes',       'unite' => '',  'source' => 'production_count', 'eai_cle' => 'bp_jbp',                'ordre' => 12],
-        ['cle' => 'equip_jequip',           'libelle' => 'Equip / jEquip',             'section' => 'ventes',       'unite' => '',  'source' => 'production_count', 'eai_cle' => 'equip_jequip',          'ordre' => 13],
-        // Activité
-        ['cle' => 'volume_appels_sortants', 'libelle' => 'Volume appels sortants',     'section' => 'activite',     'unite' => '',  'source' => 'appels_sum',       'eai_cle' => '',                      'ordre' => 14],
-        ['cle' => 'taux_decroche',          'libelle' => 'Taux décroché',              'section' => 'activite',     'unite' => '%', 'source' => 'decroche',         'eai_cle' => '',                      'ordre' => 15],
-        ['cle' => 'taux_reponse_mails',     'libelle' => 'Taux réponse aux mails',     'section' => 'activite',     'unite' => '%', 'source' => 'manuel',           'eai_cle' => '',                      'ordre' => 16],
-        // Rendez-vous
-        ['cle' => 'rdv',                    'libelle' => 'Nombre de RDV',              'section' => 'rdv',          'unite' => '',  'source' => 'rdv',              'eai_cle' => '',                      'ordre' => 17],
-        ['cle' => 'rdv_anv',                'libelle' => 'RDV ANV',                    'section' => 'rdv',          'unite' => '',  'source' => 'rdv_anv',          'eai_cle' => '',                      'ordre' => 19],
-        // Portefeuille (saisie manuelle)
-        ['cle' => 'myflow_en_cours',        'libelle' => 'MyFlow en cours',            'section' => 'portefeuille', 'unite' => '',  'source' => 'manuel',           'eai_cle' => '',                      'ordre' => 20],
-        ['cle' => 'vigiclients_en_cours',   'libelle' => 'Vigiclients en cours',       'section' => 'portefeuille', 'unite' => '',  'source' => 'manuel',           'eai_cle' => '',                      'ordre' => 21],
-        ['cle' => 'rpm_taux_traitement',    'libelle' => 'RPM - Taux de traitement',   'section' => 'portefeuille', 'unite' => '%', 'source' => 'manuel',           'eai_cle' => '',                      'ordre' => 22],
-        ['cle' => 'rpm_clients_15j',        'libelle' => 'RPM - Clients > 15j',        'section' => 'portefeuille', 'unite' => '',  'source' => 'manuel',           'eai_cle' => '',                      'ordre' => 23],
-        ['cle' => 'rpm_montant_total',      'libelle' => 'RPM - Montant total',        'section' => 'portefeuille', 'unite' => '€', 'source' => 'manuel',           'eai_cle' => '',                      'ordre' => 24],
-    ];
+    return getKpiCatalogueObjectifs();
 }
 
 function getKpiDefsIndexed() {
