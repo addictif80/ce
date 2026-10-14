@@ -157,6 +157,7 @@ function ciConfirmPrint(d){
 // Liste : colonne « Alertes » et compteur
 document.addEventListener('DOMContentLoaded',()=>{
   let nbRel=0;
+  if(typeof dossiersData==='undefined'||!Array.isArray(dossiersData)) return;
   dossiersData.forEach(d=>{
     const rel=ciRelances(d), ctl=ciControles(d), el=document.getElementById('al_'+d.id);
     if(rel.length) nbRel++;

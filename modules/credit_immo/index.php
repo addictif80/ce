@@ -538,21 +538,34 @@ function ciScriptFail(el){
 }
 </script>
 <script>
-const dossiersData   = <?= json_encode(array_values($dossiers), JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_UNESCAPED_UNICODE) ?: '[]' ?>;
 const workflowLabels = <?= json_encode($workflowLabels, JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_UNESCAPED_UNICODE) ?: '{}' ?>;
-const conseillerData = <?= json_encode(['nom' => $currentUser['nom'] ?? '', 'prenom' => $currentUser['prenom'] ?? '', 'email' => $currentUser['email_pro'] ?? '', 'tel' => $currentUser['tel_pro'] ?? ''], JSON_UNESCAPED_UNICODE) ?>;
+const conseillerData = <?= json_encode(['nom' => $currentUser['nom'] ?? '', 'prenom' => $currentUser['prenom'] ?? '', 'email' => $currentUser['email_pro'] ?? '', 'tel' => $currentUser['tel_pro'] ?? ''], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR) ?: '{}' ?>;
 const ciPtzBareme = <?= json_encode(ptzGetBareme(), JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_UNESCAPED_UNICODE) ?: '{}' ?>;
 const ciDoublissimo = <?= json_encode(baremeGet('doublissimo')['data'], JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_UNESCAPED_UNICODE) ?: '{}' ?>;
 const ciPrimoJeune = <?= json_encode(baremeGet('primo_jeune')['data'], JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_UNESCAPED_UNICODE) ?: '{}' ?>;
 const ciPrimoz = <?= json_encode(baremeGet('primoz')['data'], JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_UNESCAPED_UNICODE) ?: '{}' ?>;
 const ciGrandioz = <?= json_encode(baremeGet('grandioz')['data'], JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_UNESCAPED_UNICODE) ?: '{}' ?>;
 const ciZonageUrl = '../../tools/zonage.php';
-const ciBaremes = <?= json_encode(['tauxEndettementMax' => (float)baremeGet('hcsf')['data']['taux_endettement_max']]) ?>;
+const ciBaremes = <?= json_encode(['tauxEndettementMax' => (float)baremeGet('hcsf')['data']['taux_endettement_max']]) ?: '{}' ?>;
 const workflowSteps  = ['etude','dossier_complet','synthese_envoyee','controle','edition_offres','envoi_signature','offre_signee','deblocage','termine'];
 </script>
-<script src="../../assets/js/ptz-calc.js?v=<?= (int)@filemtime(__DIR__ . '/../../assets/js/ptz-calc.js') ?>" onerror="ciScriptFail(this)"></script>
-<script src="ci.js?v=<?= (int)@filemtime(__DIR__ . '/ci.js') ?>" onerror="ciScriptFail(this)"></script>
-<script src="ci_extra.js?v=<?= (int)@filemtime(__DIR__ . '/ci_extra.js') ?>" onerror="ciScriptFail(this)"></script>
+<?php
+// Version des scripts basée sur le CONTENU du fichier (et non sur sa date de modification) :
+// garantit que le navigateur récupère la nouvelle version même si l'horodatage est conservé au déploiement.
+if (!function_exists('ciAssetVer')) {
+    function ciAssetVer(string $p): string {
+        return is_file($p) ? substr(md5_file($p), 0, 10) : (string)@filemtime($p);
+    }
+}
+?>
+<script src="../../assets/js/ptz-calc.js?v=<?= ciAssetVer(__DIR__ . '/../../assets/js/ptz-calc.js') ?>" onerror="ciScriptFail(this)"></script>
+<script src="ci.js?v=<?= ciAssetVer(__DIR__ . '/ci.js') ?>" onerror="ciScriptFail(this)"></script>
+<script src="ci_extra.js?v=<?= ciAssetVer(__DIR__ . '/ci_extra.js') ?>" onerror="ciScriptFail(this)"></script>
+<script>
+// Données des dossiers (volume variable) : placées APRÈS les scripts du module pour qu'un contenu
+// trop volumineux ou tronqué ne puisse pas empêcher le chargement des fonctions (boutons, ouverture).
+const dossiersData   = <?= json_encode(array_values($dossiers), JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_UNESCAPED_UNICODE) ?: '[]' ?>;
+</script>
 <script>
 // Si une action de la liste échoue (script en erreur), l'erreur est affichée au lieu d'un bouton muet
 window.addEventListener('error', function(ev){
@@ -568,10 +581,27 @@ if(typeof showDetail==='function'){ try{ sessionStorage.removeItem('ciReload'); 
 // Auto-ouverture du dossier après enregistrement ou depuis la recherche globale
 const urlParams = new URLSearchParams(window.location.search);
 const openId = urlParams.get('open');
-if (openId) {
+if (openId && typeof showDetail==='function') {
     showDetail(parseInt(openId));
     history.replaceState(null, '', 'index.php' + (window.location.search.indexOf('embedded=1') !== -1 ? '?embedded=1' : ''));
 }
+</script>
+<script>
+// Contrôle final : si les scripts du module n'ont pas été exécutés (fichier non servi, cache obsolète),
+// une seule reprise avec une URL différente (pour contourner le cache), puis un message clair.
+(function(){
+    const ok = (typeof openAddModal==='function') && (typeof showDetail==='function') && (typeof ciRelances==='function');
+    if (ok) { try{ sessionStorage.removeItem('ciAssetReload'); }catch(e){} return; }
+    let n=0; try{ n=parseInt(sessionStorage.getItem('ciAssetReload')||'0',10); }catch(e){}
+    if (n<1) {
+        try{ sessionStorage.setItem('ciAssetReload','1'); }catch(e){}
+        try{ const u=new URL(window.location.href); u.searchParams.set('_ci',Date.now()); window.location.replace(u.toString()); return; }catch(e){}
+    }
+    try{ sessionStorage.removeItem('ciAssetReload'); }catch(e){}
+    const b=document.createElement('div'); b.className='alert alert-danger no-print'; b.style.cssText='position:fixed;bottom:12px;left:12px;right:12px;z-index:2000;max-width:760px;font-size:13px';
+    b.innerHTML='<strong>Le module n\'a pas pu charger ses scripts.</strong> Les boutons (nouveau dossier, ouverture d\'un dossier) ne fonctionnent pas. Actualisez la page avec <kbd>Ctrl</kbd>+<kbd>F5</kbd>. Si le problème persiste, signalez-le.';
+    document.body.appendChild(b);
+})();
 </script>
 
 <style>
