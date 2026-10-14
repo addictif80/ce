@@ -305,12 +305,13 @@ function getEaiAutoFillData($db, $userId, $tuesdayDate) {
 function getDefaultMenuItems() {
     return [
         // Sections
-        ['item_key' => 'activite', 'parent_key' => null, 'label' => 'Mon activité', 'icon' => 'fa-briefcase', 'url' => null, 'uri_patterns' => 'instances,rappels,demandes_clients,offres,interets_clients,rappels_clients,signatures,envoi_documents,kanban,gestion_portefeuille', 'ordre' => 1],
+        ['item_key' => 'activite', 'parent_key' => null, 'label' => 'Mon activité', 'icon' => 'fa-briefcase', 'url' => null, 'uri_patterns' => 'instances,rappels,demandes_clients,offres,interets_clients,rappels_clients,signatures,envoi_documents,kanban,gestion_portefeuille,fiche_client', 'ordre' => 1],
         ['item_key' => 'formation', 'parent_key' => null, 'label' => 'Formation', 'icon' => 'fa-graduation-cap', 'url' => null, 'uri_patterns' => 'formations', 'ordre' => 2],
-        ['item_key' => 'commercial', 'parent_key' => null, 'label' => 'Commercial', 'icon' => 'fa-handshake', 'url' => null, 'uri_patterns' => 'production,phoning,eai,mobilites', 'ordre' => 3],
-        ['item_key' => 'outils', 'parent_key' => null, 'label' => 'Outils', 'icon' => 'fa-tools', 'url' => null, 'uri_patterns' => 'credit_immo,calculateur,courriers,courriers_internes,blocnotes,procedures,bureau_dom,retraits,dpe,/rge/,/capacite/,/notaire/,/ptz/,/rachat/,/pieces/,/modules/pdf/,/modules/stock/,/creditsspeciaux/,/modules/plan/,/modules/scenarios/', 'ordre' => 4],
+        ['item_key' => 'commercial', 'parent_key' => null, 'label' => 'Commercial', 'icon' => 'fa-handshake', 'url' => null, 'uri_patterns' => 'production,phoning,eai,mobilites,objectifs', 'ordre' => 3],
+        ['item_key' => 'outils', 'parent_key' => null, 'label' => 'Outils', 'icon' => 'fa-tools', 'url' => null, 'uri_patterns' => 'credit_immo,calculateur,courriers,courriers_internes,blocnotes,procedures,bureau_dom,retraits,dpe,/rge/,/capacite/,/notaire/,/ptz/,/rachat/,/pieces/,/modules/pdf/,/modules/stock/,/creditsspeciaux/,/modules/plan/,/modules/scenarios/,rdv_modeles', 'ordre' => 4],
         ['item_key' => 'references', 'parent_key' => null, 'label' => 'Références', 'icon' => 'fa-bookmark', 'url' => null, 'uri_patterns' => '/codes/,/contacts/', 'ordre' => 5],
         // Items - Mon activité
+        ['item_key' => 'fiche_client', 'parent_key' => 'activite', 'label' => 'Fiche client 360°', 'icon' => 'fa-address-card', 'url' => '/modules/fiche_client/index.php', 'uri_patterns' => 'fiche_client', 'ordre' => -1],
         ['item_key' => 'kanban', 'parent_key' => 'activite', 'label' => 'Vue Kanban', 'icon' => 'fa-columns', 'url' => '/modules/kanban/index.php', 'uri_patterns' => 'kanban', 'ordre' => 0],
         ['item_key' => 'instances', 'parent_key' => 'activite', 'label' => 'Mes instances', 'icon' => 'fa-tasks', 'url' => '/modules/instances/index.php', 'uri_patterns' => 'instances', 'ordre' => 1],
         ['item_key' => 'rappels', 'parent_key' => 'activite', 'label' => 'Demandes de rappel', 'icon' => 'fa-phone-alt', 'url' => '/modules/rappels/index.php', 'uri_patterns' => 'rappels', 'ordre' => 2],
@@ -332,6 +333,7 @@ function getDefaultMenuItems() {
         ['item_key' => 'phoning', 'parent_key' => 'commercial', 'label' => 'Séances phoning', 'icon' => 'fa-phone-volume', 'url' => '/modules/phoning/index.php', 'uri_patterns' => 'phoning', 'ordre' => 2],
         ['item_key' => 'eai', 'parent_key' => 'commercial', 'label' => 'EAI', 'icon' => 'fa-bullseye', 'url' => '/modules/eai/index.php', 'uri_patterns' => 'eai', 'ordre' => 3],
         ['item_key' => 'mobilites', 'parent_key' => 'commercial', 'label' => 'Mobilités', 'icon' => 'fa-exchange-alt', 'url' => '/modules/mobilites/index.php', 'uri_patterns' => 'mobilites', 'ordre' => 4],
+        ['item_key' => 'objectifs', 'parent_key' => 'commercial', 'label' => 'Objectifs vs réalisé', 'icon' => 'fa-gauge-high', 'url' => '/modules/objectifs/index.php', 'uri_patterns' => 'objectifs', 'ordre' => 5],
         // Items - Outils
         ['item_key' => 'credit_immo', 'parent_key' => 'outils', 'label' => 'Crédit immobilier', 'icon' => 'fa-house-chimney', 'url' => '/modules/credit_immo/index.php', 'uri_patterns' => 'credit_immo', 'ordre' => 1],
         ['item_key' => 'calculateur', 'parent_key' => 'outils', 'label' => 'Calculateur budget', 'icon' => 'fa-calculator', 'url' => '/modules/calculateur/index.php', 'uri_patterns' => 'calculateur', 'ordre' => 2],
@@ -351,6 +353,7 @@ function getDefaultMenuItems() {
         ['item_key' => 'creditsspeciaux', 'parent_key' => 'outils', 'label' => 'Crédits spéciaux', 'icon' => 'fa-gift', 'url' => '/modules/creditsspeciaux/index.php', 'uri_patterns' => '/creditsspeciaux/', 'ordre' => 18],
         ['item_key' => 'plan', 'parent_key' => 'outils', 'label' => 'Plan de financement', 'icon' => 'fa-diagram-project', 'url' => '/modules/plan/index.php', 'uri_patterns' => '/modules/plan/', 'ordre' => 19],
         ['item_key' => 'scenarios', 'parent_key' => 'outils', 'label' => 'Comparateur de scénarios', 'icon' => 'fa-code-compare', 'url' => '/modules/scenarios/index.php', 'uri_patterns' => '/modules/scenarios/', 'ordre' => 20],
+        ['item_key' => 'rdv_modeles', 'parent_key' => 'outils', 'label' => 'Trames d\'entretien', 'icon' => 'fa-clipboard-list', 'url' => '/modules/rdv_modeles/index.php', 'uri_patterns' => 'rdv_modeles', 'ordre' => 21],
         ['item_key' => 'dpe', 'parent_key' => 'outils', 'label' => 'Recherche DPE', 'icon' => 'fa-leaf', 'url' => '/modules/dpe/index.php', 'uri_patterns' => '/dpe/', 'ordre' => 10],
         // Items - Références
         ['item_key' => 'codes', 'parent_key' => 'references', 'label' => 'Codes utiles', 'icon' => 'fa-key', 'url' => '/modules/codes/index.php', 'uri_patterns' => '/codes/', 'ordre' => 1],
@@ -413,6 +416,15 @@ function getMenuConfig() {
                 $stmt->execute([$item['item_key'], $item['parent_key'], $item['label'], $item['icon'], $item['url'], $item['uri_patterns'], $item['ordre']]);
             }
         }
+    }
+
+    // S'assurer que les sections s'ouvrent bien sur les modules récents (idempotent)
+    $sectionExtras = ['activite' => 'fiche_client', 'commercial' => 'objectifs', 'outils' => 'rdv_modeles'];
+    foreach ($sectionExtras as $skey => $pattern) {
+        try {
+            $db->prepare("UPDATE menu_config SET uri_patterns = CONCAT(COALESCE(uri_patterns, ''), ',', ?) WHERE item_key = ? AND (uri_patterns IS NULL OR uri_patterns NOT LIKE ?)")
+               ->execute([$pattern, $skey, '%' . $pattern . '%']);
+        } catch (Exception $e) {}
     }
 
     $items = $db->query("SELECT * FROM menu_config WHERE visible = 1 ORDER BY ordre ASC")->fetchAll();
@@ -568,6 +580,22 @@ function searchGlobal($query, $userId) {
         $stmt = $db->prepare("SELECT id, CONCAT(COALESCE(numero_personne,''), ' - ', COALESCE(adresse_bien,'')) AS titre, adresse_bien AS detail, 'credit_immo' AS type FROM credit_immobilier WHERE user_id = ? AND (numero_personne LIKE ? OR adresse_bien LIKE ? OR emprunteurs_json LIKE ?)");
         $stmt->execute([$userId, $like, $like, $like]);
         $results = array_merge($results, $stmt->fetchAll());
+    } catch (Exception $e) {}
+
+    // Fiche client 360° : proposer d'ouvrir la fiche consolidée du client
+    try {
+        require_once __DIR__ . '/fiche_client.php';
+        $labels = ficheSourceLabels();
+        foreach (searchClients($db, $query, $userId) as $c) {
+            $srcs = array_map(function ($s) use ($labels) { return $labels[$s] ?? $s; }, $c['sources']);
+            $results[] = [
+                'id' => 0,
+                'titre' => ($c['numero'] !== '' ? 'Client n° ' . $c['numero'] : ($c['nom'] !== '' ? $c['nom'] : 'Client')),
+                'detail' => ($c['numero'] !== '' && $c['nom'] !== '' ? $c['nom'] . ' — ' : '') . implode(', ', $srcs),
+                'type' => 'fiche_client',
+                'lien' => 'modules/fiche_client/index.php?numero=' . urlencode($c['numero']) . '&nom=' . urlencode($c['nom']),
+            ];
+        }
     } catch (Exception $e) {}
 
     return $results;

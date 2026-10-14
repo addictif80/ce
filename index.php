@@ -32,7 +32,7 @@ $proceduresEnAvant = $stmtProc->fetchAll();
             'courriers_internes' => 'Courrier interne', 'signatures' => 'Signature',
             'mobilites' => 'Mobilité', 'rappels_clients' => 'Rappel client',
             'production' => 'Production', 'credit_immo' => 'Crédit immo',
-            'gestion_portefeuille' => 'Gestion portefeuille'
+            'gestion_portefeuille' => 'Gestion portefeuille', 'fiche_client' => 'Fiche client'
         ];
         $typeLinks = [
             'instances' => 'modules/instances/index.php', 'rappels' => 'modules/rappels/index.php',
@@ -57,7 +57,8 @@ $proceduresEnAvant = $stmtProc->fetchAll();
                     <span class="text-muted ms-2"><?= e(excerpt($r['detail'], 100)) ?></span>
                 </div>
                 <?php $noOpen = ['equipe']; ?>
-                <a href="<?= $typeLinks[$r['type']] ?? '#' ?><?= (!empty($r['id']) && !in_array($r['type'], $noOpen)) ? '?open=' . (int)$r['id'] : '' ?>" class="btn btn-sm btn-ce-outline">Voir</a>
+                <?php $href = !empty($r['lien']) ? $r['lien'] : (($typeLinks[$r['type']] ?? '#') . ((!empty($r['id']) && !in_array($r['type'], $noOpen)) ? '?open=' . (int)$r['id'] : '')); ?>
+                <a href="<?= e($href) ?>" class="btn btn-sm btn-ce-outline">Voir</a>
             </div>
         <?php endforeach; ?>
     <?php endif; ?>

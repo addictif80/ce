@@ -83,6 +83,8 @@ if ($action === 'save_assist') {
     if (isset($_POST['clear_key'])) setToolsSetting('assist_key', '');
     elseif ($k !== '') setToolsSetting('assist_key', mb_substr($k, 0, 500));
     setToolsSetting('assist_rules', mb_substr(trim($_POST['assist_rules'] ?? ''), 0, 2000));
+    setToolsSetting('assist_dossier_on', isset($_POST['assist_dossier_on']) ? '1' : '0');
+    setToolsSetting('assist_search_on', isset($_POST['assist_search_on']) ? '1' : '0');
     $m = trim($_POST['assist_model'] ?? '');
     setToolsSetting('assist_model', preg_match('/^[A-Za-z0-9._\/:-]{1,60}$/', $m) ? $m : '');
     header('Location: index.php?tab=redaction&msg=assist_saved');

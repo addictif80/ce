@@ -25,6 +25,12 @@ $test = json_decode(getToolsSetting('assist_last_test', ''), true) ?: null;
         <div class="col-12"><label class="form-label">Consignes complémentaires de rédaction <span class="text-muted">(facultatif)</span></label>
             <textarea name="assist_rules" class="form-control" rows="4" maxlength="2000" placeholder="Ex. : Toujours écrire « la Caisse d'Épargne » (jamais « la banque »). Ne jamais citer de montant de frais sans renvoyer aux conditions tarifaires. Terminer par « Bien cordialement » plutôt que par une formule longue."><?= e(getToolsSetting('assist_rules', '')) ?></textarea>
             <div class="form-text">S'ajoute au cadrage bancaire intégré (vouvoiement, vocabulaire de banque, ton orienté solution, fond exact) pour les trois fonctions. Enregistrez puis refaites un essai de reformulation pour affiner.</div></div>
+        <div class="col-12"><hr class="my-1"><strong class="d-block mb-1">Usages complémentaires (assistant de dossier)</strong>
+            <div class="form-text mb-2">Ces usages s'appuient sur la même connexion ci-dessus. Les données du dossier sont <strong>anonymisées</strong> (numéro de personne, nom, e-mail, téléphone, IBAN) avant tout envoi au service.</div>
+            <div class="form-check form-switch mb-1"><input class="form-check-input" type="checkbox" role="switch" name="assist_dossier_on" id="assistDossierOn" <?= getToolsSetting('assist_dossier_on', '1') === '1' ? 'checked' : '' ?>><label class="form-check-label" for="assistDossierOn">Résumé de dossier et suggestions de prochaine action (fiche client 360°)</label></div>
+            <div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" name="assist_search_on" id="assistSearchOn" <?= getToolsSetting('assist_search_on', '1') === '1' ? 'checked' : '' ?>><label class="form-check-label" for="assistSearchOn">Recherche en langage naturel dans les procédures</label></div>
+            <div class="form-text">Même sans IA, la fiche client affiche un résumé local et les règles métier ; seule l'enrichissement est désactivé.</div>
+        </div>
         <div class="col-12"><button class="btn btn-ce">Enregistrer</button></div>
     </form>
 </div></div>
@@ -40,5 +46,6 @@ $test = json_decode(getToolsSetting('assist_last_test', ''), true) ?: null;
         <li>Limites : 8 000 caractères par demande et 40 demandes par heure et par session de navigation.</li>
         <li>Les variables <code>{{...}}</code> du courrier sont contrôlées : une proposition qui les altérerait est écartée.</li>
         <li>Les propositions restent à relire : elles ne remplacent pas la vérification du conseiller avant envoi.</li>
+        <li><strong>Fiche client 360° et recherche dans les procédures :</strong> les données de dossier sont anonymisées (numéro de personne, nom, e-mail, téléphone, IBAN masqués) avant tout envoi. Le résumé local et les règles métier restent disponibles même si l'IA est désactivée.</li>
     </ul>
 </div></div>
