@@ -27,7 +27,7 @@ $terms = spTerms($q);
 $fiches = spSearch($q, 5);
 $results = [];
 foreach ($fiches as $f) {
-    $ex = trim($f['description']) !== '' ? $f['description'] : spExcerpt($f['texte'], $terms, 300);
+    $ex = trim($f['description']) !== '' ? $f['description'] : spExcerpt($f['texte'], $terms, 300, $f['titre']);
     $results[] = ['titre' => $f['titre'], 'theme' => $f['theme'], 'url' => $f['url'], 'date' => $f['date_maj'] ? date('d/m/Y', strtotime($f['date_maj'])) : '', 'extrait' => mb_substr($ex, 0, 320)];
 }
 $answer = null; $why = ''; $detail = '';
