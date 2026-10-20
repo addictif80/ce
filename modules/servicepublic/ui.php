@@ -31,6 +31,7 @@ require __DIR__ . '/../_sim/style.php';
     if (!r.ok) { out.innerHTML = '<div class="alert alert-danger">' + esc(r.error || 'Erreur.') + '</div>'; return; }
     let h = '';
     if (r.answer) h += '<div class="cap-card" style="border-left:4px solid #e4002b"><h2 class="h6"><i class="fas fa-align-left me-2 text-danger"></i>Réponse synthétique</h2><div>' + r.answer + '</div><div class="small text-muted mt-2">Résumé établi à partir des fiches ci-dessous (numéros entre crochets, dans l\'ordre) : à vérifier sur service-public.fr.</div></div>';
+    if (!r.answer && r.results.length) h += '<div class="small text-muted mt-2"><i class="fas fa-circle-info me-1"></i>Le résumé n\'est pas disponible pour le moment : consultez les fiches ci-dessous.' + (r.detail ? ' <span class="text-danger">(administrateur : ' + esc(r.detail) + ')</span>' : '') + '</div>';
     if (!r.results.length) h += '<div class="alert alert-info mt-3">Aucune fiche ne correspond. Essayez avec d\'autres mots.</div>';
     else {
       h += '<div class="cap-card mt-3"><h2 class="h6"><i class="fas fa-book-open me-2 text-danger"></i>Fiches de service-public.fr</h2>';

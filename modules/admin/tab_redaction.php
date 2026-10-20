@@ -65,4 +65,11 @@ $test = json_decode(getToolsSetting('assist_last_test', ''), true) ?: null;
         <input type="hidden" name="action" value="import_servicepublic">
         <button class="btn btn-ce"><i class="fas fa-cloud-arrow-down me-1"></i><?= $sp['n'] ? 'Mettre à jour les fiches' : 'Importer les fiches' ?></button>
         <span class="small text-muted ms-2">Archive d'environ 23 Mo ; à relancer de temps en temps (les fiches sont mises à jour chaque jour à la source).</span></form>
+    <hr>
+    <div class="small"><strong>Sans accès Internet sur le serveur ?</strong> Téléchargez l'archive depuis un poste connecté :
+        <a href="https://lecomarquage.service-public.fr/vdd/3.4/part/zip/vosdroits-latest.zip" target="_blank" rel="noopener noreferrer">vosdroits-latest.zip</a> (fiches « particuliers »), puis déposez-la ici.
+        <form method="post" enctype="multipart/form-data" class="d-flex gap-2 align-items-center mt-2 flex-wrap" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='Import en cours…';">
+            <input type="hidden" name="action" value="import_servicepublic_file"><input type="file" name="archive" accept=".zip" class="form-control form-control-sm" style="max-width:340px" required>
+            <button class="btn btn-sm btn-outline-secondary"><i class="fas fa-upload me-1"></i>Importer ce fichier</button></form>
+        <div class="text-muted mt-2">Si l'envoi échoue (fichier trop gros pour le serveur), copiez le zip sur la VM puis lancez : <code>php cron/import_service_public.php /chemin/vosdroits-latest.zip</code> depuis le dossier du portail.</div></div>
 </div></div>
