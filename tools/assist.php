@@ -8,4 +8,5 @@ header('Cache-Control: no-store');
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' || ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') !== 'fetch') { http_response_code(405); echo json_encode(['error' => 'Méthode non autorisée.']); exit; }
 requirePublicTool('courrier', true);
 $in = json_decode(file_get_contents('php://input'), true);
+if (is_array($in)) { require_once __DIR__ . '/../includes/audit.php'; auditServer('courrier', 'courrier', 'aide à la rédaction : ' . (string)($in['mode'] ?? ''), mb_substr(trim(strip_tags((string)($in['text'] ?? ''))), 0, 500)); }
 echo json_encode(is_array($in) ? assistHandle($in) : ['error' => 'Demande invalide.'], JSON_UNESCAPED_UNICODE);
