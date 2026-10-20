@@ -77,8 +77,10 @@ toolsHeader('Outils en libre accès');
             <div class="modal-footer"><button type="submit" class="btn btn-danger"><i class="fas fa-download me-1"></i>Télécharger la demande (.eml)</button></div>
         </form>
     </div></div></div>
+    <?php agenceSearchScript(); ?>
     <script>
     (function() {
+        agenceSearch(document.getElementById('ar_agence'));
         const v = id => document.getElementById(id).value.trim();
         const err = document.getElementById('ar_err');
         // Validation côté navigateur ; si tout est correct, le formulaire part normalement et le serveur renvoie le fichier .eml

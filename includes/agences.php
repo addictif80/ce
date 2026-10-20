@@ -111,3 +111,6 @@ function agencesFillFromDirectory() {
     }
     return [$n, $sans];
 }
+
+/** Script (inline, sans fichier statique à charger) qui définit agenceSearch(select) : recherche par nom ou numéro dans une liste d'agences. */
+function agenceSearchScript() { echo '<script>'; readfile(__DIR__ . '/../assets/js/agence-search.js'); echo '</script>'; }
