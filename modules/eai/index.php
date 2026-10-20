@@ -1,6 +1,7 @@
 <?php
 $pageTitle = 'EAI';
 require_once __DIR__ . '/../../templates/header.php';
+require_once __DIR__ . '/../../includes/kpi.php';
 $db = getDB();
 $userId = getCurrentUserId();
 $isAdmin = isAdmin();
@@ -43,42 +44,9 @@ try {
 } catch (Exception $e) {}
 
 // ========= DÉFINITION DES KPIs =========
-$kpiDefs = [
-    // Section Ventes
-    ['cle' => 'ventes_brut_anv', 'libelle' => 'Ventes brut ANV', 'section' => 'ventes', 'unite' => '', 'ordre' => 1],
-    ['cle' => 'volume_pret_perso', 'libelle' => 'Volume Prêt Personnel', 'section' => 'ventes', 'unite' => '€', 'ordre' => 2],
-    ['cle' => 'cartes_hdg_dd', 'libelle' => 'Cartes HDG DD', 'section' => 'ventes', 'unite' => '', 'ordre' => 3],
-    ['cle' => 'izicartes', 'libelle' => 'Izicartes', 'section' => 'ventes', 'unite' => '', 'ordre' => 4],
-    ['cle' => 'forfaits', 'libelle' => 'Forfaits', 'section' => 'ventes', 'unite' => '', 'ordre' => 5],
-    ['cle' => 'volume_collecte', 'libelle' => 'Volume Collecte', 'section' => 'ventes', 'unite' => '€', 'ordre' => 6],
-    ['cle' => 'livrets', 'libelle' => 'Livrets', 'section' => 'ventes', 'unite' => '', 'ordre' => 7],
-    ['cle' => 'pel_quadreto', 'libelle' => 'PEL / Quadreto', 'section' => 'ventes', 'unite' => '', 'ordre' => 8],
-    ['cle' => 'assvie_peri', 'libelle' => 'AssVie / PERi', 'section' => 'ventes', 'unite' => '', 'ordre' => 9],
-    ['cle' => 'volume_parts_sociales', 'libelle' => 'Volume Parts Sociales', 'section' => 'ventes', 'unite' => '€', 'ordre' => 10],
-    ['cle' => 'nouveau_societaire', 'libelle' => 'Nouveau Sociétaire', 'section' => 'ventes', 'unite' => '', 'ordre' => 11],
-    ['cle' => 'bp_jbp', 'libelle' => 'BP / jBP', 'section' => 'ventes', 'unite' => '', 'ordre' => 12],
-    ['cle' => 'equip_jequip', 'libelle' => 'Equip / jEquip', 'section' => 'ventes', 'unite' => '', 'ordre' => 13],
-    // Section Activité
-    ['cle' => 'taux_decroche', 'libelle' => 'Taux décroché', 'section' => 'activite', 'unite' => '%', 'ordre' => 14],
-    ['cle' => 'taux_reponse_mails', 'libelle' => 'Taux réponse aux mails', 'section' => 'activite', 'unite' => '%', 'ordre' => 15],
-    ['cle' => 'volume_appels_sortants', 'libelle' => 'Volume appels sortants', 'section' => 'activite', 'unite' => '', 'ordre' => 16],
-    // Section RDV — S = sem. passée, S+1 = sem. en cours, S+2 = sem. prochaine
-    ['cle' => 'rdv_s', 'libelle' => 'Nombre de RDV - Sem. passée', 'section' => 'rdv', 'unite' => '', 'ordre' => 17],
-    ['cle' => 'rdv_s1', 'libelle' => 'Nombre de RDV - Sem. en cours', 'section' => 'rdv', 'unite' => '', 'ordre' => 18],
-    ['cle' => 'rdv_s2', 'libelle' => 'Nombre de RDV - Sem. prochaine', 'section' => 'rdv', 'unite' => '', 'ordre' => 19],
-    ['cle' => 'rdv_proactifs_s', 'libelle' => 'RDV Proactifs - Sem. passée', 'section' => 'rdv', 'unite' => '', 'ordre' => 20],
-    ['cle' => 'rdv_proactifs_s1', 'libelle' => 'RDV Proactifs - Sem. en cours', 'section' => 'rdv', 'unite' => '', 'ordre' => 21],
-    ['cle' => 'rdv_proactifs_s2', 'libelle' => 'RDV Proactifs - Sem. prochaine', 'section' => 'rdv', 'unite' => '', 'ordre' => 22],
-    ['cle' => 'rdv_anv_s', 'libelle' => 'RDV ANV - Sem. passée', 'section' => 'rdv', 'unite' => '', 'ordre' => 23],
-    ['cle' => 'rdv_anv_s1', 'libelle' => 'RDV ANV - Sem. en cours', 'section' => 'rdv', 'unite' => '', 'ordre' => 24],
-    ['cle' => 'rdv_anv_s2', 'libelle' => 'RDV ANV - Sem. prochaine', 'section' => 'rdv', 'unite' => '', 'ordre' => 25],
-    // Section Portefeuille
-    ['cle' => 'myflow_en_cours', 'libelle' => 'MyFlow en cours', 'section' => 'portefeuille', 'unite' => '', 'ordre' => 26],
-    ['cle' => 'vigiclients_en_cours', 'libelle' => 'Vigiclients en cours', 'section' => 'portefeuille', 'unite' => '', 'ordre' => 27],
-    ['cle' => 'rpm_taux_traitement', 'libelle' => 'RPM - Taux de traitement', 'section' => 'portefeuille', 'unite' => '%', 'ordre' => 28],
-    ['cle' => 'rpm_clients_15j', 'libelle' => 'RPM - Clients > 15j', 'section' => 'portefeuille', 'unite' => '', 'ordre' => 29],
-    ['cle' => 'rpm_montant_total', 'libelle' => 'RPM - Montant total', 'section' => 'portefeuille', 'unite' => '€', 'ordre' => 30],
-];
+// Catalogue partagé avec le module Objectifs (includes/kpi.php) : une seule
+// source de vérité pour les indicateurs, leurs libellés et leurs unités.
+$kpiDefs = getKpiCatalogueEai();
 
 // Seed attendus si vide
 $count = $db->query("SELECT COUNT(*) FROM eai_attendus")->fetchColumn();

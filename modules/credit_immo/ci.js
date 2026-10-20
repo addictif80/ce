@@ -292,8 +292,9 @@ function modeOcc(d){return d.mode_occupation==='RP'?'EMPRUNTEUR':(MODE_OCC_LABEL
 
 // Remplir le tableau (mensualité tout inclus + endettement) au chargement
 document.addEventListener('DOMContentLoaded',()=>{
-  filterTable('searchDossiers','tableDossiers');
-  dossiersData.forEach(d=>{
+  // Garde-fous : si le script d'en-tête ou les données ne sont pas disponibles, on n'interrompt pas le remplissage
+  if(typeof filterTable==='function') filterTable('searchDossiers','tableDossiers');
+  if(typeof dossiersData!=='undefined'&&Array.isArray(dossiersData)) dossiersData.forEach(d=>{
     const c=computeAll(d);
     const em=document.getElementById('mens_'+d.id), et=document.getElementById('tend_'+d.id);
     const set=(k,v)=>{const el=document.getElementById(k+'_'+d.id); if(el) el.textContent=v;};
@@ -307,7 +308,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(et) et.innerHTML=badgeEndett(c.te);
   });
   const op=new URLSearchParams(location.search).get('open');
-  if(op){showDetail(parseInt(op));history.replaceState(null,'','index.php');}
+  if(op&&typeof showDetail==='function'){showDetail(parseInt(op));history.replaceState(null,'','index.php');}
 });
 
 // ── LIGNES DYNAMIQUES (revenus / charges / épargne par emprunteur) ───────────

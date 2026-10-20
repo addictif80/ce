@@ -79,6 +79,61 @@ $categoriesProcedures = getCategoriesProcedures();
 $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . dirname($_SERVER['REQUEST_URI']) . '/view.php';
 ?>
 
+<!-- Recherche en langage naturel -->
+<div class="card mb-4">
+    <div class="card-body">
+        <label class="form-label mb-1"><i class="fas fa-wand-magic-sparkles"></i> Poser une question (recherche intelligente)</label>
+        <div class="input-group">
+            <input type="text" class="form-control" id="nlQuery" placeholder="Ex. : comment ouvrir un compte à un mineur ?" maxlength="500">
+            <button class="btn btn-ce" id="nlBtn" onclick="nlSearch()"><i class="fas fa-search"></i> Chercher</button>
+        </div>
+        <div class="form-text">Décrivez votre besoin en quelques mots : les procédures les plus pertinentes sont classées automatiquement.</div>
+        <div id="nlResults" class="mt-3"></div>
+    </div>
+</div>
+<script>
+function nlEscape(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+async function nlSearch() {
+    const q = document.getElementById('nlQuery').value.trim();
+    const box = document.getElementById('nlResults');
+    if (!q) { box.innerHTML = ''; return; }
+    document.getElementById('nlBtn').disabled = true;
+    box.innerHTML = '<div class="text-muted"><i class="fas fa-spinner fa-spin"></i> Recherche…</div>';
+    try {
+        const resp = await fetch('search_nl_ajax.php', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: 'q=' + encodeURIComponent(q)
+        });
+        const d = await resp.json();
+        if (!d.ok) { box.innerHTML = '<div class="alert alert-warning py-2 mb-0">' + nlEscape(d.error || 'Erreur') + '</div>'; return; }
+        if (!d.results || !d.results.length) {
+            box.innerHTML = '<div class="alert alert-info py-2 mb-0">Aucune procédure ne correspond. Essayez d\'autres mots.</div>';
+            return;
+        }
+        let html = '<div class="small text-muted mb-2">Mots-clés analysés : ' + (d.keywords || []).map(nlEscape).join(', ')
+            + (d.ia ? ' <span class="badge bg-info text-dark">enrichi IA</span>' : '') + '</div>';
+        html += '<div class="list-group">';
+        d.results.forEach(r => {
+            html += '<a class="list-group-item list-group-item-action" href="view.php?id=' + r.id + '">'
+                + '<div class="d-flex justify-content-between align-items-start gap-2">'
+                + '<div><strong>' + nlEscape(r.nom) + '</strong>'
+                + (r.mise_en_avant ? ' <i class="fas fa-star text-warning" title="Mise en avant"></i>' : '')
+                + '<div class="small text-muted">' + nlEscape(r.extrait) + '</div></div>'
+                + (r.categorie ? '<span class="badge bg-secondary">' + nlEscape(r.categorie) + '</span>' : '')
+                + '</div></a>';
+        });
+        html += '</div>';
+        box.innerHTML = html;
+    } catch (e) {
+        box.innerHTML = '<div class="alert alert-danger py-2 mb-0">Erreur de communication.</div>';
+    } finally {
+        document.getElementById('nlBtn').disabled = false;
+    }
+}
+document.getElementById('nlQuery').addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); nlSearch(); } });
+</script>
+
 <!-- Barre d'actions -->
 <div class="row g-3 mb-4">
     <div class="col-md-4">
