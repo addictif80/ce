@@ -155,6 +155,7 @@ function owns($db, $id, $userId) {
 
 // ── AJAX ─────────────────────────────────────────────────────────────────────
 if (isset($_GET['ajax'])) {
+    while (ob_get_level() > 0) ob_end_clean();   // le gabarit a déjà émis du HTML : la réponse doit être du JSON pur
     header('Content-Type: application/json');
     if ($_GET['ajax'] === 'budget') {
         $s = $db->prepare("SELECT * FROM calculateur_budget WHERE user_id=?");
@@ -178,6 +179,7 @@ if (isset($_GET['ajax'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_action'])) {
+    while (ob_get_level() > 0) ob_end_clean();
     header('Content-Type: application/json');
     $act = $_POST['ajax_action'];
     if ($act === 'save_note') {
