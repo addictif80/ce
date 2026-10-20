@@ -130,6 +130,10 @@ require_once __DIR__ . '/../../includes/agences.php';
         .dom-print-zone {
             margin: 0 !important;
         }
+        /* Pleine largeur de la feuille : on neutralise le conteneur Bootstrap et la marge latérale du cadre d'impression de /tools */
+        .container { max-width: none !important; width: 100% !important; padding-left: 0 !important; padding-right: 0 !important; margin: 0 !important; }
+        .dom-print-zone .tp-frame > tbody > tr > td { padding: 0 10mm !important; }
+        .dom-print-zone .tp-frame > thead > tr > td, .dom-print-zone .tp-frame > tfoot > tr > td { height: 10mm !important; }
         .dom-container {
             max-width: 100%;
             border-width: 1px;

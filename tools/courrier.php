@@ -22,6 +22,9 @@ toolsHeader('Générateur de courrier', 'courrier', '<style>
         body{background:#fff}.no-print{display:none!important}
         #letter{display:block!important;position:relative;font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.4;color:#000}
         @page{size:A4;margin:15mm 20mm}
+        /* Cadre d impression de /tools : memes marges que la page, adresse du destinataire a la meme place (fenetre d enveloppe) */
+        #letter .tp-frame>thead>tr>td,#letter .tp-frame>tfoot>tr>td{height:15mm!important}
+        #letter .tp-frame>tbody>tr>td{padding:0 20mm!important;position:relative}
     }
 </style>');
 ?>
@@ -208,7 +211,7 @@ toolsHeader('Générateur de courrier', 'courrier', '<style>
                 <img id="letter-logo" src="<?= e($logoUrl) ?>" alt="Caisse d'Épargne" style="max-width:180px;height:auto;">
                 <div style="margin-top:4px;font-size:9pt;line-height:1.3;">${exp}</div>
             </div>
-            <div style="position:absolute;top:32mm;left:100mm;width:85mm;font-size:11pt;line-height:1.5;">${dest}</div>
+            <div style="position:absolute;top:32mm;left:100mm;margin-left:20mm;width:85mm;font-size:11pt;line-height:1.5;">${dest}</div>
             <div style="margin-top:25mm;text-align:right;">${esc(lieuDate)}</div>
             <br><br>
             <div style="font-weight:bold;">${val('c-objet') ? 'Objet : ' + esc(val('c-objet')) : ''}</div>
