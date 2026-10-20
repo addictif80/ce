@@ -12,7 +12,7 @@ const AUDIT_VALUE_MAX = 500;
 
 function auditEvents() {
     return ['page' => 'Ouverture de page', 'clic' => 'Clic', 'saisie' => 'Saisie / choix', 'impression' => 'Impression', 'copie' => 'Copie',
-        'acces' => 'Accès par code', 'courrier' => 'Aide à la rédaction', 'autre' => 'Autre'];
+        'acces' => 'Accès par code', 'courrier' => 'Aide à la rédaction', 'recherche' => 'Recherche', 'autre' => 'Autre'];
 }
 
 function auditEnsureSchema() {

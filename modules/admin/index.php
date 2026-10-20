@@ -669,7 +669,7 @@ try {
         'event_added'    => 'Événement ajouté avec succès.',
         'event_updated'  => 'Événement modifié avec succès.',
         'event_deleted'  => 'Événement supprimé.',
-        'agence_saved' => 'Agence enregistrée.', 'agence_deleted' => 'Agence supprimée.', 'agence_invalide' => 'Le nom de l\'agence est obligatoire.', 'agence_doublon' => 'Une agence porte déjà ce nom.', 'agences_imported' => 'Agences importées.', 'agences_filled' => 'Adresses et numéros complétés (voir le détail ci-dessous).', 'assist_saved' => 'Réglages de l\'aide à la rédaction enregistrés.', 'popup_saved' => 'Popup enregistrée.', 'news_saved' => 'Nouveauté enregistrée.', 'news_deleted' => 'Nouveauté supprimée.', 'zonage_vide' => 'Liste des communes vidée.',
+        'agence_saved' => 'Agence enregistrée.', 'agence_deleted' => 'Agence supprimée.', 'agence_invalide' => 'Le nom de l\'agence est obligatoire.', 'agence_doublon' => 'Une agence porte déjà ce nom.', 'sp_imported' => 'Fiches service-public.fr importées.', 'sp_failed' => 'Import service-public.fr en échec : voir le détail dans la carte.', 'agences_imported' => 'Agences importées.', 'agences_filled' => 'Adresses et numéros complétés (voir le détail ci-dessous).', 'assist_saved' => 'Réglages de l\'aide à la rédaction enregistrés.', 'popup_saved' => 'Popup enregistrée.', 'news_saved' => 'Nouveauté enregistrée.', 'news_deleted' => 'Nouveauté supprimée.', 'zonage_vide' => 'Liste des communes vidée.',
         'terms_saved' => 'Conditions d\'utilisation enregistrées.',
         'bareme_saved' => 'Barème enregistré.', 'bareme_reset' => 'Barème remis aux valeurs par défaut.',
         'bareme_invalide' => 'Barème refusé : voir le message sous le barème concerné.', 'bareme_inconnu' => 'Barème inconnu.',

@@ -113,6 +113,13 @@ if (in_array($action, ['save_agence', 'delete_agence', 'toggle_agence', 'import_
     exit;
 }
 
+if ($action === 'import_servicepublic') {
+    require_once __DIR__ . '/../../includes/servicepublic.php';
+    $r = spImportNow();
+    header('Location: index.php?tab=redaction&msg=' . ($r['ok'] ? 'sp_imported' : 'sp_failed') . '#sp-card');
+    exit;
+}
+
 if ($action === 'verify_audit') {
     require_once __DIR__ . '/../../includes/audit.php';
     $r = auditVerify();
