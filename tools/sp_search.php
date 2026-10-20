@@ -30,7 +30,12 @@ foreach ($fiches as $f) {
     $ex = trim($f['description']) !== '' ? $f['description'] : spExcerpt($f['texte'], $terms, 300);
     $results[] = ['titre' => $f['titre'], 'theme' => $f['theme'], 'url' => $f['url'], 'date' => $f['date_maj'] ? date('d/m/Y', strtotime($f['date_maj'])) : '', 'extrait' => mb_substr($ex, 0, 320)];
 }
-$answer = null;
-if ($fiches && assistEnabled() && assistRateOk()) $answer = spAnswer($q, $fiches, $terms);
-echo json_encode(['ok' => true, 'results' => $results, 'answer' => $answer,
+$answer = null; $why = ''; $detail = '';
+if ($fiches) {
+    if (!assistEnabled()) { $why = 'desactive'; $detail = getToolsSetting('assist_on', '0') !== '1' ? 'aide à la rédaction désactivée dans l\'administration' : 'clé API absente'; }
+    elseif (!assistRateOk()) { $why = 'limite'; $detail = 'limite de demandes par heure atteinte'; }
+    else [$answer, $why, $detail] = spAnswer($q, $fiches, $terms);
+}
+echo json_encode(['ok' => true, 'results' => $results, 'answer' => $answer, 'why' => $answer ? '' : $why,
+    'detail' => (!$answer && toolsVisitorIsLoggedIn() && function_exists('isAdmin') && isAdmin()) ? mb_substr((string)$detail, 0, 400) : '',
     'maj' => $status['derniere_maj'] ? date('d/m/Y', strtotime($status['derniere_maj'])) : '', 'sources' => count($fiches)], JSON_UNESCAPED_UNICODE);
