@@ -76,6 +76,39 @@ if ($action === 'save_news' || $action === 'delete_news') {
     exit;
 }
 
+if (in_array($action, ['save_agence', 'delete_agence', 'toggle_agence', 'import_agences'], true)) {
+    require_once __DIR__ . '/../../includes/agences.php';
+    ensureAgencesSchema();
+    $clean = fn($v, $n) => mb_substr(trim(preg_replace('/\s+/u', ' ', (string)$v)), 0, $n);
+    $msg = 'agence_saved';
+    if ($action === 'save_agence') {
+        $id = (int)($_POST['id'] ?? 0); $nom = mb_strtoupper($clean($_POST['nom'] ?? '', 120)); $adr = $clean($_POST['adresse'] ?? '', 255); $num = preg_replace('/[^0-9A-Za-z]/', '', (string)($_POST['numero'] ?? ''));
+        $num = mb_substr($num, 0, 10);
+        if ($nom === '') { $msg = 'agence_invalide'; }
+        else {
+            try {
+                if ($id > 0) $db->prepare("UPDATE agences SET nom = ?, adresse = ?, numero = ?, actif = ? WHERE id = ?")->execute([$nom, $adr, $num, isset($_POST['actif']) ? 1 : 0, $id]);
+                else $db->prepare("INSERT INTO agences (nom, adresse, numero, actif) VALUES (?, ?, ?, 1)")->execute([$nom, $adr, $num]);
+            } catch (Exception $e) { $msg = 'agence_doublon'; }
+        }
+    } elseif ($action === 'delete_agence') {
+        $db->prepare("DELETE FROM agences WHERE id = ?")->execute([(int)($_POST['id'] ?? 0)]); $msg = 'agence_deleted';
+    } elseif ($action === 'toggle_agence') {
+        $db->prepare("UPDATE agences SET actif = 1 - actif WHERE id = ?")->execute([(int)($_POST['id'] ?? 0)]);
+    } else { // import : une agence par ligne « nom ; adresse ; numéro » (met à jour si le nom existe déjà)
+        $n = 0; $up = $db->prepare("INSERT INTO agences (nom, adresse, numero) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE adresse = VALUES(adresse), numero = VALUES(numero)");
+        foreach (preg_split('/\R/', (string)($_POST['lignes'] ?? '')) as $ln) {
+            if (trim($ln) === '') continue;
+            $p = array_map('trim', explode(';', $ln));
+            $nom = mb_strtoupper($clean($p[0] ?? '', 120)); if ($nom === '' || preg_match('/^nom$/iu', $nom)) continue;
+            $up->execute([$nom, $clean($p[1] ?? '', 255), mb_substr(preg_replace('/[^0-9A-Za-z]/', '', $p[2] ?? ''), 0, 10)]); $n++;
+        }
+        $msg = 'agences_imported';
+    }
+    header('Location: index.php?tab=agences&msg=' . $msg);
+    exit;
+}
+
 if ($action === 'verify_audit') {
     require_once __DIR__ . '/../../includes/audit.php';
     $r = auditVerify();

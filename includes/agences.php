@@ -1,8 +1,9 @@
 <?php
 /**
- * Liste des agences (utilisée par le formulaire de bureau domiciliaire et par la demande d'accès au portail depuis /tools).
+ * Agences (nom, adresse, numéro), gérées dans l'administration (onglet Agences). Utilisées par le formulaire de bureau domiciliaire
+ * (portail et /tools) et par la demande d'accès au portail depuis /tools. La liste ci-dessous n'est que le contenu initial de la table.
  */
-function getAgences() {
+function agencesDefaultNames() {
     return [
         'ALBI FRANCOIS VERDIER', 'ALBI JEAN JAURES', 'ALBI MADELEINE', 'ARBEAU',
         'ARGELES GAZOST', 'AUBIN', 'AUCH LIBERATION', 'AUCH PATTE D\'OIE',
@@ -51,3 +52,43 @@ function getAgences() {
         'VILLEFRANCHE SARZANA', 'VILLEMUR SUR TARN', 'VILLENEUVE TOLOSANE',
     ];
 }
+
+
+function ensureAgencesSchema() {
+    static $done = false; if ($done) return; $done = true;
+    $db = getDB();
+    $db->exec("CREATE TABLE IF NOT EXISTS agences (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nom VARCHAR(120) NOT NULL,
+        adresse VARCHAR(255) NOT NULL DEFAULT '',
+        numero VARCHAR(10) NOT NULL DEFAULT '',
+        actif TINYINT(1) NOT NULL DEFAULT 1,
+        UNIQUE KEY uk_nom (nom)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    if ((int)$db->query("SELECT COUNT(*) FROM agences")->fetchColumn() === 0) {
+        $ins = $db->prepare("INSERT IGNORE INTO agences (nom, adresse, numero) VALUES (?, ?, ?)");
+        foreach (agencesDefaultNames() as $nom) {
+            $cap = $nom === 'CAPDENAC GARE';
+            $ins->execute([$nom, $cap ? '5 Avenue Charles de Gaulle, 12700 Capdenac-Gare' : '', $cap ? '346' : '']);
+        }
+    }
+}
+
+/** Agences (lignes complètes), triées par nom ; $onlyActive = false pour l'administration. */
+function getAgencesFull($onlyActive = true) {
+    try {
+        ensureAgencesSchema();
+        $rows = getDB()->query("SELECT id, nom, adresse, numero, actif FROM agences " . ($onlyActive ? "WHERE actif = 1 " : "") . "ORDER BY nom")->fetchAll(PDO::FETCH_ASSOC);
+        if ($rows) return $rows;
+    } catch (Throwable $e) { error_log('agences: ' . $e->getMessage()); }
+    return array_map(fn($n) => ['id' => 0, 'nom' => $n, 'adresse' => '', 'numero' => '', 'actif' => 1], agencesDefaultNames()); // base indisponible : liste de secours
+}
+
+/** Noms des agences actives (compatibilité). */
+function getAgences() { return array_column(getAgencesFull(true), 'nom'); }
+
+/** Libellé « NOM (numéro) » sans l'adresse (bureau domiciliaire). */
+function agenceLabelNum(array $a) { return $a['nom'] . ($a['numero'] !== '' ? ' (' . $a['numero'] . ')' : ''); }
+
+/** Libellé « NOM — adresse » (sélections qui affichent l'adresse). */
+function agenceLabelAdresse(array $a) { return $a['nom'] . ($a['adresse'] !== '' ? ' — ' . $a['adresse'] : ''); }

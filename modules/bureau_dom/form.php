@@ -269,7 +269,7 @@ require_once __DIR__ . '/../../includes/agences.php';
 </div>
 
 <script>
-const agencies = <?= json_encode(getAgences(), JSON_UNESCAPED_UNICODE) ?>;
+const agencies = <?= json_encode(array_map('agenceLabelNum', getAgencesFull(true)), JSON_UNESCAPED_UNICODE) ?>; // « NOM (numéro) », sans l'adresse
 
 (function() {
     const select1 = document.getElementById('agence-select');
