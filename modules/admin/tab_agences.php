@@ -4,6 +4,7 @@ require_once __DIR__ . '/../../includes/agences.php';
 $agences = getAgencesFull(false);
 $edit = null;
 if (isset($_GET['edit'])) foreach ($agences as $a) if ((int)$a['id'] === (int)$_GET['edit']) $edit = $a;
+$fill = $_SESSION['agences_fill'] ?? null; unset($_SESSION['agences_fill']);
 $nbSansNum = count(array_filter($agences, fn($a) => $a['numero'] === ''));
 ?>
 <div class="alert alert-info">
@@ -11,6 +12,12 @@ $nbSansNum = count(array_filter($agences, fn($a) => $a['numero'] === ''));
     Cette liste est utilisée partout où l'on choisit une agence : formulaire de bureau domiciliaire (portail et /tools, affiché « NOM (numéro) » sans l'adresse) et demande d'accès au portail depuis /tools (nom et adresse).
     Une agence désactivée n'apparaît plus dans les choix. <?php if ($nbSansNum): ?><br><span class="text-warning-emphasis"><i class="fas fa-triangle-exclamation"></i> <?= $nbSansNum ?> agence(s) sans numéro : complétez-les (ou importez-les en lot ci-dessous).</span><?php endif; ?>
 </div>
+<?php if ($fill): ?><div class="alert alert-success"><strong><?= (int)$fill[0] ?> agence(s) complétée(s).</strong>
+    <?php if ($fill[1]): ?><br>Sans correspondance dans l'annuaire (à renseigner à la main) : <?= e(implode(', ', $fill[1])) ?>.<?php endif; ?></div><?php endif; ?>
+<div class="card mb-4"><div class="card-body d-flex align-items-center gap-3 flex-wrap">
+    <form method="post" class="mb-0"><input type="hidden" name="action" value="fill_agences"><button class="btn btn-ce"><i class="fas fa-wand-magic-sparkles me-1"></i>Compléter les adresses et numéros manquants</button></form>
+    <div class="small text-muted">À partir de l'annuaire public des agences Caisse d'Epargne (octobre 2026). Ne modifie jamais une valeur déjà saisie. Le numéro est le code guichet de l'agence : à contrôler (Capdenac Gare = 346).</div>
+</div></div>
 <div class="card mb-4" id="agence-form"><div class="card-header"><strong><?= $edit ? 'Modifier l\'agence' : 'Ajouter une agence' ?></strong></div>
 <div class="card-body"><form method="post" class="row g-3">
     <input type="hidden" name="action" value="save_agence"><input type="hidden" name="id" value="<?= (int)($edit['id'] ?? 0) ?>">

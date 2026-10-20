@@ -67,10 +67,8 @@ function ensureAgencesSchema() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     if ((int)$db->query("SELECT COUNT(*) FROM agences")->fetchColumn() === 0) {
         $ins = $db->prepare("INSERT IGNORE INTO agences (nom, adresse, numero) VALUES (?, ?, ?)");
-        foreach (agencesDefaultNames() as $nom) {
-            $cap = $nom === 'CAPDENAC GARE';
-            $ins->execute([$nom, $cap ? '5 Avenue Charles de Gaulle, 12700 Capdenac-Gare' : '', $cap ? '346' : '']);
-        }
+        $data = agencesDirectoryData();
+        foreach (agencesDefaultNames() as $nom) $ins->execute([$nom, $data[$nom]['adresse'] ?? '', $data[$nom]['numero'] ?? '']);
     }
 }
 
@@ -92,3 +90,24 @@ function agenceLabelNum(array $a) { return $a['nom'] . ($a['numero'] !== '' ? ' 
 
 /** Libellé « NOM — adresse » (sélections qui affichent l'adresse). */
 function agenceLabelAdresse(array $a) { return $a['nom'] . ($a['adresse'] !== '' ? ' — ' . $a['adresse'] : ''); }
+
+
+/** Adresses et numéros issus de l'annuaire public des agences (includes/agences_data.php) : [NOM => ['adresse', 'numero']]. */
+function agencesDirectoryData() { static $d = null; if ($d === null) $d = require __DIR__ . '/agences_data.php'; return $d; }
+
+/** Complète les adresses et numéros VIDES à partir de l'annuaire (n'écrase jamais une valeur saisie). Retourne [agences mises à jour, noms sans correspondance]. */
+function agencesFillFromDirectory() {
+    ensureAgencesSchema();
+    $db = getDB(); $data = agencesDirectoryData(); $n = 0; $sans = [];
+    $upA = $db->prepare("UPDATE agences SET adresse = ? WHERE id = ? AND adresse = ''");
+    $upN = $db->prepare("UPDATE agences SET numero = ? WHERE id = ? AND numero = ''");
+    foreach ($db->query("SELECT id, nom, adresse, numero FROM agences")->fetchAll(PDO::FETCH_ASSOC) as $a) {
+        $d = $data[$a['nom']] ?? null;
+        if (!$d) { if ($a['adresse'] === '' || $a['numero'] === '') $sans[] = $a['nom']; continue; }
+        $touched = false;
+        if ($a['adresse'] === '' && $d['adresse'] !== '') { $upA->execute([$d['adresse'], $a['id']]); $touched = true; }
+        if ($a['numero'] === '' && $d['numero'] !== '') { $upN->execute([$d['numero'], $a['id']]); $touched = true; }
+        if ($touched) $n++;
+    }
+    return [$n, $sans];
+}

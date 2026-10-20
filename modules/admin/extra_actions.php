@@ -76,7 +76,7 @@ if ($action === 'save_news' || $action === 'delete_news') {
     exit;
 }
 
-if (in_array($action, ['save_agence', 'delete_agence', 'toggle_agence', 'import_agences'], true)) {
+if (in_array($action, ['save_agence', 'delete_agence', 'toggle_agence', 'import_agences', 'fill_agences'], true)) {
     require_once __DIR__ . '/../../includes/agences.php';
     ensureAgencesSchema();
     $clean = fn($v, $n) => mb_substr(trim(preg_replace('/\s+/u', ' ', (string)$v)), 0, $n);
@@ -93,6 +93,10 @@ if (in_array($action, ['save_agence', 'delete_agence', 'toggle_agence', 'import_
         }
     } elseif ($action === 'delete_agence') {
         $db->prepare("DELETE FROM agences WHERE id = ?")->execute([(int)($_POST['id'] ?? 0)]); $msg = 'agence_deleted';
+    } elseif ($action === 'fill_agences') {
+        [$nb, $sans] = agencesFillFromDirectory();
+        $_SESSION['agences_fill'] = [$nb, $sans];
+        $msg = 'agences_filled';
     } elseif ($action === 'toggle_agence') {
         $db->prepare("UPDATE agences SET actif = 1 - actif WHERE id = ?")->execute([(int)($_POST['id'] ?? 0)]);
     } else { // import : une agence par ligne « nom ; adresse ; numéro » (met à jour si le nom existe déjà)
