@@ -8,12 +8,14 @@ require_once __DIR__ . '/../includes/nouveautes.php';
 require_once __DIR__ . '/../includes/tool_tours.php';
 require_once __DIR__ . '/../includes/tour.php';
 require_once __DIR__ . '/../includes/stats.php';
+require_once __DIR__ . '/../includes/audit.php';
 
 function toolsHeader($title, $key = null, $extraHead = '') {
     $GLOBALS['toolsCurrentKey'] = $key;
     if ($key !== null) requirePublicTool($key);
     elseif (empty($GLOBALS['toolsNoGate'])) requireToolsAccess();
     if ($key !== null) statsHit($key, 'view'); elseif (empty($GLOBALS['toolsNoGate'])) statsHit('accueil', 'view');
+    if ($key !== null || empty($GLOBALS['toolsNoGate'])) auditServer($key ?? 'accueil', 'page', $title);
     ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -89,6 +91,7 @@ function toolsFooter() {
 <?php }
     if ($key) renderToolTour($key);
     ?>
+<script>window.TOOLS_AUDIT={tool:<?= json_encode($key ?? 'accueil') ?>,url:'audit.php'};<?php readfile(__DIR__ . '/../assets/js/tools-audit.js'); ?></script>
 <?php // Impression : pas d'en-tête (date, titre de la page) ni de pied de page (adresse) ajoutés par le navigateur ?>
 <style>@page{margin:0}@media print{.tp-frame{width:100%;border-collapse:collapse}.tp-frame>thead>tr>td,.tp-frame>tfoot>tr>td{height:14mm;padding:0!important;border:0!important}.tp-frame>tbody>tr>td{padding:0 15mm!important;border:0!important;text-align:left!important;vertical-align:top}}</style>
 <script>

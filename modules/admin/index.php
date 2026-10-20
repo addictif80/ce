@@ -53,6 +53,25 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'detail') {
     exit;
 }
 
+if (($_GET['export'] ?? '') === 'audit') { // export CSV du journal de /tools (lecture seule)
+    require_once __DIR__ . '/../../includes/auth.php';
+    require_once __DIR__ . '/../../includes/functions.php';
+    requireLogin();
+    if (!isAdmin()) { http_response_code(403); exit; }
+    require_once __DIR__ . '/../../includes/audit.php';
+    auditEnsureSchema();
+    [$where, $params] = auditFilters($_GET);
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="journal-tools-' . date('Ymd-His') . '.csv"');
+    $out = fopen('php://output', 'w'); fwrite($out, "\xEF\xBB\xBF");
+    fputcsv($out, ['id', 'date', 'type_acteur', 'acteur', 'ip', 'navigateur', 'session', 'outil', 'page', 'evenement', 'cible', 'valeur', 'hash_precedent', 'hash'], ';');
+    $st = getDB()->prepare("SELECT id, ts, actor_type, actor, ip, ua, sid, tool_key, page, event, target, value, prev_hash, hash FROM " . AUDIT_TABLE . " $where ORDER BY id ASC");
+    $st->execute($params);
+    while ($r = $st->fetch(PDO::FETCH_NUM)) fputcsv($out, $r, ';');
+    fclose($out);
+    exit;
+}
+
 $pageTitle = 'Administration';
 require_once __DIR__ . '/../../templates/header.php';
 requireAdmin();
@@ -699,6 +718,9 @@ try {
     </li>
     <li class="nav-item">
         <a class="nav-link <?= $activeTab === 'nouveautes' ? 'active' : '' ?>" href="?tab=nouveautes"><i class="fas fa-bullhorn"></i> Nouveautés</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link <?= $activeTab === 'journal' ? 'active' : '' ?>" href="?tab=journal"><i class="fas fa-shield-halved"></i> Journal /tools</a>
     </li>
     <li class="nav-item">
         <a class="nav-link <?= $activeTab === 'stats' ? 'active' : '' ?>" href="?tab=stats"><i class="fas fa-chart-column"></i> Statistiques /tools</a>
@@ -2310,6 +2332,8 @@ $feedbackTypes = ['bug' => 'Problème', 'suggestion' => 'Suggestion', 'question'
 
 <?php elseif ($activeTab === 'conditions'): ?>
 <?php require __DIR__ . '/tab_conditions.php'; ?>
+<?php elseif ($activeTab === 'journal'): ?>
+<?php require __DIR__ . '/tab_journal.php'; ?>
 <?php elseif ($activeTab === 'stats'): ?>
 <?php require __DIR__ . '/tab_stats.php'; ?>
 <?php elseif ($activeTab === 'nouveautes'): ?>

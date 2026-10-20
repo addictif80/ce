@@ -76,6 +76,15 @@ if ($action === 'save_news' || $action === 'delete_news') {
     exit;
 }
 
+if ($action === 'verify_audit') {
+    require_once __DIR__ . '/../../includes/audit.php';
+    $r = auditVerify();
+    $r['at'] = date('d/m/Y H:i:s');
+    setToolsSetting('audit_check', json_encode($r, JSON_UNESCAPED_UNICODE));
+    header('Location: index.php?tab=journal#verif');
+    exit;
+}
+
 if ($action === 'save_assist') {
     require_once __DIR__ . '/../../includes/assist.php';
     setToolsSetting('assist_on', isset($_POST['enabled']) ? '1' : '0');

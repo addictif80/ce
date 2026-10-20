@@ -24,9 +24,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($row) {
             toolsGrantAccess($row);
             logToolsCodeUse($row['id']);
+            require_once __DIR__ . '/../includes/audit.php';
+            auditAppend([['event' => 'acces', 'actor_type' => 'code', 'actor' => 'code « ' . $row['label'] . ' »', 'target' => 'Code d\'accès valide saisi', 'page' => 'access.php']]);
             header('Location: ' . $next);
             exit;
         }
+        require_once __DIR__ . '/../includes/audit.php';
+        auditAppend([['event' => 'acces', 'actor_type' => 'visiteur', 'actor' => 'visiteur sans code', 'target' => 'Code d\'accès incorrect (valeur non conservée)', 'page' => 'access.php']]);
         $hits[] = $now;
         @file_put_contents($rlFile, implode("\n", $hits));
         $error = 'Code incorrect.';
