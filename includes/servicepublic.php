@@ -108,6 +108,19 @@ function spImportZip($zipPath) {
     return ['n' => $n, 'supprimees' => $sup];
 }
 
+/** Indexe une archive déjà présente sur le serveur (téléversement manuel ou ligne de commande) ; mémorise le résultat. */
+function spImportFile($path) {
+    @set_time_limit(900); @ini_set('memory_limit', '512M'); ignore_user_abort(true);
+    try {
+        $r = spImportZip($path);
+        setToolsSetting('sp_import', json_encode(['ok' => true, 'at' => date('d/m/Y H:i'), 'n' => $r['n'], 'sup' => $r['supprimees']], JSON_UNESCAPED_UNICODE));
+        return ['ok' => true] + $r;
+    } catch (Throwable $e) {
+        setToolsSetting('sp_import', json_encode(['ok' => false, 'at' => date('d/m/Y H:i'), 'err' => $e->getMessage()], JSON_UNESCAPED_UNICODE));
+        return ['ok' => false, 'err' => $e->getMessage()];
+    }
+}
+
 /** Télécharge puis indexe ; mémorise le résultat. */
 function spImportNow() {
     @set_time_limit(900); @ini_set('memory_limit', '512M'); ignore_user_abort(true);

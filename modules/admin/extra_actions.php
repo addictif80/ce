@@ -120,6 +120,18 @@ if ($action === 'import_servicepublic') {
     exit;
 }
 
+if ($action === 'import_servicepublic_file') {
+    require_once __DIR__ . '/../../includes/servicepublic.php';
+    $f = $_FILES['archive'] ?? null;
+    if (!$f || $f['error'] !== UPLOAD_ERR_OK || $f['size'] < 1000000 || strtolower(pathinfo($f['name'], PATHINFO_EXTENSION)) !== 'zip') {
+        setToolsSetting('sp_import', json_encode(['ok' => false, 'at' => date('d/m/Y H:i'), 'err' => 'Fichier .zip non reçu ou invalide (code ' . (int)($f['error'] ?? -1) . ') ; si le fichier dépasse la limite d\'envoi du serveur (upload_max_filesize), utilisez la ligne de commande indiquée.'], JSON_UNESCAPED_UNICODE));
+        header('Location: index.php?tab=redaction&msg=sp_failed#sp-card'); exit;
+    }
+    $r = spImportFile($f['tmp_name']);
+    header('Location: index.php?tab=redaction&msg=' . ($r['ok'] ? 'sp_imported' : 'sp_failed') . '#sp-card');
+    exit;
+}
+
 if ($action === 'verify_audit') {
     require_once __DIR__ . '/../../includes/audit.php';
     $r = auditVerify();
