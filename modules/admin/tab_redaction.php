@@ -49,3 +49,20 @@ $test = json_decode(getToolsSetting('assist_last_test', ''), true) ?: null;
         <li><strong>Fiche client 360° et recherche dans les procédures :</strong> les données de dossier sont anonymisées (numéro de personne, nom, e-mail, téléphone, IBAN masqués) avant tout envoi. Le résumé local et les règles métier restent disponibles même si l'IA est désactivée.</li>
     </ul>
 </div></div>
+<?php require_once __DIR__ . '/../../includes/servicepublic.php'; $sp = spStatus(); ?>
+<div class="card mb-4" id="sp-card"><div class="card-header"><strong><i class="fas fa-magnifying-glass"></i> Recherche service-public.fr (fiches « particuliers »)</strong>
+    <span class="badge bg-<?= $sp['n'] ? 'success' : 'secondary' ?> ms-2"><?= $sp['n'] ? number_format($sp['n'], 0, ',', ' ') . ' fiches' : 'Base vide' ?></span></div>
+<div class="card-body">
+    <p class="small text-muted mb-2">Outil « Recherche service-public.fr » (/tools et portail). Les fiches proviennent des données ouvertes de la Direction de l'information légale et administrative (Licence Ouverte 2.0), téléchargées depuis
+        <code>lecomarquage.service-public.fr</code> puis indexées dans la base du portail : la recherche est locale. Le résumé rédigé s'ajoute si l'aide à la rédaction est active (clé API ci-dessus).</p>
+    <?php if ($sp['import']): ?>
+        <div class="alert alert-<?= !empty($sp['import']['ok']) ? 'success' : 'danger' ?> py-2 small">
+            <?php if (!empty($sp['import']['ok'])): ?>Dernier import le <?= e($sp['import']['at']) ?> : <?= (int)$sp['import']['n'] ?> fiches indexées<?= !empty($sp['import']['sup']) ? ', ' . (int)$sp['import']['sup'] . ' retirée(s)' : '' ?>.
+            <?php else: ?>Échec le <?= e($sp['import']['at']) ?> : <?= e($sp['import']['err'] ?? '') ?><?php endif; ?>
+            <?php if ($sp['derniere_maj']): ?> Fiche la plus récente : <?= e(date('d/m/Y', strtotime($sp['derniere_maj']))) ?>.<?php endif; ?></div>
+    <?php endif; ?>
+    <form method="post" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='Import en cours (environ une minute)…';">
+        <input type="hidden" name="action" value="import_servicepublic">
+        <button class="btn btn-ce"><i class="fas fa-cloud-arrow-down me-1"></i><?= $sp['n'] ? 'Mettre à jour les fiches' : 'Importer les fiches' ?></button>
+        <span class="small text-muted ms-2">Archive d'environ 23 Mo ; à relancer de temps en temps (les fiches sont mises à jour chaque jour à la source).</span></form>
+</div></div>

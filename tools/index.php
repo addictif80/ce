@@ -77,8 +77,10 @@ toolsHeader('Outils en libre accès');
             <div class="modal-footer"><button type="submit" class="btn btn-danger"><i class="fas fa-download me-1"></i>Télécharger la demande (.eml)</button></div>
         </form>
     </div></div></div>
+    <?php agenceSearchScript(); ?>
     <script>
     (function() {
+        agenceSearch(document.getElementById('ar_agence'));
         const v = id => document.getElementById(id).value.trim();
         const err = document.getElementById('ar_err');
         // Validation côté navigateur ; si tout est correct, le formulaire part normalement et le serveur renvoie le fichier .eml
@@ -106,7 +108,7 @@ toolsHeader('Outils en libre accès');
         'Financer un projet' => ['calculateur', 'capacite', 'notaire', 'ptz', 'creditsspeciaux', 'plan', 'scenarios', 'relais', 'rachat', 'usure'],
         'Épargne et patrimoine' => ['epargne', 'assurancevie', 'per', 'epargnecredit'],
         'Conseil et conformité' => ['signataires', 'evenements', 'pieces', 'saisie', 'memo_plafonds', 'memo_delais'],
-        'Boîte à outils' => ['dates', 'validateurs', 'calculs', 'pdf', 'courrier', 'bureau_dom'],
+        'Boîte à outils' => ['dates', 'validateurs', 'calculs', 'servicepublic', 'pdf', 'courrier', 'bureau_dom'],
         'Références' => ['dpe', 'rge', 'procedures', 'codes', 'contacts'],
     ];
     $placed = array_merge(...array_values($groupes));

@@ -359,7 +359,7 @@ function getDefaultMenuItems() {
         ['item_key' => 'codes', 'parent_key' => 'references', 'label' => 'Codes utiles', 'icon' => 'fa-key', 'url' => '/modules/codes/index.php', 'uri_patterns' => '/codes/', 'ordre' => 1],
         ['item_key' => 'contacts', 'parent_key' => 'references', 'label' => 'Contacts utiles', 'icon' => 'fa-address-book', 'url' => '/modules/contacts/index.php', 'uri_patterns' => '/contacts/', 'ordre' => 2],
         // Section Boîte à outils bancaire (calculs, validateurs, mémos)
-        ['item_key' => 'boite_outils', 'parent_key' => null, 'label' => 'Boîte à outils bancaire', 'icon' => 'fa-toolbox', 'url' => null, 'uri_patterns' => '/dates/,/validateurs/,/calculs/,/saisie/,/memo_plafonds/,/memo_delais/,/signataires/,/evenements/,/usure/', 'ordre' => 7],
+        ['item_key' => 'boite_outils', 'parent_key' => null, 'label' => 'Boîte à outils bancaire', 'icon' => 'fa-toolbox', 'url' => null, 'uri_patterns' => '/dates/,/validateurs/,/calculs/,/saisie/,/memo_plafonds/,/memo_delais/,/signataires/,/evenements/,/usure/,/servicepublic/', 'ordre' => 7],
         ['item_key' => 'dates', 'parent_key' => 'boite_outils', 'label' => 'Calculateur de dates', 'icon' => 'fa-calendar-days', 'url' => '/modules/dates/index.php', 'uri_patterns' => '/dates/', 'ordre' => 1],
         ['item_key' => 'validateurs', 'parent_key' => 'boite_outils', 'label' => 'Validateurs de numéros', 'icon' => 'fa-shield-halved', 'url' => '/modules/validateurs/index.php', 'uri_patterns' => '/validateurs/', 'ordre' => 2],
         ['item_key' => 'calculs', 'parent_key' => 'boite_outils', 'label' => 'Boîte à calculs', 'icon' => 'fa-calculator', 'url' => '/modules/calculs/index.php', 'uri_patterns' => '/calculs/', 'ordre' => 3],
@@ -369,6 +369,7 @@ function getDefaultMenuItems() {
         ['item_key' => 'signataires', 'parent_key' => 'boite_outils', 'label' => 'Qui peut signer quoi ?', 'icon' => 'fa-signature', 'url' => '/modules/signataires/index.php', 'uri_patterns' => '/signataires/', 'ordre' => 7],
         ['item_key' => 'evenements', 'parent_key' => 'boite_outils', 'label' => 'Événements de vie', 'icon' => 'fa-route', 'url' => '/modules/evenements/index.php', 'uri_patterns' => '/evenements/', 'ordre' => 8],
         ['item_key' => 'usure', 'parent_key' => 'boite_outils', 'label' => 'Taux d\'usure', 'icon' => 'fa-ban', 'url' => '/modules/usure/index.php', 'uri_patterns' => '/usure/', 'ordre' => 9],
+        ['item_key' => 'servicepublic', 'parent_key' => 'boite_outils', 'label' => 'Recherche service-public.fr', 'icon' => 'fa-magnifying-glass', 'url' => '/modules/servicepublic/index.php', 'uri_patterns' => '/servicepublic/', 'ordre' => 10],
         // Section Épargne et patrimoine
         ['item_key' => 'epargne_patrimoine', 'parent_key' => null, 'label' => 'Épargne et patrimoine', 'icon' => 'fa-piggy-bank', 'url' => null, 'uri_patterns' => '/modules/epargne/,/assurancevie/,/modules/per/,/epargnecredit/', 'ordre' => 8],
         ['item_key' => 'epargne', 'parent_key' => 'epargne_patrimoine', 'label' => 'Simulateur d\'épargne', 'icon' => 'fa-piggy-bank', 'url' => '/modules/epargne/index.php', 'uri_patterns' => '/modules/epargne/', 'ordre' => 1],
@@ -947,6 +948,12 @@ function getPublicToolsCatalog() {
             'label' => 'Boîte à outils PDF', 'icon' => 'fa-file-pdf', 'url' => 'pdf.php', 'default' => true,
             'description' => 'Fusionnez, découpez ou faites pivoter des PDF, et convertissez des images en PDF.',
             'note' => 'Le traitement se fait dans votre navigateur : vos fichiers ne sont ni envoyés ni conservés.',
+        ],
+        'servicepublic' => [
+            'added' => '2026-10-20',
+            'label' => 'Recherche service-public.fr', 'icon' => 'fa-magnifying-glass', 'url' => 'servicepublic.php', 'default' => true,
+            'description' => 'Posez une question sur un droit ou une démarche de particulier : fiches officielles de service-public.fr et résumé sourcé.',
+            'note' => 'La question est transmise à un service externe de rédaction : n\'y saisissez aucune donnée de client.',
         ],
         'dates' => [
             'added' => '2026-10-09',
