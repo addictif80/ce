@@ -25,6 +25,8 @@ if (!$valid) { http_response_code(422); header('Content-Type: text/plain; charse
 
 $h = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 $identite = "$prenom $nom";
+$agenceLib = $agence;
+foreach (getAgencesFull(true) as $a) { if ($a['nom'] === $agence) { $agenceLib = agenceLabelNum($a); break; } }
 
 // ===================== CORPS HTML =====================
 $htmlBody = <<<HTML
@@ -39,7 +41,7 @@ $htmlBody = <<<HTML
 <tr><td style="padding:4px 14px 4px 0;color:#666;">Téléphone</td><td>{$h($tel)}</td></tr>
 <tr><td style="padding:4px 14px 4px 0;color:#666;">Numéro interne</td><td>{$h($interne)}</td></tr>
 <tr><td style="padding:4px 14px 4px 0;color:#666;">Adresse e-mail</td><td>{$h($email)}</td></tr>
-<tr><td style="padding:4px 14px 4px 0;color:#666;">Agence de rattachement</td><td>{$h($agence)}</td></tr>
+<tr><td style="padding:4px 14px 4px 0;color:#666;">Agence de rattachement</td><td>{$h($agenceLib)}</td></tr>
 </table>
 <p>Cordialement,<br>{$h($identite)}</p>
 </body></html>
@@ -49,7 +51,7 @@ HTML;
 $textBody  = "Bonjour,\r\n\r\n";
 $textBody .= "Je souhaite obtenir un compte sur le portail d'activité. Voici mes informations :\r\n\r\n";
 $textBody .= "Nom : $nom\r\nPrénom : $prenom\r\nTéléphone : $tel\r\nNuméro interne : $interne\r\n";
-$textBody .= "Adresse e-mail : $email\r\nAgence de rattachement : $agence\r\n\r\n";
+$textBody .= "Adresse e-mail : $email\r\nAgence de rattachement : $agenceLib\r\n\r\n";
 $textBody .= "Cordialement,\r\n$identite\r\n";
 
 // ===================== CONSTRUCTION DU .EML =====================

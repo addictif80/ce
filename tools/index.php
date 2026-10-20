@@ -18,7 +18,7 @@ $newKeys = array_slice($recents, 0, 6);
 $isNew = fn($k) => in_array($k, $newKeys, true);
 $cta = (!toolsVisitorIsLoggedIn()) ? getAccessCtaSettings() : null;
 $showCta = $cta && $cta['enabled'] && $cta['email'] !== '';
-$agences = $showCta ? getAgences() : [];
+$agences = $showCta ? getAgencesFull(true) : [];
 toolsHeader('Outils en libre accès');
 ?>
 <style>.tool-desc{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.6em}.tool-card{transition:transform .12s,box-shadow .12s}a:hover > .tool-card{transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,.12)!important}html.f2f .tool-desc{-webkit-line-clamp:3}</style>
@@ -69,7 +69,7 @@ toolsHeader('Outils en libre accès');
                     <div class="col-md-6"><label class="form-label">Adresse e-mail <span class="text-danger">*</span></label><input id="ar_email" name="email" type="email" class="form-control" required maxlength="150" autocomplete="email"></div>
                     <div class="col-md-6"><label class="form-label">Agence de rattachement <span class="text-danger">*</span></label>
                         <select id="ar_agence" name="agence" class="form-select" required><option value="">Sélectionner une agence…</option>
-                            <?php foreach ($agences as $ag): ?><option><?= e($ag) ?></option><?php endforeach; ?></select></div>
+                            <?php foreach ($agences as $ag): ?><option value="<?= e($ag['nom']) ?>"><?= e(agenceLabelAdresse($ag)) ?></option><?php endforeach; ?></select></div>
                     <div class="col-12"><div class="alert alert-info small mb-0"><i class="fas fa-info-circle me-1"></i>Le bouton ci-dessous crée un fichier de message (.eml) adressé à l'administrateur : ouvrez-le avec votre messagerie et envoyez-le. Les informations saisies servent uniquement à fabriquer ce fichier : elles ne sont pas enregistrées.</div></div>
                     <div class="col-12 text-danger small d-none" id="ar_err"></div>
                 </div>
