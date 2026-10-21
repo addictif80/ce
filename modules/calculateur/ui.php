@@ -215,8 +215,9 @@ $bMeta = []; foreach ($budget_sections as $k => $s) $bMeta[$k] = ['title' => $s[
     });
     cb.addEventListener('change', () => { ST.conjoint = cb.checked ? 1 : 0; if (!cb.checked) KEYS.forEach(k => ST.sections[k].forEach(l => { if (l.conj) l.a = [0]; })); render(); });
     const CONTACT = <?= json_encode($bgContact, JSON_UNESCAPED_UNICODE) ?>;
+    const RESET_MSG = <?= json_encode("Réinitialiser complètement le calculateur ?\nTous les montants, les lignes ajoutées, le nom du client et les coordonnées seront effacés." . ($budgetSave ? "\n(Le budget enregistré ne change qu'après « Enregistrer le budget ».)" : ''), JSON_UNESCAPED_UNICODE) ?>;
     $('reset').onclick = () => {
-        if (!confirm('Réinitialiser complètement le calculateur ?\nTous les montants, les lignes ajoutées, le nom du client et les coordonnées seront effacés.<?= $budgetSave ? '\n(Le budget enregistré ne change qu\'après « Enregistrer le budget ».)' : '' ?>')) return;
+        if (!confirm(RESET_MSG)) return;
         ST = JSON.parse(JSON.stringify(DEFAULT)); cb.checked = false; $('bg_nom').value = ''; $('bg_contact').value = CONTACT; render(); window.scrollTo({top: 0, behavior: 'smooth'});
     };
     <?php if (!$budgetSave): ?>cb.checked = false; ST.conjoint = 0; // évite la restauration automatique du navigateur<?php endif; ?>
