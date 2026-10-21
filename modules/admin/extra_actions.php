@@ -7,7 +7,7 @@ if ($action === 'bareme_ia') { // vérification assistée par IA (réponse JSON,
     @set_time_limit(240);
     if (!assistRateOk('bareme_ia', 80)) { echo json_encode(['ok' => false, 'html' => baremeIaRender(['erreur' => 'Trop de vérifications cette heure-ci, réessayez plus tard.'])]); exit; }
     $r = baremeIaCheck($_POST['cle'] ?? '', $adminUserId);
-    echo json_encode(['ok' => !isset($r['erreur']), 'verdict' => $r['verdict'] ?? null, 'ecarts' => $r['ecarts'] ?? 0, 'html' => baremeIaRender($r)], JSON_UNESCAPED_UNICODE);
+    echo json_encode(['ok' => !isset($r['erreur']), 'verdict' => $r['verdict'] ?? null, 'ecarts' => $r['ecarts'] ?? 0, 'interne' => !empty($r['interne']), 'html' => baremeIaRender($r)], JSON_UNESCAPED_UNICODE);
     exit;
 }
 if ($action === 'save_bareme_ia_domains') {

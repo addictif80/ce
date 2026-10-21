@@ -15,7 +15,7 @@ const BAREME_IA_BUDGET = 9000;        // caractères retenus par source
 /** Sites autorisés (le domaine et ses sous-domaines) ; service-public.fr reste prioritaire. Modifiable en administration. */
 function baremeIaDefaultDomains() {
     return ['service-public.fr', 'service-public.gouv.fr', 'legifrance.gouv.fr', 'impots.gouv.fr', 'bofip.impots.gouv.fr', 'economie.gouv.fr',
-        'banque-france.fr', 'urssaf.fr', 'anil.org', 'data.gouv.fr', 'notaires.fr', 'info-retraite.fr', 'ameli.fr', 'orias.fr', 'acpr.banque-france.fr', 'vie-publique.fr'];
+        'banque-france.fr', 'urssaf.fr', 'anil.org', 'data.gouv.fr', 'notaires.fr', 'info-retraite.fr', 'ameli.fr', 'orias.fr', 'acpr.banque-france.fr', 'vie-publique.fr', 'garantiedesdepots.fr', 'assemblee-nationale.fr', 'senat.fr', 'urssaf.fr', 'caf.fr', 'securite-sociale.fr'];
 }
 function baremeIaDomains() {
     $raw = trim((string)getToolsSetting('bareme_ia_domains', ''));
@@ -163,6 +163,7 @@ function baremeIaCheck($cle, $userId = null) {
     $cat = baremeCatalog();
     if (!isset($cat[$cle]) || baremeIsMemo($cle)) return ['erreur' => 'Barème inconnu ou sans valeurs chiffrées.'];
     if (!assistEnabled()) return ['erreur' => 'L\'assistant IA n\'est pas activé (clé API et activation dans l\'administration).'];
+    if (!array_filter($cat[$cle]['sources'], fn($x) => $x[1] !== '')) return ['erreur' => 'Barème interne : aucune source publique à consulter. Contrôlez-le avec la documentation interne de l\'offre (la comparaison avec des sources publiques n\'aurait pas de sens).', 'interne' => true];
     $data = baremeGet($cle)['data'];
     $lines = baremeIaFlatten($data);
     if (count($lines) > 400) { $lines = array_slice($lines, 0, 400); }
@@ -202,6 +203,7 @@ function baremeIaLast($cle) {
 }
 
 function baremeIaRender(array $r) {
+    if (!empty($r['interne'])) return '<div class="alert alert-secondary py-2 mb-0"><i class="fas fa-building"></i> ' . e($r['erreur']) . '</div>';
     if (isset($r['erreur'])) return '<div class="alert alert-danger py-2 mb-0"><i class="fas fa-circle-xmark"></i> ' . e($r['erreur']) . '</div>';
     $vb = ['concordant' => ['success', 'Aucun écart relevé'], 'ecarts' => ['danger', $r['ecarts'] . ' écart(s) relevé(s)'], 'insuffisant' => ['warning text-dark', 'Sources insuffisantes pour conclure']][$r['verdict']] ?? ['secondary', '?'];
     $st = ['concordant' => ['success', 'Concordant'], 'ecart' => ['danger', 'Écart'], 'ecart_non_prouve' => ['warning text-dark', 'Écart non prouvé'], 'non_verifiable' => ['secondary', 'Non vérifiable']];
