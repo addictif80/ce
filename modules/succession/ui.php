@@ -42,7 +42,12 @@ require __DIR__ . '/../_sim/style.php';
    </div></div>
   <div class="cap-card"><h2><i class="fas fa-users me-2 text-danger"></i>Héritiers et bénéficiaires</h2>
    <div id="sc-opt" class="mb-2"></div><div id="sc-heirs" style="overflow-x:auto"></div>
-   <div class="small text-muted mt-2">Donations : celles reçues du défunt dans les <?= (int)$scB['rappel_ans'] ?> dernières années (elles réduisent l'abattement). Assurance-vie : capitaux décès des contrats dont la personne est bénéficiaire (versements avant 70 ans : article 990 I ; versements après 70 ans : article 757 B).</div></div>
+   <div class="small text-muted mt-2">Donations : celles reçues du défunt dans les <?= (int)$scB['rappel_ans'] ?> dernières années (elles réduisent l'abattement).</div></div>
+  <div class="cap-card"><h2><i class="fas fa-shield-heart me-2 text-danger"></i>Assurance-vie <span class="small fw-normal text-muted ms-2">(hors succession, taxée à part)</span></h2>
+   <details class="mb-2 small"><summary class="text-primary" style="cursor:pointer">Comment c'est taxé ?</summary>
+    <div class="mt-2"><b>Primes versées avant 70 ans (article 990 I du CGI).</b> Le capital décès (primes <u>et</u> gains) est taxé par bénéficiaire, tous contrats du même assuré confondus : abattement de <?= number_format($scAv['abat'], 0, ',', ' ') ?> € par bénéficiaire, puis <?= $scAv['t1'] ?> % jusqu'à <?= number_format($scAv['seuil'], 0, ',', ' ') ?> € taxables, puis <?= $scAv['t2'] ?> %. Le conjoint ou partenaire de Pacs est exonéré. Les contrats souscrits avant le 20/11/1991 ou dénoués par un versement avant le 13/10/1998 suivent d'autres règles non calculées ici.</div>
+    <div class="mt-2"><b>Primes versées à partir de 70 ans (article 757 B du CGI).</b> Seules les <u>primes</u> sont retenues (les gains sont exonérés) : après un abattement de <?= number_format((float)$scB['av_757b_abattement'], 0, ',', ' ') ?> € <u>partagé entre tous les bénéficiaires</u>, l'excédent s'ajoute à la part successorale du bénéficiaire et subit les droits de succession selon son lien de parenté (abattement personnel, barème).</div></div></details>
+   <div id="sc-av" style="overflow-x:auto"></div></div>
  </div>
  <div class="col-lg-5"><div style="position:sticky;top:20px"><div id="sc-res" class="cap-card js-result"></div></div></div>
 </div>
@@ -98,7 +103,7 @@ require __DIR__ . '/../_sim/style.php';
   const usu = age => { for (let i = 0; i < B.usufruit_ages.length; i++) if (age <= B.usufruit_ages[i]) return B.usufruit_pct[i]; return B.usufruit_pct[B.usufruit_pct.length - 1]; };
 
   // ----- état -----
-  const S = { tab: 'succ', opt: 'quart', extra: {}, manuel: [{ k: 'm0', nom: 'Héritier 1', lien: 'enfant', part: 0 }] };
+  const S = { tab: 'succ', opt: 'quart', extra: {}, avx: [], manuel: [{ k: 'm0', nom: 'Héritier 1', lien: 'enfant', part: 0 }] };
   const val = id => { const e = $(id); return e ? (e.type === 'checkbox' ? e.checked : e.value) : ''; };
   const STATIC = ['s_sit', 's_age', 's_enf', 's_communs', 's_pere', 's_mere', 's_fs', 's_mode', 'p_rp', 'p_immo', 'p_fin', 'p_cpt', 'p_aut', 'p_dettes', 'p_rpocc', 'p_fun', 'd_lien', 'd_mont', 'd_nu', 'd_age', 'd_prev', 'd_handi', 'd_fam', 'd_famprev'];
   const getEx = k => S.extra[k] || (S.extra[k] = { handi: false, dons: 0, av990: 0, av757: 0, exo: false });
@@ -135,33 +140,46 @@ require __DIR__ . '/../_sim/style.php';
   function calcHeirs(list, net) {
     const rows = list.map(h => { const x = getEx(h.k), L = LIENS[h.lien], exo = L.exo || (h.lien === 'frere_soeur' && x.exo); return { h, x, exo }; });
     // assurance-vie, primes après 70 ans : abattement global puis réintégration dans la part de chaque bénéficiaire
-    const tax757 = rows.filter(r => !r.exo).reduce((t, r) => t + num(r.x.av757), 0), exc = Math.max(0, tax757 - B.av_757b_abattement);
-    rows.forEach(r => { r.reint = tax757 > 0 && !r.exo ? exc * num(r.x.av757) / tax757 : 0; });
+    const tax757 = rows.reduce((t, r) => t + num(r.x.av757), 0), exc = Math.max(0, tax757 - B.av_757b_abattement);
+    rows.forEach(r => { r.p757 = num(r.x.av757); r.abat757 = tax757 > 0 ? Math.min(r.p757, B.av_757b_abattement * r.p757 / tax757) : 0; r.reint = tax757 > 0 && !r.exo ? exc * r.p757 / tax757 : 0; });
     rows.forEach(r => {
       const part = r.h.part + r.reint, d = droits(r.h.lien, part, num(r.x.dons), r.x.handi, false, r.x.exo);
       r.part = part; r.d = d; const b = r.exo ? 0 : Math.max(0, num(r.x.av990) - AV.abat);
-      r.av = Math.min(b, AV.seuil) * AV.t1 / 100 + Math.max(0, b - AV.seuil) * AV.t2 / 100; r.avBase = b;
+      r.av = Math.min(b, AV.seuil) * AV.t1 / 100 + Math.max(0, b - AV.seuil) * AV.t2 / 100; r.avBase = b; r.av990 = r.exo ? 0 : num(r.x.av990);
       r.net = r.h.part + num(r.x.av990) + num(r.x.av757) - d.droits - r.av;
     });
     return { rows, total: rows.reduce((t, r) => t + r.d.droits + r.av, 0), recu: rows.reduce((t, r) => t + r.h.part + num(r.x.av990) + num(r.x.av757), 0) };
   }
 
   function listHeirs(net) {
-    if (val('s_mode') === 'manuel') return { list: S.manuel.map(m => ({ k: m.k, lab: m.nom || LIENS[m.lien].lab, lien: m.lien, part: num(m.part) })), notes: [] };
-    const o = S.opt, dv = devolution(net, o); return { list: dv.out, notes: dv.notes };
+    const xs = S.avx.map(m => ({ k: m.k, lab: m.nom || LIENS[m.lien].lab, lien: m.lien, part: 0, extra: true }));
+    if (val('s_mode') === 'manuel') return { list: S.manuel.map(m => ({ k: m.k, lab: m.nom || LIENS[m.lien].lab, lien: m.lien, part: num(m.part) })).concat(xs), notes: [] };
+    const o = S.opt, dv = devolution(net, o); return { list: dv.out.concat(xs), notes: dv.notes };
   }
   // ----- affichage -----
   function drawHeirs(list) {
     const man = val('s_mode') === 'manuel';
-    const cols = '<th>Héritier</th>' + (man ? '<th>Lien</th><th>Part reçue (€)</th>' : '<th class="sc-r">Part</th>') + '<th title="Situation de handicap">Handicap</th><th>Donations reçues (€)</th><th>Assurance-vie 990 I (€)</th><th>Assurance-vie 757 B (€)</th><th title="Frère ou sœur remplissant les conditions d\'exonération">Exo. fratrie</th>' + (man ? '<th></th>' : '');
-    $('sc-heirs').innerHTML = '<table class="sc-table"><thead><tr>' + cols + '</tr></thead><tbody>' + list.map((h, i) => { const x = getEx(h.k), L = LIENS[h.lien];
+    const cols = '<th>Héritier</th>' + (man ? '<th>Lien</th><th>Part reçue (€)</th>' : '<th class="sc-r">Part</th>') + '<th title="Situation de handicap">Handicap</th><th>Donations reçues (€)</th><th title="Frère ou sœur remplissant les conditions d\'exonération">Exo. fratrie</th>' + (man ? '<th></th>' : '');
+    const hl = list.filter(h => !h.extra);
+    $('sc-heirs').innerHTML = '<table class="sc-table"><thead><tr>' + cols + '</tr></thead><tbody>' + hl.map((h, i) => { const x = getEx(h.k), L = LIENS[h.lien];
       return '<tr data-k="' + h.k + '"><td>' + (man ? '<input class="sc-nom form-control form-control-sm" data-m="nom" value="' + esc(S.manuel[i].nom) + '" aria-label="Nom">' : esc(h.lab)) + '</td>'
         + (man ? '<td><select class="form-select form-select-sm" data-m="lien" aria-label="Lien">' + Object.keys(LIENS).map(k => '<option value="' + k + '"' + (k === h.lien ? ' selected' : '') + '>' + LIENS[k].lab + '</option>').join('') + '</select></td><td><input type="number" min="0" step="1000" class="form-control form-control-sm" data-m="part" value="' + (S.manuel[i].part || '') + '" aria-label="Part reçue"></td>' : '<td class="sc-r">' + fmt(h.part) + '</td>')
         + '<td class="text-center"><input type="checkbox" data-x="handi"' + (x.handi ? ' checked' : '') + (L.exo ? ' disabled' : '') + ' aria-label="Handicap"></td>'
-        + ['dons', 'av990', 'av757'].map(f => '<td><input type="number" min="0" step="1000" class="form-control form-control-sm" data-x="' + f + '" value="' + (x[f] || '') + '"' + (L.exo && f !== 'dons' ? ' ' : '') + ' aria-label="' + f + '"></td>').join('')
+        + ['dons'].map(f => '<td><input type="number" min="0" step="1000" class="form-control form-control-sm" data-x="' + f + '" value="' + (x[f] || '') + '"' + (L.exo && f !== 'dons' ? ' ' : '') + ' aria-label="' + f + '"></td>').join('')
         + '<td class="text-center">' + (h.lien === 'frere_soeur' ? '<input type="checkbox" data-x="exo"' + (x.exo ? ' checked' : '') + ' aria-label="Exonération fratrie">' : '') + '</td>' + (man ? '<td><button type="button" class="btn btn-sm btn-link text-danger p-0" data-delm="' + i + '" title="Retirer"><i class="fas fa-trash"></i></button></td>' : '') + '</tr>'; }).join('') + '</tbody></table>'
       + (man ? '<button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="sc-addm"><i class="fas fa-plus me-1"></i>Ajouter un héritier ou un légataire</button><div class="small text-muted mt-1">Les parts saisies sont celles que chacun reçoit, avant droits (le total ne doit pas dépasser l\'actif net).</div>' : '');
+    $('sc-av').innerHTML = '<table class="sc-table"><thead><tr><th>Bénéficiaire du contrat</th><th title="Article 990 I : capital décès (primes et gains) des contrats alimentés avant 70 ans">Primes versées avant 70 ans : capital décès (€)</th><th title="Article 757 B : seules les primes comptent, pas les gains">Primes versées après 70 ans, hors gains (€)</th><th></th></tr></thead><tbody>' + list.map(h => { const x = getEx(h.k), L = LIENS[h.lien], ex = !!h.extra, i = S.avx.findIndex(m => m.k === h.k);
+      return '<tr data-k="' + h.k + '"><td>' + (ex ? '<input class="sc-nom form-control form-control-sm mb-1" data-a="nom" value="' + esc(S.avx[i].nom) + '" aria-label="Nom du bénéficiaire"><select class="form-select form-select-sm" data-a="lien" aria-label="Lien">' + Object.keys(LIENS).map(k => '<option value="' + k + '"' + (k === h.lien ? ' selected' : '') + '>' + LIENS[k].lab + '</option>').join('') + '</select>' : esc(h.lab))
+        + (L.exo ? '<div class="small text-success">exonéré</div>' : '') + '</td>'
+        + ['av990', 'av757'].map(f => '<td><input type="number" min="0" step="1000" class="form-control form-control-sm" data-x="' + f + '" value="' + (x[f] || '') + '" aria-label="' + f + '"></td>').join('')
+        + '<td>' + (ex ? '<button type="button" class="btn btn-sm btn-link text-danger p-0" data-delav="' + i + '" title="Retirer"><i class="fas fa-trash"></i></button>' : '') + '</td></tr>'; }).join('') + '</tbody></table>'
+      + '<button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="sc-addav"><i class="fas fa-plus me-1"></i>Ajouter un bénéficiaire qui n\'est pas héritier (tiers, petit-enfant, concubin…)</button>';
   }
+  const avHtml = r => { let t = ''; const a = num(r.x.av990), p = num(r.x.av757); if (!a && !p) return '';
+    if (r.exo) return '<div class="small text-success">Assurance-vie : ' + fmt(a + p) + ' transmis sans taxe (conjoint ou partenaire de Pacs).</div>';
+    if (a) t += '<div class="small text-muted"><b>Art. 990 I</b> : capital ' + fmt(a) + ' − abattement ' + fmt(AV.abat) + ' = ' + fmt(r.avBase) + ' taxables' + (r.avBase ? ' → ' + (r.avBase > AV.seuil ? fmt(AV.seuil) + ' × ' + AV.t1 + ' % + ' + fmt(r.avBase - AV.seuil) + ' × ' + AV.t2 + ' %' : AV.t1 + ' %') + ' = <b>' + fmt(r.av) + '</b>' : ' : aucune taxe') + '</div>';
+    if (p) t += '<div class="small text-muted"><b>Art. 757 B</b> : primes ' + fmt(p) + ' − quote-part de l\'abattement de ' + fmt(B.av_757b_abattement) + ' (' + fmt(r.abat757) + ') = ' + fmt(r.reint) + ' ajoutés à la part successorale' + (r.reint ? ' et taxés avec elle' : ' : aucune taxe') + '</div>';
+    return '<div>' + t + '</div>'; };
   const detHtml = d => d.length ? '<details class="sc-d"><summary>Détail du calcul</summary><table class="sc-det">' + d.map(t => '<tr><td>' + (t[1] === Infinity ? 'au-delà de ' + fmt(t[0]) : 'de ' + fmt(t[0]) + ' à ' + fmt(t[1])) + '</td><td class="sc-r">' + fmt(t[3]) + ' × ' + t[2] + ' %</td><td class="sc-r">' + fmt(t[4]) + '</td></tr>').join('') + '</table></details>' : '';
 
   function runSucc() {
@@ -186,7 +204,7 @@ require __DIR__ . '/../_sim/style.php';
       + '<div class="text-center my-3"><div class="small text-muted">Droits totaux à payer</div><div class="sc-big">' + fmt(res.total) + '</div><div class="small text-muted">soit ' + pc(res.recu > 0 ? res.total / res.recu * 100 : 0) + ' de ce qui est transmis</div></div>'
       + '<table class="sc-table"><thead><tr><th>Héritier</th><th class="sc-r">Reçoit</th><th class="sc-r">Droits</th><th class="sc-r">Net</th></tr></thead><tbody>'
       + res.rows.map(r => '<tr><td>' + esc(r.h.lab) + (r.exo ? ' <span class="text-success small">exonéré</span>' : '') + '</td><td class="sc-r">' + fmt(r.h.part + num(r.x.av990) + num(r.x.av757)) + '</td><td class="sc-r">' + fmt(r.d.droits + r.av) + '</td><td class="sc-r">' + fmt(r.net) + '</td></tr>'
-        + (r.exo ? '' : '<tr><td colspan="4">' + (r.d.abat ? '<div class="small text-muted">Abattement ' + fmt(r.d.abat) + (num(r.x.dons) ? ' (donations antérieures ' + fmt(num(r.x.dons)) + ' prises en compte)' : '') + ' · part taxable ' + fmt(r.d.base) + (r.reint ? ' · dont ' + fmt(r.reint) + ' d\'assurance-vie après 70 ans' : '') + (r.av ? ' · assurance-vie (art. 990 I) : ' + fmt(r.av) + ' de taxe' : '') + '</div>' : '') + detHtml(r.d.detail) + '</td></tr>')).join('')
+        + (r.exo ? (num(r.x.av990) + num(r.x.av757) ? '<tr><td colspan="4">' + avHtml(r) + '</td></tr>' : '') : '<tr><td colspan="4">' + (r.d.abat ? '<div class="small text-muted">Abattement ' + fmt(r.d.abat) + (num(r.x.dons) ? ' (donations antérieures ' + fmt(num(r.x.dons)) + ' prises en compte)' : '') + ' · part taxable ' + fmt(r.d.base) + (r.reint ? ' · dont ' + fmt(r.reint) + ' d\'assurance-vie après 70 ans' : '') + '</div>' : '') + avHtml(r) + detHtml(r.d.detail) + '</td></tr>')).join('')
       + '<tr class="sc-tot"><td>Total</td><td class="sc-r">' + fmt(res.recu) + '</td><td class="sc-r">' + fmt(res.total) + '</td><td class="sc-r">' + fmt(res.recu - res.total) + '</td></tr></tbody></table>';
     if (cmp && cmp.usufruit) { const a = cmp.quart.total, b = cmp.usufruit.total, best = a <= b ? 'quart' : 'usufruit';
       h += '<div class="mt-3"><b>Option du conjoint survivant</b><table class="sc-table"><thead><tr><th>Option</th><th class="sc-r">Droits des enfants</th></tr></thead><tbody><tr><td>Un quart en pleine propriété' + (best === 'quart' ? '<span class="sc-best">moins de droits</span>' : '') + '</td><td class="sc-r">' + fmt(a) + '</td></tr><tr><td>Usufruit de la totalité' + (best === 'usufruit' ? '<span class="sc-best">moins de droits</span>' : '') + '</td><td class="sc-r">' + fmt(b) + '</td></tr></tbody></table><div class="small text-muted">À la fin de l\'usufruit, la pleine propriété est reconstituée chez les enfants sans nouveaux droits (valeur de l\'usufruit selon l\'âge du conjoint). Le choix dépend aussi des besoins du conjoint.</div></div>'; }
@@ -222,22 +240,24 @@ require __DIR__ . '/../_sim/style.php';
   document.addEventListener('click', e => {
     const t = e.target.closest('[data-tab]'); if (t) { S.tab = t.dataset.tab; $('sc-succ').style.display = S.tab === 'succ' ? '' : 'none'; $('sc-don').style.display = S.tab === 'don' ? '' : 'none'; document.querySelectorAll('.sc-tabs [data-tab]').forEach(b => b.className = 'btn btn-sm ' + (b.dataset.tab === S.tab ? 'btn-danger' : 'btn-outline-secondary')); run(); return; }
     if (e.target.closest('#sc-addm')) { S.manuel.push({ k: 'm' + Date.now(), nom: 'Héritier ' + (S.manuel.length + 1), lien: 'enfant', part: 0 }); run(); return; }
+    if (e.target.closest('#sc-addav')) { S.avx.push({ k: 'a' + Date.now(), nom: 'Bénéficiaire ' + (S.avx.length + 1), lien: 'tiers' }); run(); return; }
+    const da = e.target.closest('[data-delav]'); if (da) { delete S.extra[S.avx[+da.dataset.delav].k]; S.avx.splice(+da.dataset.delav, 1); run(); return; }
     const d = e.target.closest('[data-delm]'); if (d) { S.manuel.splice(+d.dataset.delm, 1); if (!S.manuel.length) S.manuel.push({ k: 'm' + Date.now(), nom: 'Héritier 1', lien: 'enfant', part: 0 }); run(); }
   });
   document.addEventListener('input', e => {
-    const x = e.target.closest('[data-x]'), m = e.target.closest('[data-m]');
+    const x = e.target.closest('[data-x]'), m = e.target.closest('[data-m],[data-a]');
     if (x || m) { const tr0 = e.target.closest('tr'), k = tr0.dataset.k;
       if (x) { const f = x.dataset.x; getEx(k)[f] = x.type === 'checkbox' ? x.checked : num(x.value); }
-      else { const i = S.manuel.findIndex(h => h.k === k); S.manuel[i][m.dataset.m] = m.dataset.m === 'part' ? num(m.value) : m.value; if (m.dataset.m === 'lien') { run(); return; } }
-      const pos = e.target.selectionStart; const keep = { k, n: [...tr0.querySelectorAll('input,select')].indexOf(e.target) }; run();
-      const row = document.querySelector('#sc-heirs tr[data-k="' + keep.k + '"]'); if (row && e.target.type !== 'checkbox') { const el = row.querySelectorAll('input,select')[keep.n]; if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch (er) {} } } return; }
+      else { const arr = m.dataset.a ? S.avx : S.manuel, f = m.dataset.a || m.dataset.m, i = arr.findIndex(h => h.k === k); arr[i][f] = f === 'part' ? num(m.value) : m.value; if (f === 'lien') { run(); return; } }
+      const pos = e.target.selectionStart; const keep = { k, c: tr0.closest('#sc-av') ? '#sc-av' : '#sc-heirs', n: [...tr0.querySelectorAll('input,select')].indexOf(e.target) }; run();
+      const row = document.querySelector(keep.c + ' tr[data-k="' + keep.k + '"]'); if (row && e.target.type !== 'checkbox') { const el = row.querySelectorAll('input,select')[keep.n]; if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch (er) {} } } return; }
     if (e.target.id === 's_opt') { S.opt = e.target.value; run(); return; }
     if (STATIC.includes(e.target.id)) run();
   });
   document.addEventListener('change', e => { if (e.target.id === 's_opt') { S.opt = e.target.value; run(); } else if (e.target.closest('#sc-heirs') && e.target.type === 'checkbox') run(); else if (STATIC.includes(e.target.id)) run(); });
 
   // enregistrement (portail), lien de partage et document imprimé
-  const snapshot = () => { const o = { S: { tab: S.tab, opt: S.opt, extra: S.extra, manuel: S.manuel }, f: {} }; STATIC.forEach(id => o.f[id] = val(id)); return o; };
+  const snapshot = () => { const o = { S: { tab: S.tab, opt: S.opt, extra: S.extra, avx: S.avx, manuel: S.manuel }, f: {} }; STATIC.forEach(id => o.f[id] = val(id)); return o; };
   const restore = o => { if (!o || !o.S) return; Object.assign(S, o.S); Object.keys(o.f || {}).forEach(id => { const e = $(id); if (!e) return; if (e.type === 'checkbox') e.checked = !!o.f[id]; else e.value = o.f[id]; }); document.querySelector('.sc-tabs [data-tab="' + S.tab + '"]').click(); };
   window.toolsShare = { get: snapshot, set: restore };
   window.scPrepare = f => { run(); const p = JSON.stringify(snapshot()); if (p.length > 5800) { alert('Cette simulation est trop volumineuse pour être enregistrée (réduisez le nombre d\'héritiers).'); return false; } f.params.value = p;
