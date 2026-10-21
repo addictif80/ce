@@ -200,7 +200,7 @@ require __DIR__ . '/../_sim/style.php';
     }
     const { list, notes } = listHeirs(P.net);
     const res = calcHeirs(list, P.net);
-    drawHeirs(list);
+    if (!noDraw) drawHeirs(list);
     const warn = [...notes]; if (man) { const sum = list.reduce((t, h) => t + h.part, 0); if (sum > P.net + 1) warn.push('Le total des parts (' + fmt(sum) + ') dépasse l\'actif net (' + fmt(P.net) + ').'); else if (P.net - sum > 1) warn.push('Il reste ' + fmt(P.net - sum) + ' non attribués dans l\'actif net.'); }
     if (res.rows.some(r => r.x.handi)) warn.push('Le supplément d\'abattement pour handicap suppose que la situation de handicap soit établie au sens fiscal.');
     let h = '<h2><i class="fas fa-chart-pie me-2 text-danger"></i>Résultat</h2>'
@@ -239,6 +239,7 @@ require __DIR__ . '/../_sim/style.php';
   function sync() { $('sc-succ').querySelectorAll('.sc-ifmarie').forEach(e => e.style.display = val('s_sit') === 'marie' ? '' : 'none'); const enf = num(val('s_enf')) > 0;
     $('sc-succ').querySelectorAll('.sc-ifenf').forEach(e => { if (val('s_sit') === 'marie') e.style.display = enf ? '' : 'none'; }); $('sc-succ').querySelectorAll('.sc-ifnoenf').forEach(e => e.style.display = enf ? 'none' : '');
     document.querySelectorAll('.sc-ifnp').forEach(e => e.style.display = val('d_nu') === 'np' ? '' : 'none'); document.querySelectorAll('.sc-iffam').forEach(e => e.style.display = val('d_fam') ? '' : 'none'); }
+  let noDraw = false;
   const run = () => { S.tab === 'succ' ? runSucc() : runDon(); };
 
   // liens de la donation
@@ -255,12 +256,11 @@ require __DIR__ . '/../_sim/style.php';
     if (x || m) { const tr0 = e.target.closest('tr'), k = tr0.dataset.k;
       if (x) { const f = x.dataset.x; getEx(k)[f] = x.type === 'checkbox' ? x.checked : num(x.value); }
       else { const arr = m.dataset.a ? S.avx : S.manuel, f = m.dataset.a || m.dataset.m, i = arr.findIndex(h => h.k === k); arr[i][f] = f === 'part' ? num(m.value) : m.value; if (f === 'lien') { run(); return; } }
-      const pos = e.target.selectionStart; const keep = { k, c: tr0.closest('#sc-av') ? '#sc-av' : '#sc-heirs', n: [...tr0.querySelectorAll('input,select')].indexOf(e.target) }; run();
-      const row = document.querySelector(keep.c + ' tr[data-k="' + keep.k + '"]'); if (row && e.target.type !== 'checkbox') { const el = row.querySelectorAll('input,select')[keep.n]; if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch (er) {} } } return; }
+      noDraw = true; try { run(); } finally { noDraw = false; } return; }
     if (e.target.id === 's_opt') { S.opt = e.target.value; run(); return; }
     if (STATIC.includes(e.target.id)) run();
   });
-  document.addEventListener('change', e => { if (e.target.id === 's_opt') { S.opt = e.target.value; run(); } else if (e.target.closest('#sc-heirs') && e.target.type === 'checkbox') run(); else if (STATIC.includes(e.target.id)) run(); });
+  document.addEventListener('change', e => { if (e.target.id === 's_opt') { S.opt = e.target.value; run(); } else if (e.target.closest('#sc-heirs') && e.target.type === 'checkbox') run(); else if (STATIC.includes(e.target.id) && (e.target.tagName === 'SELECT' || e.target.type === 'checkbox')) run(); });
 
   // enregistrement (portail), lien de partage et document imprimé
   const snapshot = () => { const o = { S: { tab: S.tab, opt: S.opt, extra: S.extra, avx: S.avx, manuel: S.manuel }, f: {} }; STATIC.forEach(id => o.f[id] = val(id)); return o; };
