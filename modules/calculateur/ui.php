@@ -67,7 +67,7 @@ $bMeta = []; foreach ($budget_sections as $k => $s) $bMeta[$k] = ['title' => $s[
                     <?php if ($budget && !empty($budget['updated_at'])): ?><div class="text-muted text-center small"><i class="fas fa-clock"></i> Dernière sauvegarde : <?= formatDateTime($budget['updated_at']) ?></div><?php endif; ?>
                     <?php endif; ?>
                     <button type="button" class="btn btn-outline-secondary" onclick="window.print()"><i class="fas fa-print me-1"></i>Imprimer / PDF</button>
-                    <button type="button" class="btn btn-outline-danger" id="reset"><i class="fas fa-eraser me-1"></i>Tout effacer</button>
+                    <button type="button" class="btn btn-outline-danger" id="reset"><i class="fas fa-rotate-left me-1"></i>Réinitialiser le calculateur</button>
                 </div>
             </div>
         </div>
@@ -156,7 +156,7 @@ $bMeta = []; foreach ($budget_sections as $k => $s) $bMeta[$k] = ['title' => $s[
     const sync = () => { if (hidden) hidden.value = JSON.stringify(ST); };
 
     function lineHtml(k, i, l) {
-        const rows = l.a.map((v, j) => `<div class="b-am"><input type="number" step="0.01" min="0" inputmode="decimal" class="form-control form-control-sm" data-amt="${j}" value="${v ? v : ''}" placeholder="0,00" aria-label="Montant ${j + 1} : ${esc(l.label)}"><span class="text-muted small">€</span>${l.a.length > 1 ? `<button type="button" class="b-x" data-delamt="${j}" title="Retirer ce montant" aria-label="Retirer ce montant"><i class="fas fa-xmark"></i></button>` : ''}${j === l.a.length - 1 ? `<button type="button" class="b-plus" data-addamt title="Ajouter un montant à cette ligne" aria-label="Ajouter un montant à cette ligne">+</button>` : ''}</div>`).join('');
+        const rows = l.a.map((v, j) => `<div class="b-am"><input type="number" step="0.01" min="0" inputmode="decimal" class="form-control form-control-sm" data-amt="${j}" value="${v ? v : ''}" placeholder="0,00" aria-label="Montant ${j + 1} : ${esc(l.label)}"><span class="text-muted small">€</span><button type="button" class="b-x" data-delamt="${j}" title="${l.a.length > 1 ? 'Supprimer cette case' : 'Vider cette case'}" aria-label="${l.a.length > 1 ? 'Supprimer cette case' : 'Vider cette case'}"><i class="fas fa-xmark"></i></button>${j === l.a.length - 1 ? `<button type="button" class="b-plus" data-addamt title="Ajouter un montant à cette ligne" aria-label="Ajouter un montant à cette ligne">+</button>` : ''}</div>`).join('');
         return `<div class="b-line ${l.conj ? 'conj' + (ST.conjoint ? ' show' : '') : ''}" data-k="${k}" data-i="${i}">
             <div class="b-lab">${l.custom ? `<input class="form-control form-control-sm" data-label maxlength="60" placeholder="Nom de la ligne" value="${esc(l.label)}" aria-label="Nom de la ligne">` : esc(l.label)}</div>
             <div class="b-amts">${rows}</div>
@@ -210,11 +210,15 @@ $bMeta = []; foreach ($budget_sections as $k => $s) $bMeta[$k] = ['title' => $s[
         const line = e.target.closest('.b-line'); if (!line) return;
         const k = line.dataset.k, i = +line.dataset.i, l = ST.sections[k][i];
         if (e.target.closest('[data-addamt]')) { l.a.push(0); render('[data-sec="' + k + '"] .b-line[data-i="' + i + '"] .b-am:last-of-type input'); }
-        else if (e.target.closest('[data-delamt]')) { l.a.splice(+e.target.closest('[data-delamt]').dataset.delamt, 1); if (!l.a.length) l.a = [0]; render(); }
+        else if (e.target.closest('[data-delamt]')) { l.a.splice(+e.target.closest('[data-delamt]').dataset.delamt, 1); if (!l.a.length) l.a = [0]; render(); } // une seule case : elle est simplement vidée
         else if (e.target.closest('[data-delline]')) { if (!l.label.trim() && !lsum(l) || confirm('Supprimer la ligne « ' + (l.label || 'sans nom') + ' » ?')) { ST.sections[k].splice(i, 1); render(); } }
     });
     cb.addEventListener('change', () => { ST.conjoint = cb.checked ? 1 : 0; if (!cb.checked) KEYS.forEach(k => ST.sections[k].forEach(l => { if (l.conj) l.a = [0]; })); render(); });
-    $('reset').onclick = () => { if (!confirm('Effacer toutes les valeurs saisies et les lignes ajoutées ?')) return; ST = JSON.parse(JSON.stringify(DEFAULT)); cb.checked = false; render(); };
+    const CONTACT = <?= json_encode($bgContact, JSON_UNESCAPED_UNICODE) ?>;
+    $('reset').onclick = () => {
+        if (!confirm('Réinitialiser complètement le calculateur ?\nTous les montants, les lignes ajoutées, le nom du client et les coordonnées seront effacés.<?= $budgetSave ? '\n(Le budget enregistré ne change qu\'après « Enregistrer le budget ».)' : '' ?>')) return;
+        ST = JSON.parse(JSON.stringify(DEFAULT)); cb.checked = false; $('bg_nom').value = ''; $('bg_contact').value = CONTACT; render(); window.scrollTo({top: 0, behavior: 'smooth'});
+    };
     <?php if (!$budgetSave): ?>cb.checked = false; ST.conjoint = 0; // évite la restauration automatique du navigateur<?php endif; ?>
     const form = $('budgetForm'); if (form) form.addEventListener('submit', sync);
     render();
