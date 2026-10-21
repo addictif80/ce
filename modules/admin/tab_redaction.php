@@ -31,6 +31,9 @@ $test = json_decode(getToolsSetting('assist_last_test', ''), true) ?: null;
             <div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" name="assist_search_on" id="assistSearchOn" <?= getToolsSetting('assist_search_on', '1') === '1' ? 'checked' : '' ?>><label class="form-check-label" for="assistSearchOn">Recherche en langage naturel dans les procédures</label></div>
             <div class="form-text">Même sans IA, la fiche client affiche un résumé local et les règles métier ; seule l'enrichissement est désactivé.</div>
         </div>
+        <div class="col-12"><label class="form-label">Consignes de l'« Assistant IA » <span class="text-muted">(facultatif)</span></label>
+            <textarea name="chat_rules" class="form-control" rows="3" maxlength="2000" placeholder="Ex. : Pour toute question réglementaire, rappelle de vérifier dans la documentation interne. Toujours vouvoyer."><?= e(getToolsSetting('chat_rules', '')) ?></textarea>
+            <div class="form-text">S'ajoute aux consignes générales de l'assistant de conversation (module « Assistant IA »). Ce module est actif dans le portail ; il est masqué dans /tools tant que vous ne l'activez pas dans l'onglet « Outils publics ».</div></div>
         <div class="col-12"><button class="btn btn-ce">Enregistrer</button></div>
     </form>
 </div></div>

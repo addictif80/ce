@@ -108,7 +108,7 @@ toolsHeader('Outils en libre accès');
         'Financer un projet' => ['calculateur', 'capacite', 'notaire', 'ptz', 'creditsspeciaux', 'plan', 'scenarios', 'relais', 'rachat', 'usure'],
         'Épargne et patrimoine' => ['epargne', 'assurancevie', 'per', 'epargnecredit'],
         'Conseil et conformité' => ['signataires', 'evenements', 'pieces', 'saisie', 'memo_plafonds', 'memo_delais'],
-        'Boîte à outils' => ['dates', 'validateurs', 'calculs', 'servicepublic', 'pdf', 'courrier', 'bureau_dom'],
+        'Boîte à outils' => ['dates', 'validateurs', 'calculs', 'servicepublic', 'assistant_ia', 'pdf', 'courrier', 'bureau_dom'],
         'Références' => ['dpe', 'rge', 'procedures', 'codes', 'contacts'],
     ];
     $placed = array_merge(...array_values($groupes));
