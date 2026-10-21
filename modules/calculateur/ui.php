@@ -25,6 +25,8 @@ $bval = function ($field) use ($budget) {
     .b-row.total{font-size:1.3rem;font-weight:700;border-top:2px solid rgba(255,255,255,.3);border-bottom:none;margin-top:6px;padding-top:14px}
     .pos{color:#4ade80}.neg{color:#f87171}
     @media(max-width:768px){.b-field{flex-wrap:wrap}.b-field label{flex:1 1 100%}.b-field input{width:100%}}
+    .r5-row{margin-bottom:10px}.r5-top{display:flex;justify-content:space-between;font-size:14px}.r5-bar{position:relative;height:10px;background:#e9ecef;border-radius:5px;margin:4px 0 2px}.r5-fill{height:100%;border-radius:5px}.r5-tgt{position:absolute;top:-3px;width:2px;height:16px;background:#212529}
+    .r5-ok{background:#2e9b57}.r5-warn{background:#f0ad00}.r5-bad{background:#d9534f}.r5-msg{font-size:12.5px;color:#555}
     @media print{body{background:#fff}.b-card,.b-result{box-shadow:none}}
 </style>
 <?php require __DIR__ . '/../_sim/actions.php'; ?>
@@ -65,6 +67,12 @@ $bval = function ($field) use ($budget) {
                     <div class="b-row"><span>Total charges fixes</span><span style="color:#fbbf24" id="r-fixes">0,00 €</span></div>
                     <div class="b-row"><span>Total charges courantes</span><span style="color:#fbbf24" id="r-courantes">0,00 €</span></div>
                     <div class="b-row total"><span>Reste à vivre</span><span id="r-reste">0,00 €</span></div>
+                </div>
+                <div class="b-card js-result" id="rule5030" style="margin-top:12px">
+                    <h2 class="h6 mb-1"><i class="fas fa-scale-balanced"></i> Règle des 50 / 30 / 20</h2>
+                    <div class="small text-muted mb-2">Repère courant : 50 % des revenus pour les besoins, 30 % pour les envies, 20 % pour l'épargne.</div>
+                    <div id="rule-body"><div class="small text-muted">Renseignez vos revenus pour comparer votre budget.</div></div>
+                    <div class="small text-muted mt-2">Classement indicatif des rubriques : loyer, crédits, assurances, impôts, énergie, transport, alimentation, santé = besoins ; loisirs et divers = envies ; épargne mensuelle = épargne.</div>
                 </div>
                 <div class="d-grid gap-2 no-print">
                     <?php if ($budgetSave): ?>
@@ -117,6 +125,12 @@ $bval = function ($field) use ($budget) {
             return (parseFloat(i.value) || 0) !== 0;
         }).map(i => ({label: (document.querySelector(`label[for="${i.id}"]`) || {}).textContent || '', v: parseFloat(i.value)}));
     }
+    function ruleHtml() {
+        if (!window.budgetRule) return '';
+        const {r, parts, RULE} = window.budgetRule(); if (r <= 0) return '';
+        return `<div class="bgp-sec"><table><thead><tr><th>Règle des 50 / 30 / 20 (repère indicatif)</th><th class="r">Montant</th><th class="r">Part des revenus</th><th class="r">Cible</th></tr></thead><tbody>`
+            + Object.keys(RULE).map(k => `<tr><td>${esc(RULE[k].label)}</td><td class="r">${eur(parts[k])}</td><td class="r">${(parts[k] / r * 100).toFixed(1).replace('.', ',')} %</td><td class="r">${RULE[k].cible} %</td></tr>`).join('') + `</tbody></table></div>`;
+    }
     function renderPrint() {
         const S = [['revenus', 'Revenus mensuels'], ['fixes', 'Charges fixes mensuelles'], ['courantes', 'Charges courantes mensuelles']], tot = {};
         const body = S.map(([k, t]) => {
@@ -136,6 +150,7 @@ $bval = function ($field) use ($budget) {
                 <div><span>Total des charges courantes</span><span>${eur(tot.courantes)}</span></div>
                 <div><span>Part des charges fixes dans les revenus</span><span>${pct}</span></div>
                 <div class="big"><span>Reste à vivre mensuel</span><span>${eur(reste)}</span></div></div>` +
+            ruleHtml() +
             (contact ? `<div class="bgp-contact"><b>Votre contact</b>\n${esc(contact)}</div>` : '') +
             `<div class="bgp-foot">Simulation établie à partir des montants déclarés, à titre indicatif et sans valeur contractuelle.</div>`;
     }
@@ -159,6 +174,33 @@ $bval = function ($field) use ($budget) {
         const el = document.getElementById('r-reste');
         el.textContent = fmt(reste);
         el.className = reste >= 0 ? 'pos' : 'neg';
+        renderRule(r, reste);
+    }
+    // Règle des 50/30/20 : part de chaque grande catégorie dans les revenus, comparée à la cible
+    const RULE = <?= json_encode($regle_5030, JSON_UNESCAPED_UNICODE) ?>;
+    const val = id => { const i = document.getElementById('f-' + id); return i && !(i.closest('.conj') && !i.closest('.conj').classList.contains('show')) ? (parseFloat(i.value) || 0) : 0; };
+    const ruleCalc = r => {
+        const known = new Set(Object.values(RULE).flatMap(x => x.champs)), out = {};
+        for (const k in RULE) out[k] = RULE[k].champs.reduce((t, id) => t + val(id), 0);
+        // rubriques de dépenses non classées : comptées dans les envies
+        document.querySelectorAll('input[data-section="fixes"],input[data-section="courantes"]').forEach(i => { const id = i.id.replace(/^f-/, ''); if (!known.has(id)) out.envies += val(id); });
+        return out;
+    };
+    window.budgetRule = () => { const r = sum('revenus'); return { r, parts: ruleCalc(r), RULE }; };
+    function renderRule(r, reste) {
+        const box = document.getElementById('rule-body'); if (!box) return;
+        if (r <= 0) { box.innerHTML = '<div class="small text-muted">Renseignez vos revenus pour comparer votre budget.</div>'; return; }
+        const p = ruleCalc(r);
+        box.innerHTML = Object.keys(RULE).map(k => {
+            const m = p[k], pct = m / r * 100, cible = RULE[k].cible, ecart = pct - cible, ecartE = r * ecart / 100, tol = 3;
+            const epargne = k === 'epargne', ok = epargne ? ecart >= -tol : ecart <= tol;
+            const cls = ok ? 'r5-ok' : (Math.abs(ecart) > 10 ? 'r5-bad' : 'r5-warn'), pts = Math.abs(ecart).toFixed(1).replace('.', ',') + ' points';
+            const msg = Math.abs(ecart) <= tol ? 'Dans la cible'
+                : epargne ? (ok ? 'Au-dessus de la cible : très bien' : 'Il manque ' + pts + ' (' + fmt(Math.abs(ecartE)) + ' par mois)')
+                : (ok ? 'Sous la cible de ' + pts + ' : de la marge' : 'Dépasse la cible de ' + pts + ' (' + fmt(Math.abs(ecartE)) + ' par mois)');
+            return `<div class="r5-row"><div class="r5-top"><span><b>${RULE[k].label}</b> <span class="text-muted">(cible ${cible} %)</span></span><span><b>${pct.toFixed(1).replace('.', ',')} %</b> · ${fmt(m)}</span></div>
+              <div class="r5-bar"><div class="r5-fill ${cls}" style="width:${Math.max(0, Math.min(100, pct))}%"></div><div class="r5-tgt" style="left:calc(${cible}% - 1px)"></div></div><div class="r5-msg">${msg}</div></div>`;
+        }).join('') + (reste > 0 ? `<div class="r5-msg"><i class="fas fa-piggy-bank me-1"></i>Reste non affecté : <b>${fmt(reste)}</b> par mois, qui peut compléter l'épargne.</div>` : (reste < 0 ? '<div class="r5-msg text-danger"><i class="fas fa-triangle-exclamation me-1"></i>Les dépenses dépassent les revenus.</div>' : ''));
     }
     function toggleConj() {
         document.querySelectorAll('.conj').forEach(el => {
