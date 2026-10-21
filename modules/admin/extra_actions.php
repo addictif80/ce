@@ -1,5 +1,20 @@
 <?php
 // Actions d'administration : barèmes et modèles de pièces justificatives (inclus dans le bloc POST de index.php).
+if ($action === 'bareme_ia') { // vérification assistée par IA (réponse JSON, appelée par le bouton de l'onglet Barèmes)
+    require_once __DIR__ . '/../../includes/bareme_ia.php';
+    while (ob_get_level() > 0) ob_end_clean();
+    header('Content-Type: application/json; charset=utf-8');
+    @set_time_limit(240);
+    if (!assistRateOk('bareme_ia', 80)) { echo json_encode(['ok' => false, 'html' => baremeIaRender(['erreur' => 'Trop de vérifications cette heure-ci, réessayez plus tard.'])]); exit; }
+    $r = baremeIaCheck($_POST['cle'] ?? '', $adminUserId);
+    echo json_encode(['ok' => !isset($r['erreur']), 'verdict' => $r['verdict'] ?? null, 'ecarts' => $r['ecarts'] ?? 0, 'html' => baremeIaRender($r)], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+if ($action === 'save_bareme_ia_domains') {
+    setToolsSetting('bareme_ia_domains', trim((string)($_POST['domains'] ?? '')));
+    header('Location: index.php?tab=baremes&msg=bareme_ia_domains');
+    exit;
+}
 if ($action === 'save_bareme' || $action === 'reset_bareme') {
     require_once __DIR__ . '/../../includes/baremes.php';
     $cle = $_POST['cle'] ?? '';
