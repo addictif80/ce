@@ -4,58 +4,33 @@ require_once __DIR__ . '/../../templates/header.php';
 $db = getDB();
 $userId = getCurrentUserId();
 
-// Tous les champs du budget (partagés avec la page publique /tools)
+// Rubriques du budget (partagées avec la page publique /tools)
 require_once __DIR__ . '/fields.php';
 
-$all_fields = array_merge(
-    array_keys($revenus_fields),
-    array_keys($charges_fixes_fields),
-    array_keys($charges_courantes_fields)
-);
+// Migration : l'état complet du budget (lignes personnalisées, plusieurs montants par ligne) est conservé en JSON ;
+// les colonnes historiques restent renseignées pour les rubriques par défaut.
+try { $db->exec("ALTER TABLE calculateur_budget ADD COLUMN lignes_json MEDIUMTEXT DEFAULT NULL"); } catch (Exception $e) {}
+$legacyCols = [];
+try { foreach ($db->query("SHOW COLUMNS FROM calculateur_budget")->fetchAll(PDO::FETCH_COLUMN) as $c) $legacyCols[$c] = true; } catch (Exception $e) {}
 
 // Sauvegarde (upsert)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save') {
+    $state = budgetSanitizeState($_POST['lignes_json'] ?? '');
     $avec_conjoint = isset($_POST['avec_conjoint']) ? 1 : 0;
+    $state['conjoint'] = $avec_conjoint;
+    $data = ['avec_conjoint' => $avec_conjoint, 'lignes_json' => json_encode($state, JSON_UNESCAPED_UNICODE)];
+    foreach (budgetLegacyValues($state) as $id => $v) if (isset($legacyCols[$id])) $data[$id] = $v;
 
-    // Vérifier si un budget existe déjà
     $stmt = $db->prepare("SELECT id FROM calculateur_budget WHERE user_id = ?");
     $stmt->execute([$userId]);
-    $existing = $stmt->fetch();
-
-    $columns = ['user_id', 'avec_conjoint'];
-    $values = [$userId, $avec_conjoint];
-
-    foreach ($all_fields as $field) {
-        $columns[] = $field;
-        $values[] = isset($_POST[$field]) && $_POST[$field] !== '' ? (float)$_POST[$field] : 0;
-    }
-
-    if ($existing) {
-        $sets = [];
-        foreach ($columns as $i => $col) {
-            if ($col === 'user_id') continue;
-            $sets[] = "$col = ?";
-        }
-        $sql = "UPDATE calculateur_budget SET " . implode(', ', $sets) . ", updated_at = NOW() WHERE user_id = ?";
-        $updateValues = [];
-        foreach ($columns as $i => $col) {
-            if ($col === 'user_id') continue;
-            $updateValues[] = $values[$i];
-        }
-        $updateValues[] = $userId;
-        $stmt = $db->prepare($sql);
-        $stmt->execute($updateValues);
+    if ($stmt->fetch()) {
+        $sets = []; foreach ($data as $col => $v) $sets[] = "`$col` = ?";
+        $db->prepare("UPDATE calculateur_budget SET " . implode(', ', $sets) . ", updated_at = NOW() WHERE user_id = ?")->execute(array_merge(array_values($data), [$userId]));
     } else {
-        $columns[] = 'created_at';
-        $columns[] = 'updated_at';
-        $values[] = date('Y-m-d H:i:s');
-        $values[] = date('Y-m-d H:i:s');
-        $placeholders = implode(', ', array_fill(0, count($columns), '?'));
-        $sql = "INSERT INTO calculateur_budget (" . implode(', ', $columns) . ") VALUES ($placeholders)";
-        $stmt = $db->prepare($sql);
-        $stmt->execute($values);
+        $cols = array_merge(['user_id'], array_keys($data), ['created_at', 'updated_at']);
+        $vals = array_merge([$userId], array_values($data), [date('Y-m-d H:i:s'), date('Y-m-d H:i:s')]);
+        $db->prepare("INSERT INTO calculateur_budget (" . implode(', ', array_map(fn($c) => "`$c`", $cols)) . ") VALUES (" . implode(', ', array_fill(0, count($cols), '?')) . ")")->execute($vals);
     }
-
     header('Location: index.php?saved=1');
     exit;
 }
