@@ -79,20 +79,20 @@ $bMeta = []; foreach ($budget_sections as $k => $s) $bMeta[$k] = ['title' => $s[
   <div id="bgPrintBody"></div>
 </div>
 <style>
-    #bgPrint{position:absolute;left:-9999px;top:0;width:180mm;font-family:Arial,Helvetica,sans-serif;font-size:10pt;color:#000;line-height:1.35}
+    #bgPrint{position:absolute;left:-9999px;top:0;width:180mm;font-family:Arial,Helvetica,sans-serif;font-size:9.5pt;color:#000;line-height:1.28}
     .bgp-head{display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:10px}
     .bgp-logo{height:44px}.bgp-title{font-size:15pt;font-weight:700;text-align:center;flex:1}.bgp-date{font-size:9pt;text-align:right;min-width:70px}
     .bgp-ident{border:1px solid #000;padding:6px 10px;margin-bottom:10px}
-    .bgp-sec{break-inside:avoid;margin-bottom:10px}
+    .bgp-sec{break-inside:avoid;margin-bottom:8px}.bgp-res+.bgp-sec{margin-top:10px}
     .bgp-sec table{width:100%;border-collapse:collapse;font-size:inherit}
     .bgp-sec th{text-align:left;text-transform:uppercase;font-size:9pt;border-bottom:1.5px solid #000;padding:2px 0}
-    .bgp-sec td{padding:2px 0;border-bottom:1px dotted #999}
+    .bgp-sec td{padding:1.5px 0;border-bottom:1px dotted #999}
     .bgp-sec .r{text-align:right;white-space:nowrap}
     .bgp-sec tr.tot td{font-weight:700;border-top:1px solid #000;border-bottom:none;padding-top:3px}
     .bgp-res{border:2px solid #000;padding:8px 12px;margin-top:6px;break-inside:avoid}
     .bgp-res div{display:flex;justify-content:space-between;padding:1px 0}
     .bgp-res .big{font-size:13pt;font-weight:700;border-top:1px solid #000;margin-top:4px;padding-top:4px}
-    .bgp-contact{margin-top:14px;border:1px solid #000;padding:6px 10px;break-inside:avoid;white-space:pre-line}
+    .bgp-contact{margin-top:10px;border:1px solid #000;padding:6px 10px;break-inside:avoid;white-space:pre-line}
     .bgp-foot{margin-top:10px;font-size:8pt;color:#333;border-top:1px solid #999;padding-top:4px}
     @media print{
         @page{size:A4 portrait;margin:14mm 15mm}
