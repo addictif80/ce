@@ -373,11 +373,12 @@ function getDefaultMenuItems() {
         ['item_key' => 'usure', 'parent_key' => 'boite_outils', 'label' => 'Taux d\'usure', 'icon' => 'fa-ban', 'url' => '/modules/usure/index.php', 'uri_patterns' => '/usure/', 'ordre' => 9],
         ['item_key' => 'servicepublic', 'parent_key' => 'boite_outils', 'label' => 'Recherche service-public.fr', 'icon' => 'fa-magnifying-glass', 'url' => '/modules/servicepublic/index.php', 'uri_patterns' => '/servicepublic/', 'ordre' => 10],
         // Section Épargne et patrimoine
-        ['item_key' => 'epargne_patrimoine', 'parent_key' => null, 'label' => 'Épargne et patrimoine', 'icon' => 'fa-piggy-bank', 'url' => null, 'uri_patterns' => '/modules/epargne/,/assurancevie/,/modules/per/,/epargnecredit/', 'ordre' => 8],
+        ['item_key' => 'epargne_patrimoine', 'parent_key' => null, 'label' => 'Épargne et patrimoine', 'icon' => 'fa-piggy-bank', 'url' => null, 'uri_patterns' => '/modules/epargne/,/assurancevie/,/modules/per/,/epargnecredit/,/succession/', 'ordre' => 8],
         ['item_key' => 'epargne', 'parent_key' => 'epargne_patrimoine', 'label' => 'Simulateur d\'épargne', 'icon' => 'fa-piggy-bank', 'url' => '/modules/epargne/index.php', 'uri_patterns' => '/modules/epargne/', 'ordre' => 1],
         ['item_key' => 'assurancevie', 'parent_key' => 'epargne_patrimoine', 'label' => 'Assurance-vie', 'icon' => 'fa-shield-heart', 'url' => '/modules/assurancevie/index.php', 'uri_patterns' => '/assurancevie/', 'ordre' => 2],
         ['item_key' => 'per', 'parent_key' => 'epargne_patrimoine', 'label' => 'Simulateur PER', 'icon' => 'fa-umbrella-beach', 'url' => '/modules/per/index.php', 'uri_patterns' => '/modules/per/', 'ordre' => 3],
         ['item_key' => 'epargnecredit', 'parent_key' => 'epargne_patrimoine', 'label' => 'Épargne ou crédit ?', 'icon' => 'fa-code-compare', 'url' => '/modules/epargnecredit/index.php', 'uri_patterns' => '/epargnecredit/', 'ordre' => 4],
+        ['item_key' => 'succession', 'parent_key' => 'epargne_patrimoine', 'label' => 'Droits de succession', 'icon' => 'fa-hand-holding-heart', 'url' => '/modules/succession/index.php', 'uri_patterns' => '/succession/', 'ordre' => 5],
         // Section Communication
         ['item_key' => 'communication', 'parent_key' => null, 'label' => 'Communication', 'icon' => 'fa-comments', 'url' => null, 'uri_patterns' => 'messagerie,agenda', 'ordre' => 6],
         ['item_key' => 'messagerie', 'parent_key' => 'communication', 'label' => 'Messagerie', 'icon' => 'fa-comment-dots', 'url' => '/modules/messagerie/index.php', 'uri_patterns' => 'messagerie', 'ordre' => 1],
@@ -1034,6 +1035,12 @@ function getPublicToolsCatalog() {
             'label' => 'Plan de financement complet', 'icon' => 'fa-diagram-project', 'url' => 'plan.php', 'default' => true,
             'description' => 'Montez le financement d\'un projet : PTZ, prêts spéciaux et prêt principal, avec mensualité, endettement, reste à vivre et TAEG.',
             'note' => 'Les calculs se font dans votre navigateur. Seule la liste des communes d\'un département est demandée à ce portail : rien de ce que vous saisissez n\'est conservé.',
+        ],
+        'succession' => [
+            'added' => '2026-10-21',
+            'label' => 'Droits de succession et de donation', 'icon' => 'fa-hand-holding-heart', 'url' => 'succession.php', 'default' => true,
+            'description' => 'Estimez les droits de succession par héritier (assurance-vie, usufruit du conjoint, donations antérieures) et l\'intérêt d\'une donation.',
+            'note' => 'Les calculs se font dans votre navigateur : rien n\'est envoyé ni conservé. Estimation indicative, à confirmer auprès d\'un notaire.',
         ],
         'scenarios' => [
             'added' => '2026-10-09',

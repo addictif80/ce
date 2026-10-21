@@ -353,6 +353,30 @@ function baremeCatalog() {
                 'ir_seuils' => [11600, 29579, 84577, 181917], 'ir_taux' => [0, 11, 30, 41, 45],
                 'pass_n1' => 47100, 'per_pct' => 10, 'per_plafond_pass' => 8],
         ],
+        'succession' => [
+            'label' => 'Droits de succession et de donation', 'icon' => 'fa-hand-holding-heart',
+            'help' => 'Abattements par lien de parenté, barèmes progressifs de succession et de donation, valeur de l\'usufruit selon l\'âge, abattement sur les primes d\'assurance-vie versées après 70 ans et forfaits. Les taux de l\'assurance-vie (article 990 I) se lisent dans le barème « Fiscalité de l\'épargne ».',
+            'sources' => [
+                ['Service-public.fr – Droits de succession selon le lien avec le défunt', 'https://www.service-public.gouv.fr/particuliers/vosdroits/F35794', 'Abattements, barèmes et exonérations par lien de parenté (mise à jour du 19/08/2026).'],
+                ['Service-public.fr – Droits de donation selon le lien avec le donateur', 'https://www.service-public.gouv.fr/particuliers/vosdroits/F14203', 'Abattements et barèmes des donations, dons familiaux de sommes d\'argent.'],
+                ['Service-public.fr – Exonérations de droits de succession', 'https://www.service-public.gouv.fr/particuliers/vosdroits/F17456', 'Conjoint, partenaire de Pacs, frère ou sœur sous conditions.'],
+                ['Légifrance – Code général des impôts, articles 669, 757 B, 777 à 787 C, 990 I', 'https://www.legifrance.gouv.fr/', 'Valeur de l\'usufruit, assurance-vie, abattements et tarifs.'],
+            ],
+            'verifie' => ['date' => '21/10/2026', 'source' => 'fiches service-public.fr (données ouvertes de la DILA du 19/10/2026) pour les abattements et les barèmes',
+                'ok' => 'abattements (100 000 €, 80 724 €, 31 865 €, 15 932 €, 7 967 €, 5 310 €, 1 594 €, handicap 159 325 €) et barèmes par tranches de la succession, de la donation et des frères et sœurs',
+                'ko' => 'barème de l\'usufruit (article 669), abattement de 30 500 € sur les primes versées après 70 ans (article 757 B), forfait de frais funéraires (1 500 €) et abattement de 20 % sur la résidence principale : repris de la connaissance générale, non vérifiés sur les textes'],
+            'default' => [
+                'abattements' => ['enfant' => 100000, 'parent' => 100000, 'petit_enfant' => 1594, 'arriere_petit_enfant' => 1594, 'frere_soeur' => 15932, 'neveu_niece' => 7967, 'autre' => 1594,
+                    'handicap' => 159325, 'conjoint_donation' => 80724, 'petit_enfant_donation' => 31865, 'arriere_petit_enfant_donation' => 5310, 'don_familial' => 31865],
+                'bareme_direct' => ['seuils' => [8072, 12109, 15932, 552324, 902838, 1805677], 'taux' => [5, 10, 15, 20, 30, 40, 45]],
+                'bareme_conjoint_donation' => ['seuils' => [8072, 15932, 31865, 552324, 902838, 1805677], 'taux' => [5, 10, 15, 20, 30, 40, 45]],
+                'bareme_fratrie' => ['seuils' => [24430], 'taux' => [35, 45]],
+                'taux_4e_degre' => 55, 'taux_autres' => 60,
+                'rappel_ans' => 15, 'frais_funeraires' => 1500, 'residence_principale_pct' => 20,
+                'av_757b_abattement' => 30500, 'av_757b_age' => 70, 'don_familial_age_donateur' => 80,
+                'usufruit_ages' => [20, 30, 40, 50, 60, 70, 80, 90], 'usufruit_pct' => [90, 80, 70, 60, 50, 40, 30, 20, 10],
+            ],
+        ],
         'hcsf' => [
             'label' => 'Plafonds HCSF (endettement et durée)', 'icon' => 'fa-gauge-high',
             'help' => 'Taux d\'endettement maximal et durées maximales recommandées pour les crédits immobiliers.',
@@ -412,6 +436,24 @@ function baremeCheck($cle, $d) {
     if ($cle === 'grandioz') {
         foreach (['progression', 'montant_min', 'duree_min_mois', 'duree_max_mois', 'age_max'] as $k) if (!isset($d[$k]) || !is_numeric($d[$k]) || $d[$k] <= 0) return "Valeur positive manquante : $k";
         if ($d['duree_min_mois'] > $d['duree_max_mois']) return 'Durée minimale supérieure à la durée maximale.';
+        return null;
+    }
+    if ($cle === 'succession') {
+        $num = fn($v) => is_numeric($v) && $v >= 0;
+        foreach (['enfant', 'parent', 'petit_enfant', 'arriere_petit_enfant', 'frere_soeur', 'neveu_niece', 'autre', 'handicap', 'conjoint_donation', 'petit_enfant_donation', 'arriere_petit_enfant_donation', 'don_familial'] as $k)
+            if (!isset($d['abattements'][$k]) || !$num($d['abattements'][$k])) return "Abattement manquant ou invalide : $k";
+        foreach (['bareme_direct' => [6, 7], 'bareme_conjoint_donation' => [6, 7], 'bareme_fratrie' => [1, 2]] as $k => [$ns, $nt]) {
+            $b = $d[$k] ?? null;
+            if (!is_array($b) || count($b['seuils'] ?? []) !== $ns || count($b['taux'] ?? []) !== $nt) return "Barème « $k » : $ns seuils et $nt taux attendus.";
+            $prev = 0; foreach ($b['seuils'] as $v) { if (!is_numeric($v) || $v <= $prev) return "Barème « $k » : les seuils doivent être croissants."; $prev = $v; }
+            foreach ($b['taux'] as $v) if (!is_numeric($v) || $v < 0 || $v > 100) return "Barème « $k » : chaque taux doit être compris entre 0 et 100 %.";
+        }
+        foreach (['taux_4e_degre', 'taux_autres'] as $k) if (!isset($d[$k]) || !is_numeric($d[$k]) || $d[$k] < 0 || $d[$k] > 100) return "Taux invalide : $k";
+        foreach (['rappel_ans', 'frais_funeraires', 'residence_principale_pct', 'av_757b_abattement', 'av_757b_age', 'don_familial_age_donateur'] as $k) if (!isset($d[$k]) || !$num($d[$k])) return "Valeur manquante ou invalide : $k";
+        $ag = $d['usufruit_ages'] ?? null; $pc = $d['usufruit_pct'] ?? null;
+        if (!is_array($ag) || count($ag) !== 8 || !is_array($pc) || count($pc) !== 9) return 'Usufruit : 8 limites d\'âge et 9 pourcentages attendus.';
+        $prev = -1; foreach ($ag as $v) { if (!is_numeric($v) || $v <= $prev) return 'Usufruit : les limites d\'âge doivent être croissantes.'; $prev = $v; }
+        $prev = 101; foreach ($pc as $v) { if (!is_numeric($v) || $v < 0 || $v > 100 || $v > $prev) return 'Usufruit : les pourcentages doivent être décroissants, entre 0 et 100 %.'; $prev = $v; }
         return null;
     }
     if ($cle === 'saisie') {

@@ -159,6 +159,11 @@ function toolTours() {
             ['fa-layer-group', 'Composez les prêts', 'PTZ, Doublissimo, Primo Jeune, Primoz, Grandioz, prêt principal.'],
             ['fa-gauge', 'Contrôlez le résultat', 'Mensualité, endettement, reste à vivre, TAEG et alertes d\'éligibilité.']],
             ['Le prêt principal couvre le solde à financer.', 'Les résultats suivent les règles du logiciel de dossiers : mêmes mensualités, mêmes TAEG.']),
+        'succession' => tourDef('fa-hand-holding-heart', 'Droits de succession et de donation', 'Estimez les droits dus par chaque héritier et l\'intérêt d\'une donation.', [
+            ['fa-people-group', 'Décrivez la famille', 'Situation du défunt, enfants, conjoint : la répartition légale est calculée, ou saisissez un testament.'],
+            ['fa-house-chimney', 'Renseignez le patrimoine', 'Immobilier, placements, dettes ; assurance-vie et donations antérieures par héritier.'],
+            ['fa-scale-balanced', 'Comparez les options', 'Quart en pleine propriété ou usufruit pour le conjoint, succession ou donation.']],
+            ['C\'est une estimation indicative.', 'Régime matrimonial, biens à l\'étranger et exonérations particulières ne sont pas pris en compte : un notaire doit confirmer.']),
         'scenarios' => tourDef('fa-code-compare', 'Comparateur de scénarios', 'Comparez jusqu\'à trois montages de financement côte à côte.', [
             ['fa-house', 'Décrivez le projet', 'Il est commun aux trois montages.'],
             ['fa-sliders', 'Réglez chaque montage', 'Apport, taux, durée et prêts aidés ou spéciaux.'],

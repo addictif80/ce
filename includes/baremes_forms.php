@@ -75,6 +75,41 @@ function baremeRenderForm($cle, array $d) {
             <td><input name="d[categories][<?= $i ?>][libelle]" value="<?= e($c['libelle'] ?? '') ?>" class="form-control form-control-sm"></td>
             <td style="width:110px"><input type="number" step="0.01" name="d[categories][<?= $i ?>][taux]" value="<?= e((string)($c['taux'] ?? '')) ?>" class="form-control form-control-sm text-end"></td></tr><?php endforeach; ?>
         </tbody></table>
+    <?php } elseif ($cle === 'succession') { $ab = $d['abattements']; ?>
+        <?= bfHelp('Abattements, barèmes et forfaits de la succession et de la donation. Le taux de l\'assurance-vie (article 990 I) se règle dans le barème « Fiscalité de l\'épargne ».') ?>
+        <?= bfTitle(1, 'Abattements (€)') ?>
+        <table class="table table-sm align-middle w-auto"><tbody>
+        <?php foreach (['enfant' => 'Enfant (par parent)', 'parent' => 'Parent (ascendant)', 'petit_enfant' => 'Petit-enfant (succession, parent vivant)', 'arriere_petit_enfant' => 'Arrière-petit-enfant (succession)', 'frere_soeur' => 'Frère ou sœur', 'neveu_niece' => 'Neveu ou nièce', 'autre' => 'Autres parents jusqu\'au 4e degré et tiers',
+            'handicap' => 'Supplément pour héritier ou donataire handicapé', 'conjoint_donation' => 'Donation entre époux ou partenaires de Pacs', 'petit_enfant_donation' => 'Donation à un petit-enfant', 'arriere_petit_enfant_donation' => 'Donation à un arrière-petit-enfant', 'don_familial' => 'Don familial de somme d\'argent'] as $k => $lab): ?>
+            <tr><td><?= $lab ?></td><td><?= bfNum("[abattements][$k]", $ab[$k], '1') ?></td></tr>
+        <?php endforeach; ?></tbody></table>
+        <?php foreach (['bareme_direct' => 'Barème en ligne directe (enfants, parents, petits-enfants…)', 'bareme_conjoint_donation' => 'Barème des donations entre époux ou partenaires de Pacs'] as $bk => $bt): static $n = 1; $n++; $bs = bfNumList($d[$bk]['seuils']); $bt2 = bfNumList($d[$bk]['taux']); ?>
+        <?= bfTitle($n, $bt) ?>
+        <table class="table table-sm align-middle w-auto"><thead><tr><th>Tranche</th><th>Jusqu'à (€ de part taxable)</th><th>Taux (%)</th></tr></thead><tbody>
+        <?php foreach ($bs as $i => $v): ?><tr><td>Tranche <?= $i + 1 ?></td><td><?= bfNum("[$bk][seuils][$i]", $v, '1') ?></td><td><?= bfNum("[$bk][taux][$i]", $bt2[$i] ?? 0, 'any', 70) ?></td></tr><?php endforeach; ?>
+        <tr><td>Au-delà</td><td class="text-muted">—</td><td><?= bfNum("[$bk][taux][" . count($bs) . "]", $bt2[count($bs)] ?? 0, 'any', 70) ?></td></tr></tbody></table>
+        <?php endforeach; ?>
+        <?= bfTitle(4, 'Frères et sœurs, autres parents et tiers') ?>
+        <table class="table table-sm align-middle w-auto"><tbody>
+            <tr><td>Frères et sœurs : taux jusqu'à (€ de part taxable)</td><td><?= bfNum('[bareme_fratrie][seuils][0]', $d['bareme_fratrie']['seuils'][0], '1') ?></td><td><?= bfNum('[bareme_fratrie][taux][0]', $d['bareme_fratrie']['taux'][0], 'any', 70) ?> %</td></tr>
+            <tr><td>Frères et sœurs : taux au-delà</td><td class="text-muted">—</td><td><?= bfNum('[bareme_fratrie][taux][1]', $d['bareme_fratrie']['taux'][1], 'any', 70) ?> %</td></tr>
+            <tr><td>Neveux, nièces et parents jusqu'au 4e degré : taux (%)</td><td></td><td><?= bfNum('[taux_4e_degre]', $d['taux_4e_degre'], 'any', 70) ?> %</td></tr>
+            <tr><td>Parents au-delà du 4e degré et tiers : taux (%)</td><td></td><td><?= bfNum('[taux_autres]', $d['taux_autres'], 'any', 70) ?> %</td></tr>
+        </tbody></table>
+        <?= bfTitle(5, 'Forfaits et paramètres') ?>
+        <table class="table table-sm align-middle w-auto"><tbody>
+            <tr><td>Durée du rappel fiscal des donations (années)</td><td><?= bfNum('[rappel_ans]', $d['rappel_ans'], '1') ?></td></tr>
+            <tr><td>Forfait de frais funéraires déductibles (€)</td><td><?= bfNum('[frais_funeraires]', $d['frais_funeraires'], '1') ?></td></tr>
+            <tr><td>Abattement sur la résidence principale occupée (%)</td><td><?= bfNum('[residence_principale_pct]', $d['residence_principale_pct'], 'any') ?></td></tr>
+            <tr><td>Assurance-vie, primes versées après l'âge de (ans)</td><td><?= bfNum('[av_757b_age]', $d['av_757b_age'], '1') ?></td></tr>
+            <tr><td>Assurance-vie, abattement global sur ces primes (€, article 757 B)</td><td><?= bfNum('[av_757b_abattement]', $d['av_757b_abattement'], '1') ?></td></tr>
+            <tr><td>Don familial de somme d'argent : âge maximal du donateur (ans)</td><td><?= bfNum('[don_familial_age_donateur]', $d['don_familial_age_donateur'], '1') ?></td></tr>
+        </tbody></table>
+        <?= bfTitle(6, 'Valeur de l\'usufruit selon l\'âge de l\'usufruitier (article 669)') ?>
+        <?php $ua = bfNumList($d['usufruit_ages']); $up = bfNumList($d['usufruit_pct']); ?>
+        <table class="table table-sm align-middle w-auto"><thead><tr><th>Âge de l'usufruitier</th><th>Valeur de l'usufruit (% de la pleine propriété)</th></tr></thead><tbody>
+        <?php foreach ($ua as $i => $v): ?><tr><td>Jusqu'à <?= bfNum("[usufruit_ages][$i]", $v, '1', 70) ?> ans</td><td><?= bfNum("[usufruit_pct][$i]", $up[$i] ?? 0, 'any', 70) ?> %</td></tr><?php endforeach; ?>
+        <tr><td>Au-delà</td><td><?= bfNum('[usufruit_pct][' . count($ua) . ']', $up[count($ua)] ?? 0, 'any', 70) ?> %</td></tr></tbody></table>
     <?php } elseif ($cle === 'saisie') { $q = bfNumList($d['quotites']); ?>
         <?= bfHelp('Tranches de rémunération nette <strong>annuelle</strong> : la quotité de chaque tranche s\'applique à la part de rémunération comprise dans cette tranche. Au-delà du dernier seuil, tout est saisissable.') ?>
         <table class="table table-sm align-middle w-auto"><thead><tr><th>Tranche</th><th>Jusqu\'à (€ par an)</th><th>Part saisissable (%)</th></tr></thead><tbody>
@@ -234,6 +269,14 @@ function baremeCollect($cle, array $p) {
         }
         $date = fn($v) => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$v) ? $v : '';
         return ['periode' => mb_substr(trim((string)($p['periode'] ?? '')), 0, 80), 'du' => $date($p['du'] ?? ''), 'au' => $date($p['au'] ?? ''), 'categories' => $cats];
+    }
+    if ($cle === 'succession') {
+        $out = ['abattements' => [], 'bareme_direct' => [], 'bareme_conjoint_donation' => [], 'bareme_fratrie' => []];
+        foreach (array_keys(baremeCatalog()['succession']['default']['abattements']) as $k) $out['abattements'][$k] = $n($p['abattements'][$k] ?? 0);
+        foreach (['bareme_direct', 'bareme_conjoint_donation', 'bareme_fratrie'] as $bk) $out[$bk] = ['seuils' => $row($p[$bk]['seuils'] ?? []), 'taux' => $row($p[$bk]['taux'] ?? [])];
+        foreach (['taux_4e_degre', 'taux_autres', 'rappel_ans', 'frais_funeraires', 'residence_principale_pct', 'av_757b_abattement', 'av_757b_age', 'don_familial_age_donateur'] as $k) $out[$k] = $n($p[$k] ?? 0);
+        $out['usufruit_ages'] = $row($p['usufruit_ages'] ?? []); $out['usufruit_pct'] = $row($p['usufruit_pct'] ?? []);
+        return $out;
     }
     if ($cle === 'saisie') {
         return ['seuils' => $row($p['seuils'] ?? []), 'quotites' => $row($p['quotites'] ?? []), 'charge_annuelle' => $n($p['charge_annuelle'] ?? 0), 'rsa_mensuel' => $n($p['rsa_mensuel'] ?? 0)];
