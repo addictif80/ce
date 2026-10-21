@@ -89,6 +89,16 @@ function toolTours() {
             ['fa-phone', 'Contactez', 'Téléphone et e-mail affichés pour chaque service.'],
             ['fa-pen-to-square', 'Proposez une mise à jour', 'Une proposition est validée par un administrateur.']],
             ['Consultation sans enregistrement.', 'Seules vos propositions sont conservées pour validation.'], false),
+        'assistant_ia' => tourDef('fa-robot', 'Assistant IA', 'Un assistant de conversation pour vos questions du quotidien.', [
+            ['fa-keyboard', 'Écrivez votre demande', 'Une question, un texte à reformuler, un calcul à expliquer. Entrée pour envoyer, Maj + Entrée pour aller à la ligne.'],
+            ['fa-comments', 'Poursuivez la conversation', 'L\'assistant tient compte de vos messages précédents dans la conversation en cours.'],
+            ['fa-copy', 'Copiez la réponse', 'Un bouton permet de reprendre la réponse dans un mail ou un document.']],
+            ['Ne saisissez aucune donnée personnelle de client : les messages sont transmis à un service externe.', 'Les réponses peuvent contenir des erreurs : vérifiez les chiffres, taux et règles.']),
+        'servicepublic' => tourDef('fa-magnifying-glass', 'Recherche service-public.fr', 'Retrouvez l\'information officielle sur un droit ou une démarche de particulier.', [
+            ['fa-keyboard', 'Posez votre question', 'Une phrase ou quelques mots : « solde bancaire insaisissable », « procuration sur un compte ».'],
+            ['fa-book-open', 'Lisez les fiches', 'Les fiches officielles les plus proches s\'affichent, avec leur date de mise à jour et le lien vers service-public.fr.'],
+            ['fa-align-left', 'Appuyez-vous sur le résumé', 'Un résumé sourcé reprend les fiches ; vérifiez toujours sur le site officiel avant de répondre à un client.']],
+            ['N\'indiquez aucune donnée personnelle de client dans la question.', 'Ce sont des informations générales, qui ne remplacent pas les procédures internes de la banque.']),
         'dates' => tourDef('fa-calendar-days', 'Calculateur de dates', 'Ajoutez des jours ouvrés, ouvrables ou calendaires et mesurez un écart.', [
             ['fa-calendar-plus', 'Choisissez la date et la durée', 'Jours calendaires, ouvrés (lun-ven), ouvrables (lun-sam), mois ou années.'],
             ['fa-flag', 'Repérez les fériés', 'Les jours fériés légaux sont pris en compte automatiquement.'],

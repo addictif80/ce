@@ -308,7 +308,7 @@ function getDefaultMenuItems() {
         ['item_key' => 'activite', 'parent_key' => null, 'label' => 'Mon activité', 'icon' => 'fa-briefcase', 'url' => null, 'uri_patterns' => 'instances,rappels,demandes_clients,offres,interets_clients,rappels_clients,signatures,envoi_documents,kanban,gestion_portefeuille,fiche_client', 'ordre' => 1],
         ['item_key' => 'formation', 'parent_key' => null, 'label' => 'Formation', 'icon' => 'fa-graduation-cap', 'url' => null, 'uri_patterns' => 'formations', 'ordre' => 2],
         ['item_key' => 'commercial', 'parent_key' => null, 'label' => 'Commercial', 'icon' => 'fa-handshake', 'url' => null, 'uri_patterns' => 'production,phoning,eai,mobilites,objectifs', 'ordre' => 3],
-        ['item_key' => 'outils', 'parent_key' => null, 'label' => 'Outils', 'icon' => 'fa-tools', 'url' => null, 'uri_patterns' => 'credit_immo,calculateur,courriers,courriers_internes,blocnotes,procedures,bureau_dom,retraits,dpe,/rge/,/capacite/,/notaire/,/ptz/,/rachat/,/pieces/,/modules/pdf/,/modules/stock/,/creditsspeciaux/,/modules/plan/,/modules/scenarios/,rdv_modeles', 'ordre' => 4],
+        ['item_key' => 'outils', 'parent_key' => null, 'label' => 'Outils', 'icon' => 'fa-tools', 'url' => null, 'uri_patterns' => 'credit_immo,calculateur,courriers,courriers_internes,blocnotes,procedures,bureau_dom,retraits,dpe,/rge/,/capacite/,/notaire/,/ptz/,/rachat/,/pieces/,/modules/pdf/,/modules/stock/,/creditsspeciaux/,/modules/plan/,/modules/scenarios/,/demo_digital/,/assistant_ia/,rdv_modeles', 'ordre' => 4],
         ['item_key' => 'references', 'parent_key' => null, 'label' => 'Références', 'icon' => 'fa-bookmark', 'url' => null, 'uri_patterns' => '/codes/,/contacts/', 'ordre' => 5],
         // Items - Mon activité
         ['item_key' => 'fiche_client', 'parent_key' => 'activite', 'label' => 'Fiche client 360°', 'icon' => 'fa-address-card', 'url' => '/modules/fiche_client/index.php', 'uri_patterns' => 'fiche_client', 'ordre' => -1],
@@ -354,12 +354,14 @@ function getDefaultMenuItems() {
         ['item_key' => 'plan', 'parent_key' => 'outils', 'label' => 'Plan de financement', 'icon' => 'fa-diagram-project', 'url' => '/modules/plan/index.php', 'uri_patterns' => '/modules/plan/', 'ordre' => 19],
         ['item_key' => 'scenarios', 'parent_key' => 'outils', 'label' => 'Comparateur de scénarios', 'icon' => 'fa-code-compare', 'url' => '/modules/scenarios/index.php', 'uri_patterns' => '/modules/scenarios/', 'ordre' => 20],
         ['item_key' => 'rdv_modeles', 'parent_key' => 'outils', 'label' => 'Trames d\'entretien', 'icon' => 'fa-clipboard-list', 'url' => '/modules/rdv_modeles/index.php', 'uri_patterns' => 'rdv_modeles', 'ordre' => 21],
+        ['item_key' => 'demo_digital', 'parent_key' => 'outils', 'label' => 'Démo banque en ligne', 'icon' => 'fa-display', 'url' => '/modules/demo_digital/index.php', 'uri_patterns' => '/demo_digital/', 'ordre' => 22],
+        ['item_key' => 'assistant_ia', 'parent_key' => 'outils', 'label' => 'Assistant IA', 'icon' => 'fa-robot', 'url' => '/modules/assistant_ia/index.php', 'uri_patterns' => '/assistant_ia/', 'ordre' => 23],
         ['item_key' => 'dpe', 'parent_key' => 'outils', 'label' => 'Recherche DPE', 'icon' => 'fa-leaf', 'url' => '/modules/dpe/index.php', 'uri_patterns' => '/dpe/', 'ordre' => 10],
         // Items - Références
         ['item_key' => 'codes', 'parent_key' => 'references', 'label' => 'Codes utiles', 'icon' => 'fa-key', 'url' => '/modules/codes/index.php', 'uri_patterns' => '/codes/', 'ordre' => 1],
         ['item_key' => 'contacts', 'parent_key' => 'references', 'label' => 'Contacts utiles', 'icon' => 'fa-address-book', 'url' => '/modules/contacts/index.php', 'uri_patterns' => '/contacts/', 'ordre' => 2],
         // Section Boîte à outils bancaire (calculs, validateurs, mémos)
-        ['item_key' => 'boite_outils', 'parent_key' => null, 'label' => 'Boîte à outils bancaire', 'icon' => 'fa-toolbox', 'url' => null, 'uri_patterns' => '/dates/,/validateurs/,/calculs/,/saisie/,/memo_plafonds/,/memo_delais/,/signataires/,/evenements/,/usure/', 'ordre' => 7],
+        ['item_key' => 'boite_outils', 'parent_key' => null, 'label' => 'Boîte à outils bancaire', 'icon' => 'fa-toolbox', 'url' => null, 'uri_patterns' => '/dates/,/validateurs/,/calculs/,/saisie/,/memo_plafonds/,/memo_delais/,/signataires/,/evenements/,/usure/,/servicepublic/', 'ordre' => 7],
         ['item_key' => 'dates', 'parent_key' => 'boite_outils', 'label' => 'Calculateur de dates', 'icon' => 'fa-calendar-days', 'url' => '/modules/dates/index.php', 'uri_patterns' => '/dates/', 'ordre' => 1],
         ['item_key' => 'validateurs', 'parent_key' => 'boite_outils', 'label' => 'Validateurs de numéros', 'icon' => 'fa-shield-halved', 'url' => '/modules/validateurs/index.php', 'uri_patterns' => '/validateurs/', 'ordre' => 2],
         ['item_key' => 'calculs', 'parent_key' => 'boite_outils', 'label' => 'Boîte à calculs', 'icon' => 'fa-calculator', 'url' => '/modules/calculs/index.php', 'uri_patterns' => '/calculs/', 'ordre' => 3],
@@ -369,6 +371,7 @@ function getDefaultMenuItems() {
         ['item_key' => 'signataires', 'parent_key' => 'boite_outils', 'label' => 'Qui peut signer quoi ?', 'icon' => 'fa-signature', 'url' => '/modules/signataires/index.php', 'uri_patterns' => '/signataires/', 'ordre' => 7],
         ['item_key' => 'evenements', 'parent_key' => 'boite_outils', 'label' => 'Événements de vie', 'icon' => 'fa-route', 'url' => '/modules/evenements/index.php', 'uri_patterns' => '/evenements/', 'ordre' => 8],
         ['item_key' => 'usure', 'parent_key' => 'boite_outils', 'label' => 'Taux d\'usure', 'icon' => 'fa-ban', 'url' => '/modules/usure/index.php', 'uri_patterns' => '/usure/', 'ordre' => 9],
+        ['item_key' => 'servicepublic', 'parent_key' => 'boite_outils', 'label' => 'Recherche service-public.fr', 'icon' => 'fa-magnifying-glass', 'url' => '/modules/servicepublic/index.php', 'uri_patterns' => '/servicepublic/', 'ordre' => 10],
         // Section Épargne et patrimoine
         ['item_key' => 'epargne_patrimoine', 'parent_key' => null, 'label' => 'Épargne et patrimoine', 'icon' => 'fa-piggy-bank', 'url' => null, 'uri_patterns' => '/modules/epargne/,/assurancevie/,/modules/per/,/epargnecredit/', 'ordre' => 8],
         ['item_key' => 'epargne', 'parent_key' => 'epargne_patrimoine', 'label' => 'Simulateur d\'épargne', 'icon' => 'fa-piggy-bank', 'url' => '/modules/epargne/index.php', 'uri_patterns' => '/modules/epargne/', 'ordre' => 1],
@@ -947,6 +950,18 @@ function getPublicToolsCatalog() {
             'label' => 'Boîte à outils PDF', 'icon' => 'fa-file-pdf', 'url' => 'pdf.php', 'default' => true,
             'description' => 'Fusionnez, découpez ou faites pivoter des PDF, et convertissez des images en PDF.',
             'note' => 'Le traitement se fait dans votre navigateur : vos fichiers ne sont ni envoyés ni conservés.',
+        ],
+        'assistant_ia' => [
+            'added' => '2026-10-21',
+            'label' => 'Assistant IA', 'icon' => 'fa-robot', 'url' => 'assistant_ia.php', 'default' => false,
+            'description' => 'Un assistant de conversation pour rédiger, expliquer, calculer ou préparer un entretien. Réponses à vérifier.',
+            'note' => 'Les messages sont transmis à un service externe : n\'y saisissez aucune donnée de client.',
+        ],
+        'servicepublic' => [
+            'added' => '2026-10-20',
+            'label' => 'Recherche service-public.fr', 'icon' => 'fa-magnifying-glass', 'url' => 'servicepublic.php', 'default' => true,
+            'description' => 'Posez une question sur un droit ou une démarche de particulier : fiches officielles de service-public.fr et résumé sourcé.',
+            'note' => 'La question est transmise à un service externe de rédaction : n\'y saisissez aucune donnée de client.',
         ],
         'dates' => [
             'added' => '2026-10-09',

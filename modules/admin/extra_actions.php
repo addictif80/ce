@@ -76,12 +76,78 @@ if ($action === 'save_news' || $action === 'delete_news') {
     exit;
 }
 
+if (in_array($action, ['save_agence', 'delete_agence', 'toggle_agence', 'import_agences', 'fill_agences'], true)) {
+    require_once __DIR__ . '/../../includes/agences.php';
+    ensureAgencesSchema();
+    $clean = fn($v, $n) => mb_substr(trim(preg_replace('/\s+/u', ' ', (string)$v)), 0, $n);
+    $msg = 'agence_saved';
+    if ($action === 'save_agence') {
+        $id = (int)($_POST['id'] ?? 0); $nom = mb_strtoupper($clean($_POST['nom'] ?? '', 120)); $adr = $clean($_POST['adresse'] ?? '', 255); $num = preg_replace('/[^0-9A-Za-z]/', '', (string)($_POST['numero'] ?? ''));
+        $num = mb_substr($num, 0, 10);
+        if ($nom === '') { $msg = 'agence_invalide'; }
+        else {
+            try {
+                if ($id > 0) $db->prepare("UPDATE agences SET nom = ?, adresse = ?, numero = ?, actif = ? WHERE id = ?")->execute([$nom, $adr, $num, isset($_POST['actif']) ? 1 : 0, $id]);
+                else $db->prepare("INSERT INTO agences (nom, adresse, numero, actif) VALUES (?, ?, ?, 1)")->execute([$nom, $adr, $num]);
+            } catch (Exception $e) { $msg = 'agence_doublon'; }
+        }
+    } elseif ($action === 'delete_agence') {
+        $db->prepare("DELETE FROM agences WHERE id = ?")->execute([(int)($_POST['id'] ?? 0)]); $msg = 'agence_deleted';
+    } elseif ($action === 'fill_agences') {
+        [$nb, $sans] = agencesFillFromDirectory();
+        $_SESSION['agences_fill'] = [$nb, $sans];
+        $msg = 'agences_filled';
+    } elseif ($action === 'toggle_agence') {
+        $db->prepare("UPDATE agences SET actif = 1 - actif WHERE id = ?")->execute([(int)($_POST['id'] ?? 0)]);
+    } else { // import : une agence par ligne « nom ; adresse ; numéro » (met à jour si le nom existe déjà)
+        $n = 0; $up = $db->prepare("INSERT INTO agences (nom, adresse, numero) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE adresse = VALUES(adresse), numero = VALUES(numero)");
+        foreach (preg_split('/\R/', (string)($_POST['lignes'] ?? '')) as $ln) {
+            if (trim($ln) === '') continue;
+            $p = array_map('trim', explode(';', $ln));
+            $nom = mb_strtoupper($clean($p[0] ?? '', 120)); if ($nom === '' || preg_match('/^nom$/iu', $nom)) continue;
+            $up->execute([$nom, $clean($p[1] ?? '', 255), mb_substr(preg_replace('/[^0-9A-Za-z]/', '', $p[2] ?? ''), 0, 10)]); $n++;
+        }
+        $msg = 'agences_imported';
+    }
+    header('Location: index.php?tab=agences&msg=' . $msg);
+    exit;
+}
+
+if ($action === 'import_servicepublic') {
+    require_once __DIR__ . '/../../includes/servicepublic.php';
+    $r = spImportNow();
+    header('Location: index.php?tab=redaction&msg=' . ($r['ok'] ? 'sp_imported' : 'sp_failed') . '#sp-card');
+    exit;
+}
+
+if ($action === 'import_servicepublic_file') {
+    require_once __DIR__ . '/../../includes/servicepublic.php';
+    $f = $_FILES['archive'] ?? null;
+    if (!$f || $f['error'] !== UPLOAD_ERR_OK || $f['size'] < 1000000 || strtolower(pathinfo($f['name'], PATHINFO_EXTENSION)) !== 'zip') {
+        setToolsSetting('sp_import', json_encode(['ok' => false, 'at' => date('d/m/Y H:i'), 'err' => 'Fichier .zip non reçu ou invalide (code ' . (int)($f['error'] ?? -1) . ') ; si le fichier dépasse la limite d\'envoi du serveur (upload_max_filesize), utilisez la ligne de commande indiquée.'], JSON_UNESCAPED_UNICODE));
+        header('Location: index.php?tab=redaction&msg=sp_failed#sp-card'); exit;
+    }
+    $r = spImportFile($f['tmp_name']);
+    header('Location: index.php?tab=redaction&msg=' . ($r['ok'] ? 'sp_imported' : 'sp_failed') . '#sp-card');
+    exit;
+}
+
+if ($action === 'verify_audit') {
+    require_once __DIR__ . '/../../includes/audit.php';
+    $r = auditVerify();
+    $r['at'] = date('d/m/Y H:i:s');
+    setToolsSetting('audit_check', json_encode($r, JSON_UNESCAPED_UNICODE));
+    header('Location: index.php?tab=journal#verif');
+    exit;
+}
+
 if ($action === 'save_assist') {
     require_once __DIR__ . '/../../includes/assist.php';
     setToolsSetting('assist_on', isset($_POST['enabled']) ? '1' : '0');
     $k = trim($_POST['assist_key'] ?? '');
     if (isset($_POST['clear_key'])) setToolsSetting('assist_key', '');
     elseif ($k !== '') setToolsSetting('assist_key', mb_substr($k, 0, 500));
+    setToolsSetting('chat_rules', mb_substr(trim($_POST['chat_rules'] ?? ''), 0, 2000));
     setToolsSetting('assist_rules', mb_substr(trim($_POST['assist_rules'] ?? ''), 0, 2000));
     setToolsSetting('assist_dossier_on', isset($_POST['assist_dossier_on']) ? '1' : '0');
     setToolsSetting('assist_search_on', isset($_POST['assist_search_on']) ? '1' : '0');

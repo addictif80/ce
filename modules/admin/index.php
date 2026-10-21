@@ -53,6 +53,25 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'detail') {
     exit;
 }
 
+if (($_GET['export'] ?? '') === 'audit') { // export CSV du journal de /tools (lecture seule)
+    require_once __DIR__ . '/../../includes/auth.php';
+    require_once __DIR__ . '/../../includes/functions.php';
+    requireLogin();
+    if (!isAdmin()) { http_response_code(403); exit; }
+    require_once __DIR__ . '/../../includes/audit.php';
+    auditEnsureSchema();
+    [$where, $params] = auditFilters($_GET);
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="journal-tools-' . date('Ymd-His') . '.csv"');
+    $out = fopen('php://output', 'w'); fwrite($out, "\xEF\xBB\xBF");
+    fputcsv($out, ['id', 'date', 'type_acteur', 'acteur', 'ip', 'navigateur', 'session', 'outil', 'page', 'evenement', 'cible', 'valeur', 'hash_precedent', 'hash'], ';');
+    $st = getDB()->prepare("SELECT id, ts, actor_type, actor, ip, ua, sid, tool_key, page, event, target, value, prev_hash, hash FROM " . AUDIT_TABLE . " $where ORDER BY id ASC");
+    $st->execute($params);
+    while ($r = $st->fetch(PDO::FETCH_NUM)) fputcsv($out, $r, ';');
+    fclose($out);
+    exit;
+}
+
 $pageTitle = 'Administration';
 require_once __DIR__ . '/../../templates/header.php';
 requireAdmin();
@@ -650,7 +669,7 @@ try {
         'event_added'    => 'Événement ajouté avec succès.',
         'event_updated'  => 'Événement modifié avec succès.',
         'event_deleted'  => 'Événement supprimé.',
-        'assist_saved' => 'Réglages de l\'aide à la rédaction enregistrés.', 'popup_saved' => 'Popup enregistrée.', 'news_saved' => 'Nouveauté enregistrée.', 'news_deleted' => 'Nouveauté supprimée.', 'zonage_vide' => 'Liste des communes vidée.',
+        'agence_saved' => 'Agence enregistrée.', 'agence_deleted' => 'Agence supprimée.', 'agence_invalide' => 'Le nom de l\'agence est obligatoire.', 'agence_doublon' => 'Une agence porte déjà ce nom.', 'sp_imported' => 'Fiches service-public.fr importées.', 'sp_failed' => 'Import service-public.fr en échec : voir le détail dans la carte.', 'agences_imported' => 'Agences importées.', 'agences_filled' => 'Adresses et numéros complétés (voir le détail ci-dessous).', 'assist_saved' => 'Réglages de l\'aide à la rédaction enregistrés.', 'popup_saved' => 'Popup enregistrée.', 'news_saved' => 'Nouveauté enregistrée.', 'news_deleted' => 'Nouveauté supprimée.', 'zonage_vide' => 'Liste des communes vidée.',
         'terms_saved' => 'Conditions d\'utilisation enregistrées.',
         'bareme_saved' => 'Barème enregistré.', 'bareme_reset' => 'Barème remis aux valeurs par défaut.',
         'bareme_invalide' => 'Barème refusé : voir le message sous le barème concerné.', 'bareme_inconnu' => 'Barème inconnu.',
@@ -699,6 +718,12 @@ try {
     </li>
     <li class="nav-item">
         <a class="nav-link <?= $activeTab === 'nouveautes' ? 'active' : '' ?>" href="?tab=nouveautes"><i class="fas fa-bullhorn"></i> Nouveautés</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link <?= $activeTab === 'agences' ? 'active' : '' ?>" href="?tab=agences"><i class="fas fa-building"></i> Agences</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link <?= $activeTab === 'journal' ? 'active' : '' ?>" href="?tab=journal"><i class="fas fa-shield-halved"></i> Journal /tools</a>
     </li>
     <li class="nav-item">
         <a class="nav-link <?= $activeTab === 'stats' ? 'active' : '' ?>" href="?tab=stats"><i class="fas fa-chart-column"></i> Statistiques /tools</a>
@@ -2310,6 +2335,10 @@ $feedbackTypes = ['bug' => 'Problème', 'suggestion' => 'Suggestion', 'question'
 
 <?php elseif ($activeTab === 'conditions'): ?>
 <?php require __DIR__ . '/tab_conditions.php'; ?>
+<?php elseif ($activeTab === 'agences'): ?>
+<?php require __DIR__ . '/tab_agences.php'; ?>
+<?php elseif ($activeTab === 'journal'): ?>
+<?php require __DIR__ . '/tab_journal.php'; ?>
 <?php elseif ($activeTab === 'stats'): ?>
 <?php require __DIR__ . '/tab_stats.php'; ?>
 <?php elseif ($activeTab === 'nouveautes'): ?>

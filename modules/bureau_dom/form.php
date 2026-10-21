@@ -130,6 +130,10 @@ require_once __DIR__ . '/../../includes/agences.php';
         .dom-print-zone {
             margin: 0 !important;
         }
+        /* Pleine largeur de la feuille : on neutralise le conteneur Bootstrap et la marge latérale du cadre d'impression de /tools */
+        .container { max-width: none !important; width: 100% !important; padding-left: 0 !important; padding-right: 0 !important; margin: 0 !important; }
+        .dom-print-zone .tp-frame > tbody > tr > td { padding: 0 10mm !important; }
+        .dom-print-zone .tp-frame > thead > tr > td, .dom-print-zone .tp-frame > tfoot > tr > td { height: 10mm !important; }
         .dom-container {
             max-width: 100%;
             border-width: 1px;
@@ -137,6 +141,7 @@ require_once __DIR__ . '/../../includes/agences.php';
         .btn-print-dom {
             display: none !important;
         }
+        .agence-search { display: none !important; }
         @page {
             size: A4;
             margin: 10mm;
@@ -264,8 +269,9 @@ require_once __DIR__ . '/../../includes/agences.php';
 </div>
 </div>
 
+<?php agenceSearchScript(); ?>
 <script>
-const agencies = <?= json_encode(getAgences(), JSON_UNESCAPED_UNICODE) ?>;
+const agencies = <?= json_encode(array_map('agenceLabelNum', getAgencesFull(true)), JSON_UNESCAPED_UNICODE) ?>; // « NOM (numéro) », sans l'adresse
 
 (function() {
     const select1 = document.getElementById('agence-select');
@@ -277,8 +283,9 @@ const agencies = <?= json_encode(getAgences(), JSON_UNESCAPED_UNICODE) ?>;
     });
 
     select1.addEventListener('change', function() {
-        document.getElementById('lieu-fait').value = this.value;
+        document.getElementById('lieu-fait').value = this.value.replace(/\s*\(\d+\)\s*$/, ''); // lieu = nom de l'agence, sans le numéro
     });
+    agenceSearch(select1); agenceSearch(select2);
 
     // Date du jour par défaut
     const today = new Date();
