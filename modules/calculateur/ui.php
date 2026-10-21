@@ -70,9 +70,9 @@ $bval = function ($field) use ($budget) {
                 </div>
                 <div class="b-card js-result" id="rule5030" style="margin-top:12px">
                     <h2 class="h6 mb-1"><i class="fas fa-scale-balanced"></i> Règle des 50 / 30 / 20</h2>
-                    <div class="small text-muted mb-2">Repère courant : 50 % des revenus pour les besoins, 30 % pour les envies, 20 % pour l'épargne.</div>
+                    <div class="small text-muted mb-2">Repère courant : 50 % des revenus pour les charges fixes et factures, 30 % pour la vie courante et les loisirs, 20 % pour l'épargne.</div>
                     <div id="rule-body"><div class="small text-muted">Renseignez vos revenus pour comparer votre budget.</div></div>
-                    <div class="small text-muted mt-2">Classement indicatif des rubriques : loyer, crédits, assurances, impôts, énergie, transport, alimentation, santé = besoins ; loisirs et divers = envies ; épargne mensuelle = épargne.</div>
+                    <div class="small text-muted mt-2">Classement indicatif : loyer, crédits, assurances et mutuelle, électricité, gaz, eau, téléphone/internet, taxes et impôts = charges fixes et factures (50 %) ; transport, alimentation, habillement, santé, loisirs et divers = vie courante et loisirs (30 %) ; épargne mensuelle = épargne (20 %).</div>
                 </div>
                 <div class="d-grid gap-2 no-print">
                     <?php if ($budgetSave): ?>
