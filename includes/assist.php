@@ -16,24 +16,28 @@ function assistModel()   { $m = trim((string)getToolsSetting('assist_model', '')
 function assistEnabled() { return getToolsSetting('assist_on', '0') === '1' && assistKey() !== ''; }
 
 /** Limite par session (anti-abus) : ASSIST_HOURLY_LIMIT appels par heure. */
-function assistRateOk() {
+function assistRateOk($bucket = 'assist', $limit = ASSIST_HOURLY_LIMIT) {
     if (session_status() !== PHP_SESSION_ACTIVE) @session_start();
-    $now = time();
-    $h = array_filter($_SESSION['assist_hits'] ?? [], fn($t) => $t > $now - 3600);
-    if (count($h) >= ASSIST_HOURLY_LIMIT) { $_SESSION['assist_hits'] = $h; return false; }
-    $h[] = $now; $_SESSION['assist_hits'] = array_values($h);
+    $now = time(); $k = $bucket . '_hits';
+    $h = array_filter($_SESSION[$k] ?? [], fn($t) => $t > $now - 3600);
+    if (count($h) >= $limit) { $_SESSION[$k] = $h; return false; }
+    $h[] = $now; $_SESSION[$k] = array_values($h);
     return true;
 }
 
 /** Appel du service : messages système + utilisateur. Retourne [texte|null, détail technique]. */
 function assistCall($system, $user, $maxTokens = null) {
-    $body = ['model' => assistModel(), 'stream' => false,
-        'messages' => [['role' => 'system', 'content' => $system], ['role' => 'user', 'content' => $user]]];
+    return assistCallMessages([['role' => 'system', 'content' => $system], ['role' => 'user', 'content' => $user]], $maxTokens);
+}
+
+/** Appel du service avec une conversation complète ([['role' => system|user|assistant, 'content' => …], …]). */
+function assistCallMessages(array $messages, $maxTokens = null) {
+    $body = ['model' => assistModel(), 'stream' => false, 'messages' => $messages];
     if ($maxTokens) $body['max_tokens'] = $maxTokens;
     $ch = curl_init(ASSIST_ENDPOINT);
     curl_setopt_array($ch, [
         CURLOPT_POST => true, CURLOPT_POSTFIELDS => json_encode($body, JSON_UNESCAPED_UNICODE), CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 90, CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_TIMEOUT => 120, CURLOPT_CONNECTTIMEOUT => 10,
         CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Authorization: Bearer ' . assistKey()],
     ]);
     $raw = curl_exec($ch);
@@ -137,4 +141,70 @@ function assistHandle(array $in) {
     if (trim(strip_tags($res['html'])) === '') return ['error' => 'Aucune proposition n\'a pu être générée.'];
     $res['ok'] = true;
     return $res;
+}
+
+
+/** Convertit un texte structuré (gras **x**, listes « - » ou « 1. », tableaux | a | b |, renvois [1]) en HTML sûr : tout est échappé avant mise en forme. */
+function assistMarkdownToHtml($t) {
+    $t = trim((string)$t);
+    $inline = function ($s) {
+        $s = htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+        $s = preg_replace('/\*\*(.+?)\*\*/u', '<strong>$1</strong>', $s);
+        $s = preg_replace('/(?<![\w*])\*(?!\s)(.+?)(?<!\s)\*(?![\w*])/u', '<em>$1</em>', $s);
+        return preg_replace('/\[(\d{1,2})\]/', '<a class="sp-ref" href="#sp-f$1" title="Fiche $1">$1</a>', $s);
+    };
+    $lines = preg_split('/\R/', $t); $out = ''; $i = 0; $n = count($lines);
+    while ($i < $n) {
+        $l = rtrim($lines[$i]);
+        if (trim($l) === '') { $i++; continue; }
+        if (preg_match('/^\s*```/', $l)) { // bloc de code
+            $code = []; $i++; while ($i < $n && !preg_match('/^\s*```/', $lines[$i])) { $code[] = $lines[$i]; $i++; } $i++;
+            $out .= '<pre class="ia-code"><code>' . htmlspecialchars(implode("\n", $code), ENT_QUOTES, 'UTF-8') . '</code></pre>'; continue;
+        }
+        if (preg_match('/^\s*\|.*\|\s*$/', $l)) { // tableau
+            $rows = [];
+            while ($i < $n && preg_match('/^\s*\|.*\|\s*$/', $lines[$i])) { if (!preg_match('/^\s*\|[\s:\-|]+\|\s*$/', $lines[$i])) $rows[] = array_map('trim', explode('|', trim(trim($lines[$i]), '|'))); $i++; }
+            if ($rows) { $out .= '<div class="table-responsive"><table class="table table-sm table-striped sp-table"><thead><tr>' . implode('', array_map(fn($c) => '<th>' . $inline($c) . '</th>', array_shift($rows))) . '</tr></thead><tbody>';
+                foreach ($rows as $r) $out .= '<tr>' . implode('', array_map(fn($c) => '<td>' . $inline($c) . '</td>', $r)) . '</tr>';
+                $out .= '</tbody></table></div>'; }
+            continue;
+        }
+        if (preg_match('/^\s*([-*•])\s+/u', $l)) { $out .= '<ul>'; while ($i < $n && preg_match('/^\s*[-*•]\s+(.*)$/u', $lines[$i], $m)) { $out .= '<li>' . $inline($m[1]) . '</li>'; $i++; } $out .= '</ul>'; continue; }
+        if (preg_match('/^\s*\d+[.)]\s+/', $l)) { $out .= '<ol>'; while ($i < $n && preg_match('/^\s*\d+[.)]\s+(.*)$/', $lines[$i], $m)) { $out .= '<li>' . $inline($m[1]) . '</li>'; $i++; } $out .= '</ol>'; continue; }
+        if (preg_match('/^#{1,4}\s+(.*)$/', $l, $m)) { $out .= '<h6 class="mt-2">' . $inline($m[1]) . '</h6>'; $i++; continue; }
+        if (preg_match('/^(À noter|Attention|Remarque)\s*:\s*(.*)$/iu', $l, $m)) { $out .= '<div class="sp-note"><i class="fas fa-circle-exclamation me-1"></i><strong>' . htmlspecialchars($m[1], ENT_QUOTES, 'UTF-8') . ' :</strong> ' . $inline($m[2]) . '</div>'; $i++; continue; }
+        $para = [$l]; $i++; // paragraphe : lignes consécutives jusqu'à une ligne vide ou un bloc
+        while ($i < $n && trim($lines[$i]) !== '' && !preg_match('/^\s*([-*•]|\d+[.)]|#|\||```)\s*/u', $lines[$i])) { $para[] = rtrim($lines[$i]); $i++; }
+        $out .= '<p>' . $inline(implode(' ', $para)) . '</p>';
+    }
+    return $out;
+}
+
+
+/** Conversation avec l'assistant généraliste. $in = ['messages' => [['role' => 'user'|'assistant', 'content' => …], …]]. Retourne ['ok', 'text', 'html'] ou ['error']. */
+function assistChatHandle(array $in) {
+    if (!assistEnabled()) return ['error' => 'L\'assistant n\'est pas disponible pour le moment (réglage à effectuer dans l\'administration, onglet Rédaction).'];
+    $msgs = [];
+    foreach (array_slice((array)($in['messages'] ?? []), -12) as $m) {
+        $role = ($m['role'] ?? '') === 'assistant' ? 'assistant' : 'user';
+        $c = mb_substr(trim((string)($m['content'] ?? '')), 0, 6000);
+        if ($c !== '') $msgs[] = ['role' => $role, 'content' => $c];
+    }
+    while ($msgs && $msgs[0]['role'] !== 'user') array_shift($msgs);
+    if (!$msgs || end($msgs)['role'] !== 'user') return ['error' => 'Écrivez un message.'];
+    $total = array_sum(array_map(fn($m) => mb_strlen($m['content']), $msgs));
+    while ($total > 24000 && count($msgs) > 1) { $x = array_shift($msgs); $total -= mb_strlen($x['content']); while ($msgs && $msgs[0]['role'] !== 'user') { $x = array_shift($msgs); $total -= mb_strlen($x['content']); } }
+    if (!assistRateOk('chat', 80)) return ['error' => 'Trop de messages en peu de temps. Réessayez dans quelques minutes.'];
+    $rules = trim((string)getToolsSetting('chat_rules', ''));
+    $system = "Tu es l'assistant de travail des collaborateurs de la Caisse d'Épargne Midi-Pyrénées. Nous sommes le " . date('d/m/Y') . ". "
+        . "Tu réponds en français, avec un ton professionnel, clair et direct, comme un collègue expert, sur tout sujet utile au travail (banque, assurance, crédit, épargne, réglementation, rédaction, calculs, organisation, informatique, etc.) et plus largement comme un assistant généraliste. "
+        . "Sois honnête sur tes limites : si tu n'es pas sûr, ou si l'information peut avoir changé (taux, plafonds, règles, lois), dis-le et invite à vérifier à la source ; n'invente ni chiffres, ni références, ni procédures internes. "
+        . "Tu n'as pas accès aux outils ni aux données internes de la banque : ne prétends jamais le contraire. "
+        . "Si le message contient des données personnelles de clients (noms, IBAN, numéros de compte, adresses), rappelle en une phrase de ne pas les saisir et poursuis avec des données anonymisées. "
+        . "Mise en forme : réponses courtes et structurées ; utilise le gras pour l'essentiel, des listes à puces, des tableaux ( | a | b | ) quand ils aident, et des blocs de code (```) pour du code ou des formules. Évite les titres et les introductions superflues."
+        . ($rules !== '' ? "\nConsignes complémentaires de l'agence : " . $rules : '');
+    array_unshift($msgs, ['role' => 'system', 'content' => $system]);
+    [$out, $detail] = assistCallMessages($msgs, 1500);
+    if ($out === null) { error_log('assist chat: ' . $detail); return ['error' => 'Le service est momentanément indisponible. Réessayez dans un instant.', 'detail' => $detail]; }
+    return ['ok' => true, 'text' => $out, 'html' => assistMarkdownToHtml($out)];
 }

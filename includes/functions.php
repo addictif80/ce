@@ -308,7 +308,7 @@ function getDefaultMenuItems() {
         ['item_key' => 'activite', 'parent_key' => null, 'label' => 'Mon activité', 'icon' => 'fa-briefcase', 'url' => null, 'uri_patterns' => 'instances,rappels,demandes_clients,offres,interets_clients,rappels_clients,signatures,envoi_documents,kanban,gestion_portefeuille,fiche_client', 'ordre' => 1],
         ['item_key' => 'formation', 'parent_key' => null, 'label' => 'Formation', 'icon' => 'fa-graduation-cap', 'url' => null, 'uri_patterns' => 'formations', 'ordre' => 2],
         ['item_key' => 'commercial', 'parent_key' => null, 'label' => 'Commercial', 'icon' => 'fa-handshake', 'url' => null, 'uri_patterns' => 'production,phoning,eai,mobilites,objectifs', 'ordre' => 3],
-        ['item_key' => 'outils', 'parent_key' => null, 'label' => 'Outils', 'icon' => 'fa-tools', 'url' => null, 'uri_patterns' => 'credit_immo,calculateur,courriers,courriers_internes,blocnotes,procedures,bureau_dom,retraits,dpe,/rge/,/capacite/,/notaire/,/ptz/,/rachat/,/pieces/,/modules/pdf/,/modules/stock/,/creditsspeciaux/,/modules/plan/,/modules/scenarios/,/demo_digital/,rdv_modeles', 'ordre' => 4],
+        ['item_key' => 'outils', 'parent_key' => null, 'label' => 'Outils', 'icon' => 'fa-tools', 'url' => null, 'uri_patterns' => 'credit_immo,calculateur,courriers,courriers_internes,blocnotes,procedures,bureau_dom,retraits,dpe,/rge/,/capacite/,/notaire/,/ptz/,/rachat/,/pieces/,/modules/pdf/,/modules/stock/,/creditsspeciaux/,/modules/plan/,/modules/scenarios/,/demo_digital/,/assistant_ia/,rdv_modeles', 'ordre' => 4],
         ['item_key' => 'references', 'parent_key' => null, 'label' => 'Références', 'icon' => 'fa-bookmark', 'url' => null, 'uri_patterns' => '/codes/,/contacts/', 'ordre' => 5],
         // Items - Mon activité
         ['item_key' => 'fiche_client', 'parent_key' => 'activite', 'label' => 'Fiche client 360°', 'icon' => 'fa-address-card', 'url' => '/modules/fiche_client/index.php', 'uri_patterns' => 'fiche_client', 'ordre' => -1],
@@ -355,6 +355,7 @@ function getDefaultMenuItems() {
         ['item_key' => 'scenarios', 'parent_key' => 'outils', 'label' => 'Comparateur de scénarios', 'icon' => 'fa-code-compare', 'url' => '/modules/scenarios/index.php', 'uri_patterns' => '/modules/scenarios/', 'ordre' => 20],
         ['item_key' => 'rdv_modeles', 'parent_key' => 'outils', 'label' => 'Trames d\'entretien', 'icon' => 'fa-clipboard-list', 'url' => '/modules/rdv_modeles/index.php', 'uri_patterns' => 'rdv_modeles', 'ordre' => 21],
         ['item_key' => 'demo_digital', 'parent_key' => 'outils', 'label' => 'Démo banque en ligne', 'icon' => 'fa-display', 'url' => '/modules/demo_digital/index.php', 'uri_patterns' => '/demo_digital/', 'ordre' => 22],
+        ['item_key' => 'assistant_ia', 'parent_key' => 'outils', 'label' => 'Assistant IA', 'icon' => 'fa-robot', 'url' => '/modules/assistant_ia/index.php', 'uri_patterns' => '/assistant_ia/', 'ordre' => 23],
         ['item_key' => 'dpe', 'parent_key' => 'outils', 'label' => 'Recherche DPE', 'icon' => 'fa-leaf', 'url' => '/modules/dpe/index.php', 'uri_patterns' => '/dpe/', 'ordre' => 10],
         // Items - Références
         ['item_key' => 'codes', 'parent_key' => 'references', 'label' => 'Codes utiles', 'icon' => 'fa-key', 'url' => '/modules/codes/index.php', 'uri_patterns' => '/codes/', 'ordre' => 1],
@@ -949,6 +950,12 @@ function getPublicToolsCatalog() {
             'label' => 'Boîte à outils PDF', 'icon' => 'fa-file-pdf', 'url' => 'pdf.php', 'default' => true,
             'description' => 'Fusionnez, découpez ou faites pivoter des PDF, et convertissez des images en PDF.',
             'note' => 'Le traitement se fait dans votre navigateur : vos fichiers ne sont ni envoyés ni conservés.',
+        ],
+        'assistant_ia' => [
+            'added' => '2026-10-21',
+            'label' => 'Assistant IA', 'icon' => 'fa-robot', 'url' => 'assistant_ia.php', 'default' => false,
+            'description' => 'Un assistant de conversation pour rédiger, expliquer, calculer ou préparer un entretien. Réponses à vérifier.',
+            'note' => 'Les messages sont transmis à un service externe : n\'y saisissez aucune donnée de client.',
         ],
         'servicepublic' => [
             'added' => '2026-10-20',
