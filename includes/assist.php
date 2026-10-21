@@ -138,3 +138,36 @@ function assistHandle(array $in) {
     $res['ok'] = true;
     return $res;
 }
+
+
+/** Convertit un texte structuré (gras **x**, listes « - » ou « 1. », tableaux | a | b |, renvois [1]) en HTML sûr : tout est échappé avant mise en forme. */
+function assistMarkdownToHtml($t) {
+    $t = trim(preg_replace('/^```[a-z]*\s*|\s*```$/i', '', trim((string)$t)));
+    $inline = function ($s) {
+        $s = htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+        $s = preg_replace('/\*\*(.+?)\*\*/u', '<strong>$1</strong>', $s);
+        $s = preg_replace('/(?<![\w*])\*(?!\s)(.+?)(?<!\s)\*(?![\w*])/u', '<em>$1</em>', $s);
+        return preg_replace('/\[(\d{1,2})\]/', '<a class="sp-ref" href="#sp-f$1" title="Fiche $1">$1</a>', $s);
+    };
+    $lines = preg_split('/\R/', $t); $out = ''; $i = 0; $n = count($lines);
+    while ($i < $n) {
+        $l = rtrim($lines[$i]);
+        if (trim($l) === '') { $i++; continue; }
+        if (preg_match('/^\s*\|.*\|\s*$/', $l)) { // tableau
+            $rows = [];
+            while ($i < $n && preg_match('/^\s*\|.*\|\s*$/', $lines[$i])) { if (!preg_match('/^\s*\|[\s:\-|]+\|\s*$/', $lines[$i])) $rows[] = array_map('trim', explode('|', trim(trim($lines[$i]), '|'))); $i++; }
+            if ($rows) { $out .= '<div class="table-responsive"><table class="table table-sm table-striped sp-table"><thead><tr>' . implode('', array_map(fn($c) => '<th>' . $inline($c) . '</th>', array_shift($rows))) . '</tr></thead><tbody>';
+                foreach ($rows as $r) $out .= '<tr>' . implode('', array_map(fn($c) => '<td>' . $inline($c) . '</td>', $r)) . '</tr>';
+                $out .= '</tbody></table></div>'; }
+            continue;
+        }
+        if (preg_match('/^\s*([-*•])\s+/u', $l)) { $out .= '<ul>'; while ($i < $n && preg_match('/^\s*[-*•]\s+(.*)$/u', $lines[$i], $m)) { $out .= '<li>' . $inline($m[1]) . '</li>'; $i++; } $out .= '</ul>'; continue; }
+        if (preg_match('/^\s*\d+[.)]\s+/', $l)) { $out .= '<ol>'; while ($i < $n && preg_match('/^\s*\d+[.)]\s+(.*)$/', $lines[$i], $m)) { $out .= '<li>' . $inline($m[1]) . '</li>'; $i++; } $out .= '</ol>'; continue; }
+        if (preg_match('/^#{1,4}\s+(.*)$/', $l, $m)) { $out .= '<h6 class="mt-2">' . $inline($m[1]) . '</h6>'; $i++; continue; }
+        if (preg_match('/^(À noter|Attention|Remarque)\s*:\s*(.*)$/iu', $l, $m)) { $out .= '<div class="sp-note"><i class="fas fa-circle-exclamation me-1"></i><strong>' . htmlspecialchars($m[1], ENT_QUOTES, 'UTF-8') . ' :</strong> ' . $inline($m[2]) . '</div>'; $i++; continue; }
+        $para = [$l]; $i++; // paragraphe : lignes consécutives jusqu'à une ligne vide ou un bloc
+        while ($i < $n && trim($lines[$i]) !== '' && !preg_match('/^\s*([-*•]|\d+[.)]|#|\|)\s*/u', $lines[$i])) { $para[] = rtrim($lines[$i]); $i++; }
+        $out .= '<p>' . $inline(implode(' ', $para)) . '</p>';
+    }
+    return $out;
+}
