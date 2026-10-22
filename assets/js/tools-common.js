@@ -119,10 +119,10 @@
     const notes=[...document.querySelectorAll('[data-bareme-note]')].map(n=>'<p>'+esc(n.dataset.baremeNote)+'</p>').join('');
     const d=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
     return '<div class="td-head"><img src="'+LOGO+'" alt="Caisse d\'Épargne" onerror="this.style.display=\'none\'"><div class="td-date">Édité le '+esc(d)+'</div></div>'
-      +'<h1>'+esc(title)+'</h1><div class="td-sub">Simulation non contractuelle</div>'
+      +'<h1>'+esc(title)+'</h1><div class="td-sub">'+esc(extra.sub||'Simulation non contractuelle')+'</div>'
       +(rows.length?'<h2>Données saisies</h2><table>'+rows.map(r=>'<tr><td>'+esc(r[0])+'</td><td>'+esc(r[1])+'</td></tr>').join('')+'</table>':'')
       +(res||extra.html?'<h2>Résultat</h2>'+(res||'')+(extra.html||''):'')
-      +'<div class="td-foot"><p>Simulation indicative établie à partir des informations saisies, sans valeur contractuelle ni précontractuelle : elle ne constitue pas une offre de prêt ni un conseil personnalisé. Les résultats sont à vérifier avant toute décision.</p>'+notes+'<p>Caisse d\'Épargne et de Prévoyance de Midi-Pyrénées — document généré par un outil d\'aide, qui ne se substitue pas aux outils internes du groupe BPCE.</p></div>';
+      +'<div class="td-foot"><p>'+esc(extra.foot||'Simulation indicative établie à partir des informations saisies, sans valeur contractuelle ni précontractuelle : elle ne constitue pas une offre de prêt ni un conseil personnalisé. Les résultats sont à vérifier avant toute décision.')+'</p>'+notes+'<p>Caisse d\'Épargne et de Prévoyance de Midi-Pyrénées — document généré par un outil d\'aide, qui ne se substitue pas aux outils internes du groupe BPCE.</p></div>';
   }
   const st=document.createElement('style'); st.textContent=CSS; document.head.appendChild(st);
   window.addEventListener('beforeprint',()=>{
