@@ -164,6 +164,11 @@ function toolTours() {
             ['fa-house-chimney', 'Renseignez le patrimoine', 'Immobilier, placements, dettes ; assurance-vie et donations antérieures par héritier.'],
             ['fa-scale-balanced', 'Comparez les options', 'Quart en pleine propriété ou usufruit pour le conjoint, succession ou donation.']],
             ['C\'est une estimation indicative.', 'Régime matrimonial, biens à l\'étranger et exonérations particulières ne sont pas pris en compte : un notaire doit confirmer.']),
+        'disc' => tourDef('fa-user-gear', 'Test DISC', 'Découvrez votre style de comportement et celui de vos interlocuteurs.', [
+            ['fa-hand-pointer', 'Répondez à 24 séries', 'Dans chaque série, choisissez le qualificatif qui vous ressemble le plus et celui qui vous ressemble le moins.'],
+            ['fa-chart-pie', 'Lisez votre profil', 'Quatre scores (D, I, S, C), un radar animé, vos forces et vos points de vigilance.'],
+            ['fa-comments', 'Adaptez votre communication', 'Des conseils pour échanger avec chaque style, collègues comme clients.']],
+            ['Répondez spontanément, en pensant au travail.', 'Le test mesure des préférences, pas des compétences : il ne sert pas à recruter. Un indicateur contrôle la cohérence de vos réponses.']),
         'scenarios' => tourDef('fa-code-compare', 'Comparateur de scénarios', 'Comparez jusqu\'à trois montages de financement côte à côte.', [
             ['fa-house', 'Décrivez le projet', 'Il est commun aux trois montages.'],
             ['fa-sliders', 'Réglez chaque montage', 'Apport, taux, durée et prêts aidés ou spéciaux.'],

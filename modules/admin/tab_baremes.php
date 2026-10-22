@@ -130,7 +130,7 @@ if (biaAll) biaAll.addEventListener('click', async () => {
         const b = btns[i], card = b.closest('.data-table-container'), titre = card.querySelector('h3').textContent.trim();
         prog.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + (i + 1) + ' / ' + btns.length + ' : ' + titre;
         const r = await biaRun(b.dataset.cle); document.getElementById('bia-' + b.dataset.cle).innerHTML = r.html;
-        const v = !r.ok ? ['danger', 'Échec'] : r.verdict === 'ecarts' ? ['danger', r.ecarts + ' écart(s)'] : r.verdict === 'concordant' ? ['success', 'Aucun écart'] : ['warning text-dark', 'Insuffisant'];
+        const v = r.interne ? ['secondary', 'Interne : sans source publique'] : !r.ok ? ['danger', 'Échec'] : r.verdict === 'ecarts' ? ['danger', r.ecarts + ' écart(s)'] : r.verdict === 'concordant' ? ['success', 'Aucun écart'] : ['warning text-dark', 'Insuffisant'];
         rows.push('<tr><td><a href="#bareme-' + b.dataset.cle + '">' + titre.replace(/[<>&]/g, '') + '</a></td><td><span class="badge bg-' + v[0] + '">' + v[1] + '</span></td></tr>');
         sum.innerHTML = '<table class="table table-sm" style="max-width:520px"><thead><tr><th>Barème</th><th>Avis de l\'IA</th></tr></thead><tbody>' + rows.join('') + '</tbody></table>';
     }

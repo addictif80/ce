@@ -308,7 +308,7 @@ function getDefaultMenuItems() {
         ['item_key' => 'activite', 'parent_key' => null, 'label' => 'Mon activité', 'icon' => 'fa-briefcase', 'url' => null, 'uri_patterns' => 'instances,rappels,demandes_clients,offres,interets_clients,rappels_clients,signatures,envoi_documents,kanban,gestion_portefeuille,fiche_client', 'ordre' => 1],
         ['item_key' => 'formation', 'parent_key' => null, 'label' => 'Formation', 'icon' => 'fa-graduation-cap', 'url' => null, 'uri_patterns' => 'formations', 'ordre' => 2],
         ['item_key' => 'commercial', 'parent_key' => null, 'label' => 'Commercial', 'icon' => 'fa-handshake', 'url' => null, 'uri_patterns' => 'production,phoning,eai,mobilites,objectifs', 'ordre' => 3],
-        ['item_key' => 'outils', 'parent_key' => null, 'label' => 'Outils', 'icon' => 'fa-tools', 'url' => null, 'uri_patterns' => 'credit_immo,calculateur,courriers,courriers_internes,blocnotes,procedures,bureau_dom,retraits,dpe,/rge/,/capacite/,/notaire/,/ptz/,/rachat/,/pieces/,/modules/pdf/,/modules/stock/,/creditsspeciaux/,/modules/plan/,/modules/scenarios/,/demo_digital/,/assistant_ia/,rdv_modeles', 'ordre' => 4],
+        ['item_key' => 'outils', 'parent_key' => null, 'label' => 'Outils', 'icon' => 'fa-tools', 'url' => null, 'uri_patterns' => 'credit_immo,calculateur,courriers,courriers_internes,blocnotes,procedures,bureau_dom,retraits,dpe,/rge/,/capacite/,/notaire/,/ptz/,/rachat/,/pieces/,/modules/pdf/,/modules/stock/,/creditsspeciaux/,/modules/plan/,/modules/scenarios/,/demo_digital/,/assistant_ia/,/disc/,rdv_modeles', 'ordre' => 4],
         ['item_key' => 'references', 'parent_key' => null, 'label' => 'Références', 'icon' => 'fa-bookmark', 'url' => null, 'uri_patterns' => '/codes/,/contacts/', 'ordre' => 5],
         // Items - Mon activité
         ['item_key' => 'fiche_client', 'parent_key' => 'activite', 'label' => 'Fiche client 360°', 'icon' => 'fa-address-card', 'url' => '/modules/fiche_client/index.php', 'uri_patterns' => 'fiche_client', 'ordre' => -1],
@@ -356,6 +356,7 @@ function getDefaultMenuItems() {
         ['item_key' => 'rdv_modeles', 'parent_key' => 'outils', 'label' => 'Trames d\'entretien', 'icon' => 'fa-clipboard-list', 'url' => '/modules/rdv_modeles/index.php', 'uri_patterns' => 'rdv_modeles', 'ordre' => 21],
         ['item_key' => 'demo_digital', 'parent_key' => 'outils', 'label' => 'Démo banque en ligne', 'icon' => 'fa-display', 'url' => '/modules/demo_digital/index.php', 'uri_patterns' => '/demo_digital/', 'ordre' => 22],
         ['item_key' => 'assistant_ia', 'parent_key' => 'outils', 'label' => 'Assistant IA', 'icon' => 'fa-robot', 'url' => '/modules/assistant_ia/index.php', 'uri_patterns' => '/assistant_ia/', 'ordre' => 23],
+        ['item_key' => 'disc', 'parent_key' => 'outils', 'label' => 'Test DISC', 'icon' => 'fa-user-gear', 'url' => '/modules/disc/index.php', 'uri_patterns' => '/disc/', 'ordre' => 24],
         ['item_key' => 'dpe', 'parent_key' => 'outils', 'label' => 'Recherche DPE', 'icon' => 'fa-leaf', 'url' => '/modules/dpe/index.php', 'uri_patterns' => '/dpe/', 'ordre' => 10],
         // Items - Références
         ['item_key' => 'codes', 'parent_key' => 'references', 'label' => 'Codes utiles', 'icon' => 'fa-key', 'url' => '/modules/codes/index.php', 'uri_patterns' => '/codes/', 'ordre' => 1],
@@ -1041,6 +1042,12 @@ function getPublicToolsCatalog() {
             'label' => 'Droits de succession et de donation', 'icon' => 'fa-hand-holding-heart', 'url' => 'succession.php', 'default' => true,
             'description' => 'Estimez les droits de succession par héritier (assurance-vie, usufruit du conjoint, donations antérieures) et l\'intérêt d\'une donation.',
             'note' => 'Les calculs se font dans votre navigateur : rien n\'est envoyé ni conservé. Estimation indicative, à confirmer auprès d\'un notaire.',
+        ],
+        'disc' => [
+            'added' => '2026-10-22',
+            'label' => 'Test DISC', 'icon' => 'fa-user-gear', 'url' => 'disc.php', 'default' => true,
+            'description' => 'Découvrez votre style de comportement (Dominant, Influent, Stable, Consciencieux) en 24 questions, puis adaptez votre communication.',
+            'note' => 'Vos réponses restent dans votre navigateur : rien n\'est envoyé ni conservé. Outil de connaissance de soi, sans valeur de diagnostic.',
         ],
         'scenarios' => [
             'added' => '2026-10-09',
