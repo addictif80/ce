@@ -1260,6 +1260,7 @@ function showDetail(id){
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#dT6">Suivi</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#dT8">MRH</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#dT7" onclick="loadNotes(${id},'detail')">Notes</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#dT9" onclick="if(window.DocsWidget)DocsWidget.mount(document.getElementById('detail_docs'),'credit_immo',${id})">Documents</a></li>
   </ul><div class="tab-content">`;
 
   // Tab Client
@@ -1425,6 +1426,7 @@ function showDetail(id){
 
   // Tab Notes
   html+=`<div class="tab-pane fade" id="dT7"><div id="detail_notes_list">Chargement...</div></div>`;
+  html+=`<div class="tab-pane fade" id="dT9"><div class="text-muted small mb-2">Tableurs et présentations rattachés à ce dossier (aucune donnée client n'est requise pour les créer).</div><div id="detail_docs"></div></div>`;
   html+=`</div>`;
 
   document.getElementById('detailContent').innerHTML=html;

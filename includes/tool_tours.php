@@ -164,6 +164,16 @@ function toolTours() {
             ['fa-house-chimney', 'Renseignez le patrimoine', 'Immobilier, placements, dettes ; assurance-vie et donations antérieures par héritier.'],
             ['fa-scale-balanced', 'Comparez les options', 'Quart en pleine propriété ou usufruit pour le conjoint, succession ou donation.']],
             ['C\'est une estimation indicative.', 'Régime matrimonial, biens à l\'étranger et exonérations particulières ne sont pas pris en compte : un notaire doit confirmer.']),
+        'tableur' => tourDef('fa-table', 'Tableur', 'Un tableur simple avec formules, plusieurs feuilles et export Excel.', [
+            ['fa-keyboard', 'Saisissez et calculez', 'Tapez dans une cellule ; commencez par = pour une formule (=SOMME(B2:B10), =SI(…), =VPM(…)). Séparez les arguments par ;'],
+            ['fa-palette', 'Mettez en forme', 'Gras, couleurs, bordures, formats euro, pourcentage et date ; ajoutez des feuilles.'],
+            ['fa-file-export', 'Importez ou exportez', 'Ouvrez un fichier Excel ou CSV, exportez en .xlsx, en CSV ou imprimez en PDF.']],
+            ['Ctrl+D recopie vers le bas, Ctrl+R vers la droite.', 'Le fichier Excel exporté garde les valeurs et les formules, mais pas la mise en forme.']),
+        'presentation' => tourDef('fa-display', 'Présentation', 'Des diapositives simples à présenter en plein écran ou à exporter.', [
+            ['fa-layer-group', 'Composez vos diapositives', 'Ajoutez texte, images, formes, tableaux et graphiques ; choisissez un thème.'],
+            ['fa-play', 'Présentez', 'Plein écran avec transitions animées ; flèches du clavier pour avancer.'],
+            ['fa-file-export', 'Exportez', 'PowerPoint (.pptx) ou PDF ; enregistrez le brouillon sur votre ordinateur.']],
+            ['Double-clic sur un texte pour le modifier.', 'Rien n\'est conservé sur le serveur : pensez à enregistrer le fichier sur votre ordinateur.']),
         'disc' => tourDef('fa-user-gear', 'Test DISC', 'Découvrez votre style de comportement et celui de vos interlocuteurs.', [
             ['fa-hand-pointer', 'Répondez à 24 séries', 'Dans chaque série, choisissez le qualificatif qui vous ressemble le plus et celui qui vous ressemble le moins.'],
             ['fa-chart-pie', 'Lisez votre profil', 'Quatre scores (D, I, S, C), un radar animé, vos forces et vos points de vigilance.'],
