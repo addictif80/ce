@@ -308,7 +308,7 @@ function getDefaultMenuItems() {
         ['item_key' => 'activite', 'parent_key' => null, 'label' => 'Mon activité', 'icon' => 'fa-briefcase', 'url' => null, 'uri_patterns' => 'instances,rappels,demandes_clients,offres,interets_clients,rappels_clients,signatures,envoi_documents,kanban,gestion_portefeuille,fiche_client', 'ordre' => 1],
         ['item_key' => 'formation', 'parent_key' => null, 'label' => 'Formation', 'icon' => 'fa-graduation-cap', 'url' => null, 'uri_patterns' => 'formations', 'ordre' => 2],
         ['item_key' => 'commercial', 'parent_key' => null, 'label' => 'Commercial', 'icon' => 'fa-handshake', 'url' => null, 'uri_patterns' => 'production,phoning,eai,mobilites,objectifs', 'ordre' => 3],
-        ['item_key' => 'outils', 'parent_key' => null, 'label' => 'Outils', 'icon' => 'fa-tools', 'url' => null, 'uri_patterns' => 'credit_immo,calculateur,courriers,courriers_internes,blocnotes,procedures,bureau_dom,retraits,dpe,/rge/,/capacite/,/notaire/,/ptz/,/rachat/,/pieces/,/modules/pdf/,/modules/stock/,/creditsspeciaux/,/modules/plan/,/modules/scenarios/,/demo_digital/,/assistant_ia/,/disc/,rdv_modeles', 'ordre' => 4],
+        ['item_key' => 'outils', 'parent_key' => null, 'label' => 'Outils', 'icon' => 'fa-tools', 'url' => null, 'uri_patterns' => 'credit_immo,calculateur,courriers,courriers_internes,blocnotes,procedures,bureau_dom,retraits,dpe,/rge/,/capacite/,/notaire/,/ptz/,/rachat/,/pieces/,/modules/pdf/,/modules/stock/,/creditsspeciaux/,/modules/plan/,/modules/scenarios/,/demo_digital/,/assistant_ia/,/disc/,/documents/,rdv_modeles', 'ordre' => 4],
         ['item_key' => 'references', 'parent_key' => null, 'label' => 'Références', 'icon' => 'fa-bookmark', 'url' => null, 'uri_patterns' => '/codes/,/contacts/', 'ordre' => 5],
         // Items - Mon activité
         ['item_key' => 'fiche_client', 'parent_key' => 'activite', 'label' => 'Fiche client 360°', 'icon' => 'fa-address-card', 'url' => '/modules/fiche_client/index.php', 'uri_patterns' => 'fiche_client', 'ordre' => -1],
@@ -357,6 +357,7 @@ function getDefaultMenuItems() {
         ['item_key' => 'demo_digital', 'parent_key' => 'outils', 'label' => 'Démo banque en ligne', 'icon' => 'fa-display', 'url' => '/modules/demo_digital/index.php', 'uri_patterns' => '/demo_digital/', 'ordre' => 22],
         ['item_key' => 'assistant_ia', 'parent_key' => 'outils', 'label' => 'Assistant IA', 'icon' => 'fa-robot', 'url' => '/modules/assistant_ia/index.php', 'uri_patterns' => '/assistant_ia/', 'ordre' => 23],
         ['item_key' => 'disc', 'parent_key' => 'outils', 'label' => 'Test DISC', 'icon' => 'fa-user-gear', 'url' => '/modules/disc/index.php', 'uri_patterns' => '/disc/', 'ordre' => 24],
+        ['item_key' => 'documents', 'parent_key' => 'outils', 'label' => 'Documents (tableur, présentation)', 'icon' => 'fa-folder-open', 'url' => '/modules/documents/index.php', 'uri_patterns' => '/documents/', 'ordre' => 25],
         ['item_key' => 'dpe', 'parent_key' => 'outils', 'label' => 'Recherche DPE', 'icon' => 'fa-leaf', 'url' => '/modules/dpe/index.php', 'uri_patterns' => '/dpe/', 'ordre' => 10],
         // Items - Références
         ['item_key' => 'codes', 'parent_key' => 'references', 'label' => 'Codes utiles', 'icon' => 'fa-key', 'url' => '/modules/codes/index.php', 'uri_patterns' => '/codes/', 'ordre' => 1],
@@ -1042,6 +1043,18 @@ function getPublicToolsCatalog() {
             'label' => 'Droits de succession et de donation', 'icon' => 'fa-hand-holding-heart', 'url' => 'succession.php', 'default' => true,
             'description' => 'Estimez les droits de succession par héritier (assurance-vie, usufruit du conjoint, donations antérieures) et l\'intérêt d\'une donation.',
             'note' => 'Les calculs se font dans votre navigateur : rien n\'est envoyé ni conservé. Estimation indicative, à confirmer auprès d\'un notaire.',
+        ],
+        'tableur' => [
+            'added' => '2026-10-23',
+            'label' => 'Tableur', 'icon' => 'fa-table', 'url' => 'tableur.php', 'default' => true,
+            'description' => 'Un tableur avec formules (SOMME, SI, VPM…), mise en forme, plusieurs feuilles, import et export Excel et CSV.',
+            'note' => 'Votre document reste dans votre navigateur : rien n\'est envoyé ni conservé sur le serveur.',
+        ],
+        'presentation' => [
+            'added' => '2026-10-23',
+            'label' => 'Présentation', 'icon' => 'fa-display', 'url' => 'presentation.php', 'default' => true,
+            'description' => 'Créez des diapositives (texte, images, tableaux, graphiques), présentez en plein écran et exportez en PowerPoint ou en PDF.',
+            'note' => 'Votre document reste dans votre navigateur : rien n\'est envoyé ni conservé sur le serveur.',
         ],
         'disc' => [
             'added' => '2026-10-22',

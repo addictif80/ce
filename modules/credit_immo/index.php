@@ -561,6 +561,7 @@ if (!function_exists('ciAssetVer')) {
 }
 ?>
 <script src="../../assets/js/ptz-calc.js?v=<?= ciAssetVer(__DIR__ . '/../../assets/js/ptz-calc.js') ?>" onerror="ciScriptFail(this)"></script>
+<?php $docsBase = '../documents/'; require_once __DIR__ . '/../../includes/docs_widget.php'; ?>
 <script src="ci.js?v=<?= ciAssetVer(__DIR__ . '/ci.js') ?>" onerror="ciScriptFail(this)"></script>
 <script src="ci_extra.js?v=<?= ciAssetVer(__DIR__ . '/ci_extra.js') ?>" onerror="ciScriptFail(this)"></script>
 <script>
