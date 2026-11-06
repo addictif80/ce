@@ -62,7 +62,7 @@ $fontCss = '@font-face{font-family:Raleway;font-style:normal;font-weight:400 800
          . '@font-face{font-family:Raleway;font-style:italic;font-weight:400;font-display:swap;src:url(data:font/woff2;base64,' . base64_encode($asset('raleway-italic.woff2')) . ') format("woff2")}';
 // accueil
 $home = '<div id="accueil">
-  <nav class="ab-nav"><img src="' . $logo . '" alt="ABhD"><span>Outils conseiller</span></nav>
+  <nav class="ab-nav"><img src="' . $logo . '" alt="ABhD"><span>Outils conseiller</span><div class="rapide rapide-accueil" hidden><button type="button" class="btn-top rapide-btn" aria-haspopup="true" aria-expanded="false"><i class="fas fa-bolt"></i> <span>Accès rapide</span> <i class="fas fa-caret-down"></i></button><div class="rapide-liste" role="menu" hidden></div></div></nav>
   <header class="ab-hero">
     <div>
       <h1>Tous vos outils, <span class="underline">au même endroit</span>.</h1>
@@ -97,7 +97,7 @@ $top = '<div id="topbar" hidden>
   <select id="top-select" aria-label="Changer d\'outil"><option value="">Changer d\'outil…</option>';
 foreach ($groups as $g => $gk) { $top .= '<optgroup label="' . $esc($g) . '">'; foreach ($gk as $k) if (isset($tools[$k])) $top .= '<option value="' . $esc($k) . '">' . $esc($tools[$k]['title']) . '</option>'; $top .= '</optgroup>'; }
 $top .= '</select>
-  <div id="top-rapide" hidden><button type="button" class="btn-top" id="top-rapide-btn" aria-haspopup="true" aria-expanded="false"><i class="fas fa-bolt"></i> <span>Accès rapide</span> <i class="fas fa-caret-down"></i></button><div id="top-rapide-liste" role="menu" hidden></div></div>
+  <div class="rapide" hidden><button type="button" class="btn-top rapide-btn" aria-haspopup="true" aria-expanded="false"><i class="fas fa-bolt"></i> <span>Accès rapide</span> <i class="fas fa-caret-down"></i></button><div class="rapide-liste" role="menu" hidden></div></div>
   <button type="button" class="btn-top" id="top-feedback" title="Écrire un retour (fichier e-mail à envoyer)"><i class="fas fa-comment-dots"></i> Un retour ?</button>
 </div>';
 $frameModule = '<div id="mod-frame" class="module" hidden></div>';

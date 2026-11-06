@@ -46,11 +46,24 @@
     if(a==='link'){if(!window.TOOLS_SA) history.replaceState(null,'',shareUrl().slice(location.origin.length)); flash(b,(await copy(shareUrl()))?'Lien copié':'Copie impossible');}
     else if(a==='copy'){flash(b,(await copy(resultText()))?'Résultat copié':'Copie impossible');}
     else if(a==='print'){window.print();}
+    else if(a==='mail'&&window.TOOLS_SA){ // fichier autonome : brouillon .eml à télécharger (aucun lien de partage)
+      const title=((document.querySelector('h1,h4')||{}).textContent||document.title).trim();
+      const b64u=t=>btoa(unescape(encodeURIComponent(t)));
+      const body=resultText().replace(/\r?\n/g,'\r\n');
+      const eml='X-Unsent: 1\r\nSubject: =?UTF-8?B?'+b64u(title)+'?=\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n'+(b64u(body).match(/.{1,76}/g)||[]).join('\r\n')+'\r\n';
+      const url=URL.createObjectURL(new Blob([eml],{type:'message/rfc822'})), l=document.createElement('a');
+      l.href=url; l.download=(title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'resultat')+'.eml';
+      document.body.appendChild(l); l.click(); l.remove(); setTimeout(()=>URL.revokeObjectURL(url),2000);
+      flash(b,'Fichier .eml téléchargé');
+    }
     else if(a==='mail'){
       const body=(resultText()+'\n\nLien : '+shareUrl()).slice(0,1800);
       location.href='mailto:?subject='+encodeURIComponent((document.querySelector('h1,h4')||{}).textContent||document.title)+'&body='+encodeURIComponent(body);
     }
   });
+  if(window.TOOLS_SA){ // fichier autonome : seules l'impression et l'envoi par e-mail (.eml) sont proposés
+    const st=document.createElement('style'); st.textContent='[data-tool-action="link"],[data-tool-action="copy"]{display:none!important}'; document.head.appendChild(st);
+  }
   window.addEventListener('load',restore);
 })();
 
