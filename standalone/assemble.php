@@ -4,6 +4,7 @@
  * Variables reçues : $tools, $report, $groups, $catalog, $exclus, $natifs, $out, $feedbackTo, $bsCss, $bsJs, $faCss, $pdfLib, $portalCss, $common, $cache
  */
 require_once __DIR__ . '/rebrand.php';
+require_once __DIR__ . '/config.php';
 $keys = array_keys($tools);
 
 // ---------- 1. Traitement de chaque page d'outil ----------
@@ -27,6 +28,8 @@ function sa_process($html, $key, array $toolKeys, $portalCss, $common) {
     // habillage : retrait de la marque du portail, charte ABhD (feuille appliquée en dernier)
     $html = sa_rebrand($html);
     $html = preg_replace('~</head>~', '<style data-shared="theme"></style></head>', $html, 1);
+    // bureau domiciliaire : liste des agences prise dans la zone de configuration du fichier (la liste de la génération sert de repli)
+    $html = preg_replace('~const agencies = (\[.*?\]);(?= // « NOM)~s', 'const agencies = (window.TOOLS_SA && window.TOOLS_SA.agencies && window.TOOLS_SA.agencies.length) ? window.TOOLS_SA.agencies : $1;', $html);
     // point d'accroche de l'amorce (injectée à l'ouverture : outil courant, partage, routes de remplacement du serveur)
     $html = preg_replace('~<head>~', "<head>\n<!--SA-BOOT-->", $html, 1);
     return $html;
@@ -125,6 +128,7 @@ $sub = function ($pattern, $replacement, $subject, $what) { $n = 0; $r = preg_re
 $base = $sub('~<div id="accueil">.*?(?=\s*<!-- =+\s*BARRE SUPERIEURE)~s', $home . "\n", $base, 'bloc accueil');
 $base = $sub('~<div id="topbar" hidden>.*?</div>\s*(?=<!-- =+\s*MODULE 1)~s', $top . "\n\n", $base, 'barre supérieure');
 $base = $sub('~<!-- ===== NAVIGATION ===== -->\s*<script>.*?</script>~s', $frameModule . "\n" . $feedback . "\n" . $nav, $base, 'script de navigation');
+$base = preg_replace_callback('~(<meta name="viewport"[^>]*>)~', fn($m) => $m[1] . "\n" . sa_config_block($tools, $groups, $agences, $feedbackTo), $base, 1); // zone de configuration, tout en haut du fichier
 $base = $sub('~</style>~', "\n" . $css . "\n</style>", $base, 'feuille de style');
 $base = $sub('~</head>~', '<link rel="icon" type="image/png" href="' . $icon . '">' . "\n" . '<style id="sa-font">' . $fontCss . '</style>' . "\n" . '<style id="sa-fa">' . $faCss . "</style>\n</head>", $base, 'en-tête'); // icônes : une seule copie, réutilisée par les outils intégrés
 

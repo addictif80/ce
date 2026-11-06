@@ -827,19 +827,7 @@ Aucune donnée ne peut être enregistrée, et aucune donnée n'est stockée info
             <label for="f-agence">Agence</label>
             <select id="f-agence">
               <option value="">- Choisir une agence -</option>
-
-              <!-- MODELE POUR AJOUTER UNE AGENCE (copier la balise option ci-dessous, hors du commentaire) :
-              <option value="Nom de la ville"
-                data-a1="Numéro et rue"
-                data-a2="Code postal Ville"
-                data-tel="0X XX XX XX XX">Nom de la ville</option>
-              FIN DU MODELE -->
-
-              <!-- ====== LISTE DES AGENCES (exemples à remplacer par les vraies agences) ====== -->
-              <option value="Toulouse Centre" data-a1="1 Place du Capitole" data-a2="31000 Toulouse" data-tel="05 61 00 00 00">Toulouse Centre</option>
-              <option value="Toulouse Rangueil" data-a1="12 Avenue de l'URSS" data-a2="31400 Toulouse" data-tel="05 61 00 00 01">Toulouse Rangueil</option>
-              <option value="Tarbes" data-a1="15 Place de Verdun" data-a2="65000 Tarbes" data-tel="05 62 00 00 00">Tarbes</option>
-              <option value="Pau" data-a1="8 Rue du Maréchal Joffre" data-a2="64000 Pau" data-tel="05 59 00 00 00">Pau</option>
+              <!-- liste générée à l'ouverture à partir de la zone de configuration (début du fichier) -->
             </select>
           </div>
           <div class="infobox" id="info-agence"></div>
@@ -968,88 +956,7 @@ Aucune donnée ne peut être enregistrée, et aucune donnée n'est stockée info
             <label for="f-conseiller">Conseiller</label>
             <select id="f-conseiller">
               <option value="">- Choisir un conseiller -</option>
-
-              <!-- MODELE POUR AJOUTER UN CONSEILLER (copier la balise option ci-dessous, hors du commentaire) :
-              <option value="Prénom NOM"
-                data-prenom="Prénom"
-                data-nom="NOM"
-                data-poste="Intitulé du poste"
-                data-tel="0X XX XX XX XX"
-                data-mail="prenom.nom@cemp.caisse-epargne.fr">Prénom NOM</option>
-              FIN DU MODELE -->
-
-              <!-- ====== LISTE DES CONSEILLERS : ajouter les nouvelles lignes ci-dessous ====== -->
-
-              <option value="Isabelle LAVILLE"
-                data-prenom="Isabelle"
-                data-nom="LAVILLE"
-                data-poste="Directrice d'agence"
-                data-tel="05 81 16 00 67"
-                data-mail="isabelle.laville@cemp.caisse-epargne.fr">Isabelle LAVILLE</option>
-
-              <option value="Adrien BOCHARD"
-                data-prenom="Adrien"
-                data-nom="BOCHARD"
-                data-poste="Gestionnaire de clientèle"
-                data-tel="05 81 16 00 74"
-                data-mail="adrien.bochard@cemp.caisse-epargne.fr">Adrien BOCHARD</option>
-
-              <option value="Victoria ESTEVES"
-                data-prenom="Victoria"
-                data-nom="ESTEVES"
-                data-poste="Gestionnaire de clientèle"
-                data-tel="05 81 16 00 68"
-                data-mail="victoria.esteves@cemp.caisse-epargne.fr">Victoria ESTEVES</option>
-
-              <option value="Sandy MARCIE"
-                data-prenom="Sandy"
-                data-nom="MARCIE"
-                data-poste="Directrice d'agence"
-                data-tel="05 81 24 40 05"
-                data-mail="sandy.marcie@cemp.caisse-epargne.fr">Sandy MARCIE</option>
-
-              <option value="Marie REY"
-                data-prenom="Marie"
-                data-nom="REY"
-                data-poste="Gestionnaire de clientèle"
-                data-tel="05 81 24 40 01"
-                data-mail="marie.tible-rey@cemp.caisse-epargne.fr">Marie REY</option>
-
-              <option value="Auguste BAUCOURT"
-                data-prenom="Auguste"
-                data-nom="BAUCOURT"
-                data-poste="Gestionnaire de clientèle patrimoniale"
-                data-tel="05 81 24 40 06"
-                data-mail="auguste.baucourt@cemp.caisse-epargne.fr">Auguste BAUCOURT</option>
-
-              <option value="Frédéric LAFON"
-                data-prenom="Frédéric"
-                data-nom="LAFON"
-                data-poste="Gestionnaire de clientèle patrimoniale"
-                data-tel="05 81 24 40 03"
-                data-mail="frederic.lafon@cemp.caisse-epargne.fr">Frédéric LAFON</option>
-
-              <option value="Delphine FRANCOUAL"
-                data-prenom="Delphine"
-                data-nom="FRANCOUAL"
-                data-poste="Gestionnaire de clientèle"
-                data-tel="05 81 24 40 10"
-                data-mail="delphine.francoual@cemp.caisse-epargne.fr">Delphine FRANCOUAL</option>
-
-              <option value="Mickael LAIGRE"
-                data-prenom="Mickael"
-                data-nom="LAIGRE"
-                data-poste="Gestionnaire de clientèle"
-                data-tel="05 81 24 40 07"
-                data-mail="mickael.laigre@cemp.caisse-epargne.fr">Mickael LAIGRE</option>
-
-              <option value="Guillaume BRU"
-                data-prenom="Guillaume"
-                data-nom="BRU"
-                data-poste="Gestionnaire de clientèle professionnelle"
-                data-tel="05 81 24 40 04 - 06 46 07 01 22"
-                data-mail="guillaume.bru@cemp.caisse-epargne.fr">Guillaume BRU</option>
-
+              <!-- liste générée à l'ouverture à partir de la zone de configuration (début du fichier) -->
             </select>
           </div>
           <div class="infobox" id="info-conseiller"></div>
@@ -1193,7 +1100,7 @@ Aucune donnée ne peut être enregistrée, et aucune donnée n'est stockée info
    - Un texte contenant une apostrophe se met entre guillemets doubles.
    - Une virgule à la fin de chaque ligne, sauf la dernière.
    ============================================================ */
-var POLITIQUE_PONDERATION = [
+var POLITIQUE_PONDERATION_DEFAUT = [
   ['Revenus', 'Salaires nets CDI', 100, "Contrat à durée indéterminée, hors période d'essai"],
   ['Revenus', 'Salaires nets CDD', 80, "Contrat à durée déterminée"],
   ['Revenus', 'Locatifs', 90, "Le client met un bien en location RP"],
@@ -1216,16 +1123,18 @@ var POLITIQUE_PONDERATION = [
   ['Charges fixes', 'Autres charges fixes', 100, ""],
   ['Charges fixes', "Charges d'emprunt SCI Quote part", 0, ""]
 ];
+var POLITIQUE_PONDERATION = (window.CFG && window.CFG.ponderation && window.CFG.ponderation.length) ? window.CFG.ponderation : POLITIQUE_PONDERATION_DEFAUT;
 
 /* Postes affichés d'office à l'ouverture (noms identiques à ceux du tableau) */
-var LIGNES_PAR_DEFAUT = {
+var LIGNES_PAR_DEFAUT_DEFAUT = {
   rev: ['Salaires nets CDI'],
   cf: ['Crédit immobilier', 'Crédit(s) à la consommation', 'Loyer',
        'Cotisations bancaires', 'Assurance Auto', 'Assurance habitation']
 };
+var LIGNES_PAR_DEFAUT = (window.CFG && window.CFG.lignes && (window.CFG.lignes.rev.length || window.CFG.lignes.cf.length)) ? window.CFG.lignes : LIGNES_PAR_DEFAUT_DEFAUT;
 
 /* Repère affiché à côté du taux d'endettement, en % (modifiable) */
-var SEUIL_ENDETTEMENT = 35;
+var SEUIL_ENDETTEMENT = (window.CFG && window.CFG.seuil > 0) ? window.CFG.seuil : 35;
 
 var GROUPE_POLITIQUE = { rev: 'Revenus', cf: 'Charges fixes' };
 var AUTRE = '__autre__';
@@ -1874,13 +1783,14 @@ appliquerAffichage();
    - Texte entre guillemets doubles, sur une seule ligne.
    - Une virgule à la fin de chaque ligne, sauf la dernière.
    ============================================================ */
-var LISTE_POLITESSES = [
+var LISTE_POLITESSES_DEFAUT = [
   ['Salutations distinguées', "Veuillez agréer, [IDENT], l'expression de nos salutations distinguées."],
   ['Sentiments dévoués', "Nous vous prions d'agréer, [IDENT], l'expression de nos sentiments dévoués."],
   ['Cordiales salutations (attente de réponse)', "Dans l'attente de vous lire, veuillez agréer, [IDENT], l'expression de nos cordiales salutations."],
   ['Considération distinguée', "Veuillez agréer, [IDENT], l'assurance de notre considération distinguée."],
   ['Cordiales salutations', "Nous vous adressons, [IDENT], nos cordiales salutations."]
 ];
+var LISTE_POLITESSES = (window.CFG && window.CFG.politesses && window.CFG.politesses.length) ? window.CFG.politesses : LISTE_POLITESSES_DEFAUT;
 
 /* Construction automatique de la liste déroulante (ne pas modifier) */
 var POLITESSES = {};

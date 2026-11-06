@@ -32,6 +32,20 @@ if (($argv[1] ?? '') === '--zonage') { // export du zonage A/B/C (JSON) si la ba
     } catch (Throwable $e) {}
     exit(0);
 }
+if (($argv[1] ?? '') === '--agences') { // liste des agences (nom, numéro, adresse) : base si elle répond, sinon annuaire public
+    ini_set('display_errors', '0'); error_reporting(0);
+    function getDB() {
+        static $pdo = null;
+        if ($pdo === null) {
+            $dsn = getenv('CE_DB_DSN') ?: 'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4';
+            $pdo = new PDO($dsn, getenv('CE_DB_USER') !== false ? getenv('CE_DB_USER') : DB_USER, getenv('CE_DB_PASS') !== false ? getenv('CE_DB_PASS') : DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC, PDO::ATTR_TIMEOUT => 3]);
+        }
+        return $pdo;
+    }
+    require_once 'includes/config.php'; require_once 'includes/agences.php';
+    echo json_encode(array_map(fn($a) => [$a['nom'], $a['numero'], $a['adresse']], getAgencesFull(true)), JSON_UNESCAPED_UNICODE);
+    exit(0);
+}
 if (($argv[1] ?? '') === '--render') {
     $file = $argv[2] ?? '';
     $_SERVER += ['SCRIPT_NAME' => '/tools/' . basename($file), 'REQUEST_METHOD' => 'GET', 'REMOTE_ADDR' => '127.0.0.1', 'HTTP_HOST' => 'localhost', 'REQUEST_URI' => '/tools/' . basename($file)];
@@ -151,4 +165,8 @@ foreach ($exclus as $k => $why) $report[$k] = 'non inclus : ' . $why;
 $zon = shell_exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__FILE__) . ' --zonage 2>/dev/null');
 $zonage = (is_string($zon) && strlen($zon) > 50 && json_decode($zon) !== null) ? $zon : null;
 say($zonage ? 'Zonage embarqué : ' . round(strlen($zonage) / 1024) . ' Ko' : 'Zonage : non disponible (choix manuel de la zone dans les simulateurs)');
+// agences (zone de configuration du fichier)
+$ag = shell_exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__FILE__) . ' --agences 2>/dev/null');
+$agences = is_string($ag) ? (json_decode($ag, true) ?: []) : [];
+say('Agences : ' . count($agences));
 require __DIR__ . '/../standalone/assemble.php';

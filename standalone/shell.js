@@ -1,11 +1,45 @@
 (function () {
   'use strict';
-  /* Adresse prérenseignée du formulaire de retour : modifiable ici (ou à la génération : --feedback-to=adresse). */
   var FEEDBACK_TO = '';
 
   var $ = function (id) { return document.getElementById(id); };
   var D = JSON.parse($('sa-data').textContent), TOOLS = {}, ORDER = [];
-  if (D.feedbackTo) FEEDBACK_TO = D.feedbackTo;
+
+  /* ----- configuration : zone de texte au début du fichier (listes, réglages, outils affichés) ----- */
+  function cfgLines(id) { var e = $(id); return e ? e.textContent.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(function (l) { return l && l.charAt(0) !== '#'; }) : []; }
+  function cfgFields(l) { return l.split(';').map(function (x) { return x.trim(); }); }
+  function cfgKV(id) { var o = {}; cfgLines(id).forEach(function (l) { var m = /^(\w+)\s*:\s*(.*)$/.exec(l); if (m) o[m[1]] = m[2].replace(/\s+#.*$/, '').trim(); }); return o; }
+  var GEN = cfgKV('cfg-general'), OFF = {};
+  FEEDBACK_TO = 'adresse_retours' in GEN ? GEN.adresse_retours : (D.feedbackTo || '');
+  cfgLines('cfg-outils').forEach(function (l) { var m = /^(\w+)\s*:\s*(\S+)/.exec(l); if (m && /^(false|faux|non|0|off)$/i.test(m[2])) OFF[m[1]] = true; });
+  var GROUPES = { 'revenus': 'Revenus', 'charges fixes': 'Charges fixes' };
+  window.CFG = {
+    agences: cfgLines('cfg-agences').map(cfgFields).filter(function (f) { return f[0]; }).map(function (f) { return { nom: f[0], num: f[1] || '', a1: f[2] || '', a2: f[3] || '', tel: f[4] || '' }; }),
+    conseillers: cfgLines('cfg-conseillers').map(cfgFields).filter(function (f) { return f[0] || f[1]; }).map(function (f) { return { prenom: f[0] || '', nom: f[1] || '', poste: f[2] || '', tel: f[3] || '', mail: f[4] || '' }; }),
+    politesses: cfgLines('cfg-politesses').map(cfgFields).filter(function (f) { return f[0] && f[1]; }).map(function (f) { return [f[0], f.slice(1).join(' ; ')]; }),
+    ponderation: cfgLines('cfg-ponderation').map(cfgFields).filter(function (f) { return GROUPES[(f[0] || '').toLowerCase()] && f[1]; }).map(function (f) {
+      var n = parseFloat((f[2] || '').replace(',', '.')), r = [GROUPES[f[0].toLowerCase()], f[1], isNaN(n) ? 100 : Math.max(0, Math.min(200, n)), f[3] || ''];
+      if (/^cr[ée]dit$/i.test(f[4] || '')) r.push(true); return r; }),
+    lignes: { rev: [], cf: [] },
+    seuil: parseFloat(String(GEN.seuil_endettement || '').replace(',', '.')) || 0
+  };
+  cfgLines('cfg-lignes').map(cfgFields).forEach(function (f) { var g = GROUPES[(f[0] || '').toLowerCase()]; if (g && f[1]) window.CFG.lignes[g === 'Revenus' ? 'rev' : 'cf'].push(f[1]); });
+  // listes déroulantes du générateur de courrier, construites à partir de la configuration
+  (function () {
+    var sa = $('f-agence'), sc = $('f-conseiller');
+    function opt(sel, value, label, data) { var o = document.createElement('option'); o.value = value; o.textContent = label; Object.keys(data).forEach(function (k) { o.setAttribute('data-' + k, data[k]); }); sel.appendChild(o); }
+    if (sa) window.CFG.agences.forEach(function (a) { opt(sa, a.nom, a.nom, { a1: a.a1, a2: a.a2, tel: a.tel }); });
+    if (sc) window.CFG.conseillers.forEach(function (c) { var n = (c.prenom + ' ' + c.nom).trim(); opt(sc, n, n, { prenom: c.prenom, nom: c.nom, poste: c.poste, tel: c.tel, mail: c.mail }); });
+  })();
+  // outils masqués : retirés de l'accueil, des listes et de la navigation
+  D.tools = D.tools.filter(function (t) { return !OFF[t.key]; });
+  Object.keys(OFF).forEach(function (k) {
+    document.querySelectorAll('.carte-outil[data-open="' + k + '"], #top-select option[value="' + k + '"], #fb-outil option[value="' + k + '"]').forEach(function (n) { n.remove(); });
+  });
+  document.querySelectorAll('.groupe-accueil').forEach(function (g) { if (!g.querySelector('.carte-outil')) g.remove(); });
+  document.querySelectorAll('#top-select optgroup, #fb-outil optgroup').forEach(function (g) { if (!g.querySelector('option')) g.remove(); });
+
+  if (!FEEDBACK_TO && D.feedbackTo && !('adresse_retours' in GEN)) FEEDBACK_TO = D.feedbackTo;
   D.tools.forEach(function (t) { TOOLS[t.key] = t; ORDER.push(t.key); });
   var zonageObj = null;
   var accueil = $('accueil'), topbar = $('topbar'), frameMod = $('mod-frame'), natives = { budget: $('mod-budget'), courrier: $('mod-courrier') }, frames = {}, current = null;
@@ -17,8 +51,9 @@
   }
   function buildDoc(key, hash) {
     var t = TOOLS[key], S = D.shared; S.fa = $('sa-fa').textContent; if (!S.themeFull) S.themeFull = $('sa-font').textContent + S.theme;
+    var agc = key === 'bureau_dom' ? 'window.TOOLS_SA.agencies=parent.CE.agencyLabels();' : '';
     var zon = (S.zonage && /^(ptz|plan|scenarios|creditsspeciaux)$/.test(key)) ? 'window.TOOLS_SA.zonage=parent.CE.zonage();' : '';
-    var boot = '<script>window.TOOLS_SA={tool:' + JSON.stringify(key) + ',hash:' + JSON.stringify(hash || '') + ',routes:{},share:function(p){return parent.CE.share(' + JSON.stringify(key) + ',p);}};' + zon + S.shim.replace(/<\//g, '<\\/') + '<\/script>';
+    var boot = '<script>window.TOOLS_SA={tool:' + JSON.stringify(key) + ',hash:' + JSON.stringify(hash || '') + ',routes:{},share:function(p){return parent.CE.share(' + JSON.stringify(key) + ',p);}};' + zon + agc + S.shim.replace(/<\//g, '<\\/') + '<\/script>';
     return t.html.replace('<!--SA-BOOT-->', function () { return boot; })
       .replace(/<(style|script) data-shared="([\w-]+)"><\/\1>/g, function (m, tag, name) { var c = name === 'theme' ? S.themeFull : S[name]; return c === undefined ? m : '<' + tag + '>' + c + '</' + tag + '>'; });
   }
@@ -95,6 +130,7 @@
     home: function () { home(); },
     open: function (k) { open(k); },
     feedback: function (k) { openFeedback(k); },
+    agencyLabels: function () { return window.CFG.agences.map(function (a) { return a.nom + (a.num ? ' (' + a.num + ')' : ''); }); },
     zonage: function () { if (!zonageObj && D.shared.zonage) zonageObj = JSON.parse(D.shared.zonage); return zonageObj; },
     share: function (key, p) { return location.href.split('#')[0] + '#t=' + key + '&' + String(p).replace(/^#/, ''); }
   };

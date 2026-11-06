@@ -1,0 +1,7 @@
+Revenus ; Salaires nets CDI
+Charges fixes ; Crédit immobilier
+Charges fixes ; Crédit(s) à la consommation
+Charges fixes ; Loyer
+Charges fixes ; Cotisations bancaires
+Charges fixes ; Assurance Auto
+Charges fixes ; Assurance habitation

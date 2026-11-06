@@ -1,0 +1,10 @@
+Isabelle ; LAVILLE ; Directrice d'agence ; 05 81 16 00 67 ; isabelle.laville@cemp.caisse-epargne.fr
+Adrien ; BOCHARD ; Gestionnaire de clientèle ; 05 81 16 00 74 ; adrien.bochard@cemp.caisse-epargne.fr
+Victoria ; ESTEVES ; Gestionnaire de clientèle ; 05 81 16 00 68 ; victoria.esteves@cemp.caisse-epargne.fr
+Sandy ; MARCIE ; Directrice d'agence ; 05 81 24 40 05 ; sandy.marcie@cemp.caisse-epargne.fr
+Marie ; REY ; Gestionnaire de clientèle ; 05 81 24 40 01 ; marie.tible-rey@cemp.caisse-epargne.fr
+Auguste ; BAUCOURT ; Gestionnaire de clientèle patrimoniale ; 05 81 24 40 06 ; auguste.baucourt@cemp.caisse-epargne.fr
+Frédéric ; LAFON ; Gestionnaire de clientèle patrimoniale ; 05 81 24 40 03 ; frederic.lafon@cemp.caisse-epargne.fr
+Delphine ; FRANCOUAL ; Gestionnaire de clientèle ; 05 81 24 40 10 ; delphine.francoual@cemp.caisse-epargne.fr
+Mickael ; LAIGRE ; Gestionnaire de clientèle ; 05 81 24 40 07 ; mickael.laigre@cemp.caisse-epargne.fr
+Guillaume ; BRU ; Gestionnaire de clientèle professionnelle ; 05 81 24 40 04 - 06 46 07 01 22 ; guillaume.bru@cemp.caisse-epargne.fr

@@ -3,6 +3,18 @@
 `outils-conseiller.html` réunit **tous les outils de /tools dans un seul fichier** (CSS, scripts et polices embarqués) :
 il s'ouvre par double-clic, sans serveur, et peut être déposé sur un partage (OneDrive…).
 
+## Zone de configuration (tout ce qui se modifie à la main)
+Au tout début du fichier (balises `<script type="text/plain" id="cfg-...">`), en texte simple, une ligne par élément, champs séparés par `;`,
+`#` pour un commentaire, rien à protéger (apostrophes comprises). Une ligne mal écrite est ignorée : la page ne casse pas.
+- `cfg-general` : `adresse_retours:` (destinataire du .eml) et `seuil_endettement:`.
+- `cfg-outils` : `nom_de_l_outil:true` ou `nom_de_l_outil:false` pour afficher ou masquer un outil (accueil, navigation et formulaire de retour).
+- `cfg-agences` : Nom ; Numéro ; Adresse ; Code postal et ville ; Téléphone. Alimente le courrier et le bureau domiciliaire.
+- `cfg-conseillers` : signataires du courrier (Prénom ; NOM ; Poste ; Téléphone ; E-mail).
+- `cfg-politesses` : formules de politesse du courrier.
+- `cfg-ponderation` et `cfg-lignes` : pondérations du budget (avec `credit` en dernière colonne pour un crédit) et postes affichés d'office.
+Les valeurs de départ viennent de `standalone/config/*.txt` (et de la liste des agences du portail à la génération).
+Barèmes, mémos et pièces justificatives ne sont pas dans cette zone : ils se gèrent dans l'administration, puis le fichier est régénéré.
+
 ## Charte graphique
 Le fichier suit la charte du site ABhD.fr : indigo `#24285b`, jaune `#ffd200`, police Raleway, logo ABhD (fichiers dans `standalone/assets/`).
 Aucune référence à la marque du portail : le générateur retire logos, noms, mentions légales et couleurs (`standalone/rebrand.php`)

@@ -1,0 +1,21 @@
+Revenus ; Salaires nets CDI ; 100 ; Contrat à durée indéterminée, hors période d'essai
+Revenus ; Salaires nets CDD ; 80 ; Contrat à durée déterminée
+Revenus ; Locatifs ; 90 ; Le client met un bien en location RP
+Revenus ; Pension alimentaire reçue ; 100 ; Pension alimentaire versée par le client
+Revenus ; Retraites / pensions / rentes ; 100 ; Retraite, pension invalidité
+Revenus ; Allocations familiales ; 70 ; CMG, Prime d'activité
+Revenus ; Revenus variables ; 90 ; 
+Revenus ; Revenus de valeurs mobilières ; 70 ; 
+Revenus ; Allocations logement ; 80 ; APL, ALS
+Revenus ; Revenus fonciers, Quote part SCI ; 0 ; 
+Revenus ; Autres revenus fixes ; 100 ; 
+Charges fixes ; Crédit immobilier ; 100 ;  ; credit
+Charges fixes ; Crédit(s) à la consommation ; 100 ;  ; credit
+Charges fixes ; Loyer ; 100 ; 
+Charges fixes ; Cotisations bancaires ; 100 ; 
+Charges fixes ; Assurance Auto ; 100 ; 
+Charges fixes ; Assurance habitation ; 100 ; 
+Charges fixes ; Crédit dont le client est caution ; 10 ; 
+Charges fixes ; Impôts et taxes ; 100 ; 
+Charges fixes ; Autres charges fixes ; 100 ; 
+Charges fixes ; Charges d'emprunt SCI Quote part ; 0 ; 

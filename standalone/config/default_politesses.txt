@@ -1,0 +1,5 @@
+Salutations distinguées ; Veuillez agréer, [IDENT], l'expression de nos salutations distinguées.
+Sentiments dévoués ; Nous vous prions d'agréer, [IDENT], l'expression de nos sentiments dévoués.
+Cordiales salutations (attente de réponse) ; Dans l'attente de vous lire, veuillez agréer, [IDENT], l'expression de nos cordiales salutations.
+Considération distinguée ; Veuillez agréer, [IDENT], l'assurance de notre considération distinguée.
+Cordiales salutations ; Nous vous adressons, [IDENT], nos cordiales salutations.
