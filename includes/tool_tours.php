@@ -174,6 +174,21 @@ function toolTours() {
             ['fa-play', 'Présentez', 'Plein écran avec transitions animées ; flèches du clavier pour avancer.'],
             ['fa-file-export', 'Exportez', 'PowerPoint (.pptx) ou PDF ; enregistrez le brouillon sur votre ordinateur.']],
             ['Double-clic sur un texte pour le modifier.', 'Rien n\'est conservé sur le serveur : pensez à enregistrer le fichier sur votre ordinateur.']),
+        'fiche_instances' => tourDef('fa-hourglass-half', 'Fiche d\'instances', 'Une feuille A4 pour suivre vos instances, sur papier ou à l\'écran.', [
+            ['fa-sliders', 'Réglez la feuille', 'Conseiller, agence, période, nombre de lignes et format (paysage ou portrait).'],
+            ['fa-print', 'Imprimez en A4', 'Choisissez l\'échelle 100 % dans la fenêtre d\'impression.'],
+            ['fa-paper-plane', 'Envoyez-les à un collègue', 'Avant un congé, un message prêt à envoyer reprend vos instances.']],
+            ['Les lignes vides s\'impriment comme des cases à remplir.', 'Rien n\'est enregistré : ni sur le serveur, ni dans le navigateur.']),
+        'fiche_production' => tourDef('fa-chart-line', 'Fiche de production', 'Une feuille A4 pour noter vos rendez-vous et vos ventes.', [
+            ['fa-sliders', 'Réglez la feuille', 'Conseiller, agence, période, nombre de lignes et format (paysage ou portrait).'],
+            ['fa-print', 'Imprimez en A4', 'Choisissez l\'échelle 100 % dans la fenêtre d\'impression.'],
+            ['fa-pen', 'Remplissez à la main ou à l\'écran', 'Les cases se remplissent aussi à l\'écran, avant impression.']],
+            ['Les lignes vides s\'impriment comme des cases à remplir.', 'Rien n\'est enregistré : ni sur le serveur, ni dans le navigateur.']),
+        'fiche_phoning' => tourDef('fa-phone-volume', 'Fiche de phoning', 'Une feuille A4 pour tenir une séance d\'appels et en faire le bilan.', [
+            ['fa-sliders', 'Réglez la feuille', 'Conseiller, agence, période, nombre de lignes et format (paysage ou portrait).'],
+            ['fa-print', 'Imprimez en A4', 'Choisissez l\'échelle 100 % dans la fenêtre d\'impression.'],
+            ['fa-pen', 'Remplissez à la main ou à l\'écran', 'Les cases se remplissent aussi à l\'écran, avant impression.']],
+            ['Les lignes vides s\'impriment comme des cases à remplir.', 'Rien n\'est enregistré : ni sur le serveur, ni dans le navigateur.']),
         'disc' => tourDef('fa-user-gear', 'Test DISC', 'Découvrez votre style de comportement et celui de vos interlocuteurs.', [
             ['fa-hand-pointer', 'Répondez à 24 séries', 'Dans chaque série, choisissez le qualificatif qui vous ressemble le plus et celui qui vous ressemble le moins.'],
             ['fa-chart-pie', 'Lisez votre profil', 'Quatre scores (D, I, S, C), un radar animé, vos forces et vos points de vigilance.'],

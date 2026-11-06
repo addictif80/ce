@@ -308,7 +308,7 @@ function getDefaultMenuItems() {
         ['item_key' => 'activite', 'parent_key' => null, 'label' => 'Mon activité', 'icon' => 'fa-briefcase', 'url' => null, 'uri_patterns' => 'instances,rappels,demandes_clients,offres,interets_clients,rappels_clients,signatures,envoi_documents,kanban,gestion_portefeuille,fiche_client', 'ordre' => 1],
         ['item_key' => 'formation', 'parent_key' => null, 'label' => 'Formation', 'icon' => 'fa-graduation-cap', 'url' => null, 'uri_patterns' => 'formations', 'ordre' => 2],
         ['item_key' => 'commercial', 'parent_key' => null, 'label' => 'Commercial', 'icon' => 'fa-handshake', 'url' => null, 'uri_patterns' => 'production,phoning,eai,mobilites,objectifs', 'ordre' => 3],
-        ['item_key' => 'outils', 'parent_key' => null, 'label' => 'Outils', 'icon' => 'fa-tools', 'url' => null, 'uri_patterns' => 'credit_immo,calculateur,courriers,courriers_internes,blocnotes,procedures,bureau_dom,retraits,dpe,/rge/,/capacite/,/notaire/,/ptz/,/rachat/,/pieces/,/modules/pdf/,/modules/stock/,/creditsspeciaux/,/modules/plan/,/modules/scenarios/,/demo_digital/,/assistant_ia/,/disc/,/documents/,rdv_modeles', 'ordre' => 4],
+        ['item_key' => 'outils', 'parent_key' => null, 'label' => 'Outils', 'icon' => 'fa-tools', 'url' => null, 'uri_patterns' => 'credit_immo,calculateur,courriers,courriers_internes,blocnotes,procedures,bureau_dom,retraits,dpe,/rge/,/capacite/,/notaire/,/ptz/,/rachat/,/pieces/,/modules/pdf/,/modules/stock/,/creditsspeciaux/,/modules/plan/,/modules/scenarios/,/demo_digital/,/assistant_ia/,/disc/,/fiches/,/documents/,rdv_modeles', 'ordre' => 4],
         ['item_key' => 'references', 'parent_key' => null, 'label' => 'Références', 'icon' => 'fa-bookmark', 'url' => null, 'uri_patterns' => '/codes/,/contacts/', 'ordre' => 5],
         // Items - Mon activité
         ['item_key' => 'fiche_client', 'parent_key' => 'activite', 'label' => 'Fiche client 360°', 'icon' => 'fa-address-card', 'url' => '/modules/fiche_client/index.php', 'uri_patterns' => 'fiche_client', 'ordre' => -1],
@@ -357,6 +357,7 @@ function getDefaultMenuItems() {
         ['item_key' => 'demo_digital', 'parent_key' => 'outils', 'label' => 'Démo banque en ligne', 'icon' => 'fa-display', 'url' => '/modules/demo_digital/index.php', 'uri_patterns' => '/demo_digital/', 'ordre' => 22],
         ['item_key' => 'assistant_ia', 'parent_key' => 'outils', 'label' => 'Assistant IA', 'icon' => 'fa-robot', 'url' => '/modules/assistant_ia/index.php', 'uri_patterns' => '/assistant_ia/', 'ordre' => 23],
         ['item_key' => 'disc', 'parent_key' => 'outils', 'label' => 'Test DISC', 'icon' => 'fa-user-gear', 'url' => '/modules/disc/index.php', 'uri_patterns' => '/disc/', 'ordre' => 24],
+        ['item_key' => 'fiches', 'parent_key' => 'outils', 'label' => 'Fiches à imprimer', 'icon' => 'fa-print', 'url' => '/modules/fiches/index.php', 'uri_patterns' => '/fiches/', 'ordre' => 26],
         ['item_key' => 'documents', 'parent_key' => 'outils', 'label' => 'Documents (tableur, présentation)', 'icon' => 'fa-folder-open', 'url' => '/modules/documents/index.php', 'uri_patterns' => '/documents/', 'ordre' => 25],
         ['item_key' => 'dpe', 'parent_key' => 'outils', 'label' => 'Recherche DPE', 'icon' => 'fa-leaf', 'url' => '/modules/dpe/index.php', 'uri_patterns' => '/dpe/', 'ordre' => 10],
         // Items - Références
@@ -1055,6 +1056,24 @@ function getPublicToolsCatalog() {
             'label' => 'Présentation', 'icon' => 'fa-display', 'url' => 'presentation.php', 'default' => true,
             'description' => 'Créez des diapositives (texte, images, tableaux, graphiques), présentez en plein écran et exportez en PowerPoint ou en PDF.',
             'note' => 'Votre document reste dans votre navigateur : rien n\'est envoyé ni conservé sur le serveur.',
+        ],
+        'fiche_instances' => [
+            'added' => '2026-11-07',
+            'label' => 'Fiche d\'instances à imprimer', 'icon' => 'fa-hourglass-half', 'url' => 'fiche_instances.php', 'default' => true,
+            'description' => 'Maquette A4 de la liste des instances (client, échéance, catégorie, détails, statut), à imprimer ou à envoyer par e-mail à un collaborateur avant un congé.',
+            'note' => 'La feuille se prépare dans votre navigateur : rien n\'est envoyé ni conservé.',
+        ],
+        'fiche_production' => [
+            'added' => '2026-11-07',
+            'label' => 'Fiche de production à imprimer', 'icon' => 'fa-chart-line', 'url' => 'fiche_production.php', 'default' => true,
+            'description' => 'Maquette A4 de suivi de la production : date du rendez-vous, catégorie, produit vendu, montant ou nombre, détails.',
+            'note' => 'La feuille se prépare dans votre navigateur : rien n\'est envoyé ni conservé.',
+        ],
+        'fiche_phoning' => [
+            'added' => '2026-11-07',
+            'label' => 'Fiche de phoning à imprimer', 'icon' => 'fa-phone-volume', 'url' => 'fiche_phoning.php', 'default' => true,
+            'description' => 'Maquette A4 d\'une séance de phoning : appels, résultat, rendez-vous obtenus, motif, ANV, bilan de la séance.',
+            'note' => 'La feuille se prépare dans votre navigateur : rien n\'est envoyé ni conservé.',
         ],
         'disc' => [
             'added' => '2026-10-22',
