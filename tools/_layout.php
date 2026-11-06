@@ -12,10 +12,13 @@ require_once __DIR__ . '/../includes/audit.php';
 
 function toolsHeader($title, $key = null, $extraHead = '') {
     $GLOBALS['toolsCurrentKey'] = $key;
-    if ($key !== null) requirePublicTool($key);
-    elseif (empty($GLOBALS['toolsNoGate'])) requireToolsAccess();
-    if ($key !== null) statsHit($key, 'view'); elseif (empty($GLOBALS['toolsNoGate'])) statsHit('accueil', 'view');
-    if ($key !== null || empty($GLOBALS['toolsNoGate'])) auditServer($key ?? 'accueil', 'page', $title);
+    $SA = defined('TOOLS_STANDALONE'); // génération du fichier HTML autonome (scripts/build_standalone.php) : ni base de données, ni statistiques, ni journal
+    if (!$SA) {
+        if ($key !== null) requirePublicTool($key);
+        elseif (empty($GLOBALS['toolsNoGate'])) requireToolsAccess();
+        if ($key !== null) statsHit($key, 'view'); elseif (empty($GLOBALS['toolsNoGate'])) statsHit('accueil', 'view');
+        if ($key !== null || empty($GLOBALS['toolsNoGate'])) auditServer($key ?? 'accueil', 'page', $title);
+    }
     ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -52,20 +55,22 @@ function toolsHeader($title, $key = null, $extraHead = '') {
     <div class="container d-flex justify-content-between align-items-center flex-wrap gap-2">
         <h1 class="h3 mb-0"><?= e($title) ?></h1>
         <div class="d-flex gap-2 align-items-center flex-wrap">
-            <?php if (empty($GLOBALS['toolsNoGate'])): ?>
+            <?php if (empty($GLOBALS['toolsNoGate']) && !$SA): ?>
             <form class="no-client" action="<?= $key === null || strpos($_SERVER['SCRIPT_NAME'] ?? '', '/modules/') === false ? '' : '../../tools/' ?>search.php" method="get" class="d-flex" role="search">
                 <input type="search" name="q" class="form-control form-control-sm" placeholder="Rechercher dans les outils…" minlength="2" required value="<?= e($_GET['q'] ?? '') ?>" style="min-width:200px" aria-label="Recherche">
                 <button class="btn btn-sm btn-light ms-1" aria-label="Rechercher"><i class="fas fa-search"></i></button>
             </form>
             <?php endif; ?>
-            <?php if ($key !== null): ?>
+            <?php if ($key !== null && !$SA): ?>
             <a href="./" class="btn btn-sm btn-light"><i class="fas fa-th-large me-1"></i>Tous les outils</a>
             <?php endif; ?>
             <?php if ($key !== null && function_exists('toolTours') && isset(toolTours()[$key])): ?>
             <button type="button" class="btn btn-sm btn-light no-client" data-tour="<?= e($key) ?>"><i class="fas fa-circle-question me-1"></i>Comment ça marche ?</button>
             <?php endif; ?>
-            <?php if (empty($GLOBALS['toolsNoGate'])): ?>
+            <?php if (empty($GLOBALS['toolsNoGate']) && !$SA): ?>
             <a href="<?= strpos($_SERVER['SCRIPT_NAME'] ?? '', '/modules/') === false ? '' : '../../tools/' ?>nouveautes.php" class="btn btn-sm btn-light tools-hbtn no-client" id="newsBtn" data-latest="<?= e(function_exists('newsLatestDate') ? newsLatestDate() : '') ?>"><i class="fas fa-bullhorn me-1"></i>Quoi de neuf<span class="nb">nouveau</span></a>
+            <?php endif; ?>
+            <?php if (empty($GLOBALS['toolsNoGate'])): ?>
             <button type="button" class="btn btn-sm btn-light" id="f2fBtn" title="Agrandit l'affichage et masque les éléments internes pour montrer l'écran au client"><i class="fas fa-handshake me-1"></i>Mode client</button>
             <?php endif; ?>
         </div>
@@ -91,7 +96,8 @@ function toolsFooter() {
 <?php }
     if ($key) renderToolTour($key);
     ?>
-<script>window.TOOLS_AUDIT={tool:<?= json_encode($key ?? 'accueil') ?>,url:'audit.php'};<?php readfile(__DIR__ . '/../assets/js/tools-audit.js'); ?></script>
+<?php if (!defined('TOOLS_STANDALONE')): ?><script>window.TOOLS_AUDIT={tool:<?= json_encode($key ?? 'accueil') ?>,url:'audit.php'};<?php readfile(__DIR__ . '/../assets/js/tools-audit.js'); ?></script>
+<?php endif; ?>
 <?php // Impression : pas d'en-tête (date, titre de la page) ni de pied de page (adresse) ajoutés par le navigateur ?>
 <style>@page{margin:0}@media print{.tp-frame{width:100%;border-collapse:collapse}.tp-frame>thead>tr>td,.tp-frame>tfoot>tr>td{height:14mm;padding:0!important;border:0!important}.tp-frame>tbody>tr>td{padding:0 15mm!important;border:0!important;text-align:left!important;vertical-align:top}}</style>
 <script>
@@ -130,6 +136,13 @@ function toolsFooter() {
 </script>
 <?php
     if (!empty($GLOBALS['toolsNoFeedbackLink'])) { echo "</body>\n</html>\n"; return; } ?>
+<?php if (defined('TOOLS_STANDALONE')): ?>
+<div class="container text-center text-muted small my-4 no-print no-client">
+    <a href="#" data-sa="feedback" data-tool="<?= e($key ?? '') ?>" class="text-muted"><i class="fas fa-comment-dots me-1"></i>Un problème, une idée ? Écrire un retour (fichier e-mail à envoyer)</a>
+</div>
+</body>
+</html>
+<?php return; endif; ?>
 <div class="container text-center text-muted small my-4 no-print no-client">
     <a href="feedback.php<?= $key ? '?tool=' . urlencode($key) : '' ?>" class="text-muted"><i class="fas fa-comment-dots me-1"></i>Un problème, une idée ? Envoyer un retour à l'administrateur</a>
 </div>

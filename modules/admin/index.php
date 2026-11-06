@@ -672,7 +672,7 @@ try {
         'agence_saved' => 'Agence enregistrée.', 'agence_deleted' => 'Agence supprimée.', 'agence_invalide' => 'Le nom de l\'agence est obligatoire.', 'agence_doublon' => 'Une agence porte déjà ce nom.', 'sp_imported' => 'Fiches service-public.fr importées.', 'sp_failed' => 'Import service-public.fr en échec : voir le détail dans la carte.', 'agences_imported' => 'Agences importées.', 'agences_filled' => 'Adresses et numéros complétés (voir le détail ci-dessous).', 'assist_saved' => 'Réglages de l\'aide à la rédaction enregistrés.', 'popup_saved' => 'Popup enregistrée.', 'news_saved' => 'Nouveauté enregistrée.', 'news_deleted' => 'Nouveauté supprimée.', 'zonage_vide' => 'Liste des communes vidée.',
         'terms_saved' => 'Conditions d\'utilisation enregistrées.',
         'bareme_saved' => 'Barème enregistré.', 'bareme_reset' => 'Barème remis aux valeurs par défaut.',
-        'bareme_invalide' => 'Barème refusé : voir le message sous le barème concerné.', 'bareme_inconnu' => 'Barème inconnu.', 'bareme_ia_domains' => 'Liste des sites autorisés enregistrée.',
+        'bareme_invalide' => 'Barème refusé : voir le message sous le barème concerné.', 'bareme_inconnu' => 'Barème inconnu.', 'bareme_ia_domains' => 'Liste des sites autorisés enregistrée.', 'standalone_to_invalid' => 'Adresse e-mail du destinataire des retours invalide.', 'standalone_failed' => 'La génération du fichier autonome a échoué : voir le détail sous le bouton.',
         'pieces_saved' => 'Modèle de pièces enregistré.', 'pieces_deleted' => 'Modèle de pièces supprimé.',
         'pieces_invalide' => 'Un nom et au moins une pièce (« Groupe ; Libellé ») sont requis.',
     ];
@@ -2071,6 +2071,20 @@ function editMenuItem(id) {
 ensurePublicTemplatesColumn();
 $allTemplates = $db->query("SELECT m.id, m.nom_modele, m.objet, m.public_tools, u.prenom, u.nom FROM modeles_courriers m LEFT JOIN users u ON m.user_id = u.id WHERE m.approved = 1 ORDER BY m.nom_modele")->fetchAll();
 ?>
+<div class="data-table-container mb-4">
+    <div class="data-table-header"><h3><i class="fas fa-file-code"></i> Fichier HTML autonome « Outils conseiller »</h3></div>
+    <div class="p-3">
+        <p class="text-muted">Génère <strong>un seul fichier HTML</strong> qui contient tous les outils de /tools (CSS, scripts et polices embarqués) et fonctionne sans serveur : à déposer sur un partage (OneDrive…). Il embarque les <strong>barèmes tels qu'ils sont enregistrés ici</strong>, la liste des agences, le zonage A/B/C s'il a été importé, et les procédures, codes et contacts validés. Les données sont figées à la date de génération : régénérez le fichier après chaque mise à jour des barèmes.</p>
+        <p class="small text-muted mb-2">Non inclus (ils exigent le serveur) : assistant IA et recherche service-public.fr. Les recherches RGE et DPE interrogent directement l'ADEME et demandent un accès à internet. La génération télécharge une fois les bibliothèques (Bootstrap, icônes, cartes) puis les garde en cache : le serveur doit pouvoir sortir sur internet la première fois (environ 30 secondes).</p>
+        <?php if (!empty($_SESSION['standalone_log'])): ?><pre class="alert alert-danger small" style="white-space:pre-wrap"><?= e($_SESSION['standalone_log']) ?></pre><?php unset($_SESSION['standalone_log']); endif; ?>
+        <form method="post" class="row g-2 align-items-end">
+            <input type="hidden" name="action" value="build_standalone">
+            <div class="col-md-6"><label class="form-label">Adresse e-mail qui reçoit les retours des utilisateurs <span class="text-muted">(facultatif)</span></label>
+                <input type="email" name="feedback_to" class="form-control" maxlength="150" value="<?= e(getToolsSetting('standalone_feedback_to', '')) ?>" placeholder="prérempli dans le fichier .eml généré par le formulaire de retour"></div>
+            <div class="col-md-6"><button class="btn btn-ce"><i class="fas fa-download"></i> Générer et télécharger le fichier</button></div>
+        </form>
+    </div>
+</div>
 <div class="data-table-container mb-4">
     <div class="data-table-header">
         <h3><i class="fas fa-envelope-open-text"></i> Modèles de courrier disponibles sur /tools</h3>

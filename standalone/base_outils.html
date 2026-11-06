@@ -1,0 +1,2130 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Outils conseiller - Caisse d'Epargne Midi Pyrénées</title>
+<style>
+/* ============================================================
+   BASE COMMUNE
+   ============================================================ */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
+:root { --topbar-h: 56px; }
+
+body {
+  font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+  background: #e9edf3;
+  color: #1f2d3d;
+}
+
+/* ============================================================
+   ACCUEIL : DEUX GROS BOUTONS
+   ============================================================ */
+#accueil {
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 34px; padding: 30px 20px;
+  background: linear-gradient(135deg, #f3eef8 0%, #e8eef6 100%);
+}
+#accueil-entete { text-align: center; }
+#accueil-entete img { max-width: 220px; height: auto; display: block; margin: 0 auto 14px; }
+#accueil-entete h1 { font-size: 28px; color: #3b2a4d; }
+#accueil-entete p { font-size: 14px; color: #6b7785; margin-top: 4px; }
+
+#accueil-boutons { display: flex; flex-wrap: wrap; gap: 28px; justify-content: center; }
+.gros-bouton {
+  width: 320px; min-height: 270px;
+  background: #fff; border: 2px solid #dcd3e6; border-radius: 16px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px; padding: 28px 22px;
+  cursor: pointer; font-family: inherit;
+  box-shadow: 0 4px 18px rgba(0,0,0,.08);
+  transition: transform .15s, box-shadow .15s, border-color .15s;
+}
+.gros-bouton:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 28px rgba(0,0,0,.14);
+  border-color: var(--accent);
+}
+.gros-bouton:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.gros-bouton svg { width: 88px; height: 88px; color: var(--accent); }
+.gros-bouton .gb-titre { font-size: 22px; font-weight: 700; color: var(--accent); }
+.gros-bouton .gb-desc { font-size: 13px; color: #6b7785; text-align: center; line-height: 1.5; }
+#gb-budget { --accent: #1f3a5f; }
+#gb-courrier { --accent: #6F2C91; }
+
+/* ============================================================
+   BARRE SUPERIEURE
+   ============================================================ */
+#topbar {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: var(--topbar-h);
+  background: #fff; border-bottom: 2px solid #d9dee6;
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 16px; z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+}
+#topbar .marque {
+  display: flex; align-items: center; gap: 10px;
+  font-weight: 700; font-size: 14px; color: #3b2a4d; margin-right: 18px;
+}
+#topbar .marque img { height: 30px; width: auto; }
+.btn-top {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 18px; border-radius: 8px;
+  border: 2px solid #d9dee6; background: #fff; color: #3b4a5c;
+  font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer;
+}
+.btn-top svg { width: 20px; height: 20px; }
+.btn-top:hover { background: #f4f6f9; }
+#top-budget.actif { background: #1f3a5f; border-color: #1f3a5f; color: #fff; }
+#top-courrier.actif { background: #6F2C91; border-color: #6F2C91; color: #fff; }
+
+.module { min-height: 100vh; padding-top: var(--topbar-h); }
+
+/* ============================================================
+   MODULE BUDGET (tout est limité à #mod-budget)
+   ============================================================ */
+#mod-budget {
+  background: #eef1f5;
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 14px; line-height: 1.45; color: #1f2d3d;
+}
+
+#mod-budget #page { max-width: 1400px; margin: 0 auto; padding: 16px 16px 30px; }
+
+#mod-budget #entete {
+  background: #1f3a5f; color: #fff;
+  border-radius: 8px; padding: 14px 24px; margin-bottom: 16px;
+}
+#mod-budget #entete h1 { font-size: 20px; }
+#mod-budget #entete p { font-size: 12px; opacity: .8; margin-top: 2px; }
+
+#mod-budget #colonnes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px; align-items: start;
+}
+#mod-budget #col-synthese {
+  position: sticky;
+  top: calc(var(--topbar-h) + 12px);
+  max-height: calc(100vh - var(--topbar-h) - 24px);
+  overflow-y: auto; padding-right: 2px;
+}
+
+#mod-budget .carte, #mod-budget .personne {
+  background: #fff; border-radius: 8px;
+  box-shadow: 0 1px 6px rgba(0,0,0,.08);
+  padding: 16px 20px; margin-bottom: 16px;
+}
+#mod-budget .carte h2, #mod-budget .personne h2 {
+  font-size: 13px; text-transform: uppercase; letter-spacing: .06em;
+  color: #1f3a5f; margin-bottom: 12px;
+}
+
+#mod-budget .grille3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 12px; }
+#mod-budget .champ label {
+  display: block; font-size: 11px; font-weight: 600;
+  text-transform: uppercase; color: #6b7785; margin-bottom: 3px;
+}
+#mod-budget input[type=text], #mod-budget input[type=number] {
+  width: 100%; border: 1px solid #cfd6df; border-radius: 5px;
+  padding: 7px 9px; font-size: 14px; font-family: inherit;
+  background: #fff; color: inherit;
+}
+#mod-budget input:focus, #mod-budget select:focus { outline: 2px solid #9db6d6; border-color: #1f3a5f; }
+#mod-budget input[type=number] { text-align: right; }
+#mod-budget .lecture { padding: 7px 9px; background: #f4f6f9; border: 1px solid #e1e6ec; border-radius: 5px; }
+
+#mod-budget .cases { display: flex; flex-wrap: wrap; gap: 8px 28px; }
+#mod-budget .case { display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; padding-top: 4px; }
+#mod-budget .case input { width: 17px; height: 17px; accent-color: #1f3a5f; }
+
+#mod-budget #personnes { display: flex; flex-direction: column; gap: 16px; }
+#mod-budget #personnes .personne { margin-bottom: 0; }
+
+#mod-budget .groupe { border: 1px solid #e1e6ec; border-radius: 6px; overflow: hidden; margin-bottom: 14px; }
+#mod-budget .groupe:last-child { margin-bottom: 0; }
+#mod-budget .groupe-titre {
+  padding: 7px 12px; font-size: 12px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .05em; color: #fff;
+}
+#mod-budget .g-rev .groupe-titre { background: #2e7d5b; }
+#mod-budget .g-cf  .groupe-titre { background: #a34a3d; }
+#mod-budget .g-cv  .groupe-titre { background: #b9742a; }
+#mod-budget .g-ep  .groupe-titre { background: #2f6aa3; }
+#mod-budget .groupe-corps { padding: 12px; }
+
+#mod-budget .lp {
+  border: 1px solid #e1e6ec; border-radius: 6px;
+  padding: 8px 10px; margin-bottom: 8px; background: #fafbfc;
+}
+#mod-budget .lp-tete {
+  display: grid; grid-template-columns: minmax(0, 1fr) 78px 30px;
+  gap: 8px; align-items: center; margin-bottom: 6px;
+}
+#mod-budget .lp-tete select {
+  width: 100%; border: 1px solid #cfd6df; border-radius: 5px;
+  padding: 7px 6px; font-size: 13px; font-family: inherit;
+  background: #fff; color: inherit;
+}
+#mod-budget #personnes.sans-pond .lp-tete { grid-template-columns: minmax(0, 1fr) 30px; }
+#mod-budget #personnes.sans-pond .pond { display: none; }
+
+#mod-budget .lp-legende {
+  font-size: 10.5px; text-transform: uppercase; font-weight: 600;
+  color: #6b7785; margin-bottom: 4px; padding: 0 11px;
+}
+#mod-budget .lp-legende .pond { text-align: right; }
+#mod-budget .lp-legende .pond::after { content: ''; }
+
+#mod-budget .lp-autre { margin-bottom: 6px; }
+#mod-budget .lp-autre input { font-size: 13px; }
+
+#mod-budget .lp-montants { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+#mod-budget .montant-item { display: flex; align-items: center; gap: 2px; }
+#mod-budget .montant-item input { width: 105px; }
+#mod-budget .btn-mini-x {
+  width: 20px; height: 30px; border: none; background: none;
+  color: #a33; cursor: pointer; font-size: 15px;
+}
+#mod-budget .btn-mini-x:hover { color: #d00; }
+#mod-budget .btn-mini {
+  border: 1px dashed #b7c0cc; background: none; color: #5b6878;
+  border-radius: 5px; padding: 6px 9px; font-size: 12px; cursor: pointer;
+}
+#mod-budget .btn-mini:hover { border-color: #1f3a5f; color: #1f3a5f; }
+#mod-budget .lp-sous { margin-left: auto; font-weight: 700; font-size: 12.5px; white-space: nowrap; }
+
+#mod-budget .pond { position: relative; }
+#mod-budget .pond input { padding-right: 22px; background: #fffbea; border-color: #e3d9a8; }
+#mod-budget .pond::after {
+  content: '%'; position: absolute; right: 8px; top: 50%;
+  transform: translateY(-50%); color: #6b7785; font-size: 12px; pointer-events: none;
+}
+
+#mod-budget .ligne-dyn { display: grid; grid-template-columns: 1fr 130px 30px; gap: 8px; align-items: center; margin-bottom: 7px; }
+#mod-budget .btn-x {
+  height: 33px; border: 1px solid #e0b4b4; background: #fdf1f1; color: #a33;
+  border-radius: 5px; cursor: pointer; font-size: 16px;
+}
+#mod-budget .btn-x:hover { background: #fadada; }
+#mod-budget .btn-ajout {
+  width: 100%; background: none; border: 1px dashed #b7c0cc; color: #5b6878;
+  border-radius: 5px; padding: 7px; cursor: pointer; font-size: 13px; margin-top: 2px;
+}
+#mod-budget .btn-ajout:hover { border-color: #1f3a5f; color: #1f3a5f; }
+#mod-budget .total {
+  display: flex; justify-content: space-between;
+  border-top: 1px solid #e1e6ec; margin-top: 8px; padding-top: 7px; font-weight: 700;
+}
+#mod-budget .total-brut {
+  display: flex; justify-content: space-between;
+  border-top: 1px solid #e1e6ec; margin-top: 8px; padding-top: 7px;
+  font-weight: 700;
+}
+#mod-budget .total-brut + .total { border-top: none; margin-top: 3px; padding-top: 0; color: #8a6d0b; }
+#mod-budget #personnes.sans-pond .total-brut { display: none; }
+#mod-budget #personnes.sans-pond .total-brut + .total { border-top: 1px solid #e1e6ec; margin-top: 8px; padding-top: 7px; color: inherit; }
+
+#mod-budget #syn-entete { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; margin-bottom: 4px; }
+#mod-budget #syn-entete h2 { margin-bottom: 0; font-size: 16px; }
+#mod-budget #syn-ident { text-align: right; font-size: 13px; line-height: 1.6; }
+#mod-budget #syn-ident strong { font-weight: 700; }
+#mod-budget .principe { font-size: 11.5px; color: #6b7785; margin: 6px 0 12px; }
+
+#mod-budget .tab-sy { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+#mod-budget .tab-sy th, #mod-budget .tab-sy td { padding: 6px 10px; border-bottom: 1px solid #e1e6ec; text-align: right; }
+#mod-budget .tab-sy th:first-child, #mod-budget .tab-sy td:first-child { text-align: left; }
+#mod-budget .tab-sy th { font-size: 11px; text-transform: uppercase; color: #6b7785; }
+#mod-budget .tab-sy tr.rav td { font-weight: 700; background: #f0f4f9; border-top: 2px solid #1f3a5f; }
+#mod-budget .tab-sy.sans-conjoint .col-conj { display: none; }
+#mod-budget .neg { color: #b3261e; }
+
+#mod-budget .bloc-end {
+  display: flex; justify-content: space-between; align-items: center; gap: 16px;
+  border: 1px solid #c9d4e3; background: #f0f4f9;
+  border-radius: 6px; padding: 12px 16px; margin-bottom: 16px;
+}
+#mod-budget .bloc-end.alerte { background: #fbeceb; border-color: #e3b5b1; }
+#mod-budget .bloc-end .lib { font-size: 12px; text-transform: uppercase; font-weight: 700; color: #1f3a5f; letter-spacing: .04em; }
+#mod-budget .bloc-end.alerte .lib { color: #a33a32; }
+#mod-budget .bloc-end .end-valeur { font-size: 26px; font-weight: 800; color: #1f3a5f; white-space: nowrap; }
+#mod-budget .bloc-end.alerte .end-valeur { color: #a33a32; }
+#mod-budget .bloc-end .end-detail { flex: 1; text-align: right; font-size: 12px; color: #4a5766; line-height: 1.55; }
+
+#mod-budget .sous-titre {
+  font-size: 12px; text-transform: uppercase; letter-spacing: .05em;
+  color: #6b7785; margin-bottom: 8px;
+}
+#mod-budget #regle { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 14px; }
+#mod-budget .r { border-radius: 6px; padding: 10px; text-align: center; border: 1px solid #e1e6ec; }
+#mod-budget .r .pc { font-size: 22px; font-weight: 800; line-height: 1.1; }
+#mod-budget .r .lib { font-size: 11px; text-transform: uppercase; font-weight: 700; margin: 2px 0 4px; }
+#mod-budget .r .mt { font-size: 16px; font-weight: 700; }
+#mod-budget .r50 { background: #fdf3e7; color: #8a5316; }
+#mod-budget .r30 { background: #e9f4ee; color: #226246; }
+#mod-budget .r20 { background: #e8f0f9; color: #245582; }
+
+#mod-budget #effort {
+  display: flex; justify-content: space-between; align-items: center; gap: 16px;
+  border-radius: 6px; padding: 14px 18px; color: #fff; background: #1f3a5f;
+  margin-bottom: 16px;
+}
+#mod-budget #effort.alerte { background: #a33a32; }
+#mod-budget #effort .lib { font-size: 12px; opacity: .85; }
+#mod-budget #effort-valeur { font-size: 24px; font-weight: 800; white-space: nowrap; }
+#mod-budget #effort-note { font-size: 12px; flex: 1; text-align: right; opacity: .92; }
+
+#mod-budget #detail { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+#mod-budget #detail h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: #6b7785; margin-bottom: 6px; }
+#mod-budget .det-ligne { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; padding: 2px 0; border-bottom: 1px dotted #d5dbe3; }
+#mod-budget .det-vide { font-size: 12px; color: #98a2af; font-style: italic; }
+#mod-budget #mentions { font-size: 10.5px; color: #8b95a3; margin-top: 14px; }
+
+#mod-budget #actions { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 16px; }
+#mod-budget #actions button {
+  border-radius: 6px; padding: 10px 20px; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+#mod-budget #b-print { background: #1f3a5f; color: #fff; border: none; }
+#mod-budget #b-print:hover { background: #2b4d7c; }
+#mod-budget #b-reset { background: #fff; color: #a33a32; border: 1.5px solid #a33a32; }
+#mod-budget #b-reset:hover { background: #fdf1f1; }
+
+#mod-budget #analyse { border-left: 4px solid #e0b93a; }
+#mod-budget #analyse .note { font-size: 12px; color: #6b7785; margin-bottom: 10px; }
+#mod-budget #analyse .tab-sy { margin-bottom: 12px; }
+#mod-budget #ana-effort { font-size: 12.5px; color: #4a5766; }
+#mod-budget #ana-effort strong { color: #1f3a5f; }
+
+#mod-budget #politique { border-left: 4px solid #e0b93a; margin-bottom: 0; }
+#mod-budget #politique .note { font-size: 12px; color: #6b7785; margin-bottom: 10px; }
+#mod-budget #tab-politique { width: 100%; border-collapse: collapse; }
+#mod-budget #tab-politique th, #mod-budget #tab-politique td {
+  padding: 6px 10px; border-bottom: 1px solid #e1e6ec; text-align: left; font-size: 13px;
+}
+#mod-budget #tab-politique th { font-size: 11px; text-transform: uppercase; color: #6b7785; }
+#mod-budget #tab-politique td.pc { text-align: right; font-weight: 700; white-space: nowrap; }
+#mod-budget #tab-politique th.pc { text-align: right; }
+#mod-budget #tab-politique td.pol-groupe {
+  background: #f4f6f9; font-weight: 700; font-size: 12px;
+  text-transform: uppercase; letter-spacing: .05em; color: #1f3a5f;
+}
+
+@media (max-width: 1000px) {
+  #mod-budget #colonnes { grid-template-columns: minmax(0, 1fr); }
+  #mod-budget #col-synthese { position: static; max-height: none; overflow: visible; }
+  #mod-budget .grille3 { grid-template-columns: 1fr; }
+  #mod-budget #regle, #mod-budget #detail { grid-template-columns: 1fr; }
+  #mod-budget #effort, #mod-budget .bloc-end { flex-direction: column; align-items: flex-start; }
+  #mod-budget #effort-note, #mod-budget .bloc-end .end-detail { text-align: left; }
+}
+
+/* ============================================================
+   MODULE COURRIER (tout est limité à #mod-courrier)
+   ============================================================ */
+#mod-courrier {
+  background: #f0ebf5;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13px; color: #222;
+}
+
+#mod-courrier #formulaire {
+  position: fixed;
+  top: var(--topbar-h); left: 0; bottom: 0;
+  width: 360px;
+  background: #fff;
+  border-right: 2px solid #ddd;
+  display: flex; flex-direction: column;
+  z-index: 10;
+}
+#mod-courrier #form-header { background: #6F2C91; color: #fff; padding: 16px 18px; flex-shrink: 0; }
+#mod-courrier #form-header h1 { font-size: 15px; }
+#mod-courrier #form-header p { font-size: 11px; opacity: .75; margin-top: 3px; }
+
+#mod-courrier #form-body { flex: 1; overflow-y: auto; padding: 14px; }
+
+#mod-courrier .section { border: 1px solid #ddd; border-radius: 6px; margin-bottom: 10px; overflow: hidden; }
+#mod-courrier .section-title {
+  background: #f5f0fa; padding: 7px 11px;
+  font-size: 11px; font-weight: bold; color: #6F2C91;
+  text-transform: uppercase; letter-spacing: .5px;
+  border-bottom: 1px solid #ddd;
+}
+#mod-courrier .section-body { padding: 10px; }
+
+#mod-courrier .fg { margin-bottom: 8px; }
+#mod-courrier .fg:last-child { margin-bottom: 0; }
+#mod-courrier .fg label {
+  display: block; font-size: 10px; font-weight: bold; color: #888;
+  text-transform: uppercase; letter-spacing: .4px; margin-bottom: 3px;
+}
+#mod-courrier .fg input[type="text"],
+#mod-courrier .fg input[type="date"],
+#mod-courrier .fg select,
+#mod-courrier .fg textarea {
+  width: 100%; border: 1.5px solid #ddd; border-radius: 4px;
+  padding: 6px 8px; font-size: 12px; font-family: inherit;
+  color: #222; background: #fff;
+}
+#mod-courrier .fg input:focus,
+#mod-courrier .fg select:focus,
+#mod-courrier .fg textarea:focus { outline: none; border-color: #6F2C91; }
+#mod-courrier .fg textarea { resize: vertical; min-height: 120px; }
+#mod-courrier .fg .check {
+  display: flex; align-items: center; gap: 6px; font-size: 12px;
+  text-transform: none; letter-spacing: 0; color: #444; font-weight: normal; cursor: pointer;
+}
+#mod-courrier .fg .check input { width: auto; }
+
+#mod-courrier .infobox {
+  background: #f5f0fa; border: 1px solid #ddd; border-radius: 4px;
+  padding: 6px 8px; font-size: 11px; color: #666;
+  margin-top: 6px; line-height: 1.6;
+}
+#mod-courrier .note { font-size: 10.5px; color: #777; line-height: 1.5; margin-top: 6px; }
+
+#mod-courrier #form-footer { flex-shrink: 0; padding: 12px 14px; border-top: 2px solid #ddd; background: #fff; }
+#mod-courrier #c-print {
+  display: block; width: 100%; background: #6F2C91; color: #fff;
+  border: none; border-radius: 5px; padding: 10px;
+  font-size: 13px; font-weight: bold; cursor: pointer; margin-bottom: 7px;
+}
+#mod-courrier #c-print:hover { background: #4A1A6B; }
+#mod-courrier #c-reset {
+  display: block; width: 100%; background: #fff; color: #999;
+  border: 1.5px solid #ddd; border-radius: 5px; padding: 8px;
+  font-size: 12px; font-weight: bold; cursor: pointer;
+}
+#mod-courrier #c-reset:hover { border-color: #c0392b; color: #c0392b; }
+
+#mod-courrier #apercu {
+  margin-left: 360px;
+  padding: 30px;
+  display: flex; flex-direction: column; align-items: center;
+}
+#mod-courrier #apercu-label {
+  font-size: 11px; font-weight: bold; text-transform: uppercase;
+  letter-spacing: 1px; color: #999; margin-bottom: 16px; width: 210mm;
+}
+
+/* Feuille A4. Cotes de l'enveloppe à fenêtre (DL 110 x 220 mm, fenêtre 45 x 100 mm).
+   Valeurs en mm depuis le coin haut gauche de la feuille. */
+#mod-courrier #lettre {
+  --win-x: 95mm;   --win-y: 45mm;   --win-w: 100mm;  --win-h: 45mm;
+  --dest-x: 100mm; --dest-y: 50mm;  --dest-w: 90mm;  --dest-h: 35mm;
+
+  width: 210mm; min-height: 297mm;
+  background: #fff;
+  box-shadow: 0 4px 24px rgba(0,0,0,.18);
+  padding: 18mm 18mm 28mm 22mm;
+  position: relative;
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 11pt; line-height: 1.5; color: #000;
+}
+#mod-courrier #lettre.fenetre-gauche { --win-x: 15mm; --dest-x: 20mm; }
+
+#mod-courrier #ltr-entete { height: 80mm; margin-bottom: 4mm; }
+#mod-courrier #ltr-exp { width: 70mm; }
+#mod-courrier #lettre.fenetre-gauche #ltr-exp { margin-left: 90mm; }
+#mod-courrier #ltr-exp img { max-width: 150px; height: auto; display: block; margin-bottom: 6px; }
+#mod-courrier #ltr-exp-name {
+  font-family: Arial, sans-serif; font-size: 9.5pt;
+  font-weight: bold; color: #6F2C91; margin-bottom: 1px;
+}
+#mod-courrier #ltr-exp-agence {
+  font-family: Arial, sans-serif; font-size: 9pt;
+  font-weight: bold; color: #6F2C91; margin-bottom: 5px;
+}
+#mod-courrier #ltr-exp-coords { font-size: 9pt; line-height: 1.6; color: #333; }
+
+#mod-courrier #ltr-dest {
+  position: absolute;
+  left: var(--dest-x); top: var(--dest-y);
+  width: var(--dest-w); height: var(--dest-h);
+  overflow: hidden;
+  font-size: 10.5pt; line-height: 1.45; text-align: left;
+}
+#mod-courrier #ltr-date {
+  position: absolute;
+  left: var(--dest-x); top: 90mm; width: var(--dest-w);
+  font-size: 10pt; text-align: right;
+}
+
+#mod-courrier #fenetre-guide {
+  position: absolute;
+  left: var(--win-x); top: var(--win-y);
+  width: var(--win-w); height: var(--win-h);
+  border: 1.5px dashed #e67e22;
+  background: rgba(230, 126, 34, .06);
+  pointer-events: none;
+}
+#mod-courrier #fenetre-guide span {
+  position: absolute; right: 3px; top: -15px;
+  font-family: Arial, sans-serif; font-size: 9px; color: #e67e22;
+}
+
+#mod-courrier .pli { position: absolute; left: 0; width: 6mm; border-top: 0.3mm solid #999; }
+#mod-courrier #pli1 { top: 99mm; }
+#mod-courrier #pli2 { top: 198mm; }
+
+#mod-courrier #ltr-sep { border: none; border-top: 2px solid #6F2C91; margin: 0 0 6mm; }
+
+#mod-courrier #ltr-refs {
+  display: flex; justify-content: space-between;
+  font-size: 9.5pt; color: #333; margin-bottom: 5mm; gap: 10mm;
+}
+#mod-courrier .ref-label {
+  display: block; font-weight: bold; font-size: 8.5pt;
+  text-transform: uppercase; margin-bottom: 1px;
+}
+
+#mod-courrier #ltr-objet { font-size: 10.5pt; margin-bottom: 7mm; }
+#mod-courrier #ltr-objet strong { text-transform: uppercase; }
+
+#mod-courrier #ltr-corps {
+  font-size: 11pt; line-height: 1.7; text-align: justify;
+  margin-bottom: 7mm; min-height: 50mm;
+  white-space: pre-wrap; word-wrap: break-word;
+}
+
+#mod-courrier #ltr-politesse { font-size: 10.5pt; line-height: 1.6; margin-bottom: 14mm; }
+
+#mod-courrier #ltr-signature { display: flex; justify-content: flex-end; }
+#mod-courrier #ltr-sig { text-align: center; min-width: 55mm; }
+#mod-courrier #ltr-sig-titre { font-size: 9.5pt; color: #555; margin-bottom: 2px; }
+#mod-courrier #ltr-sig-name { font-size: 10.5pt; font-weight: bold; }
+#mod-courrier #ltr-sig-poste { font-size: 9pt; color: #555; }
+#mod-courrier #ltr-sig-contact { font-size: 8.5pt; color: #555; margin-top: 4px; line-height: 1.6; }
+
+#mod-courrier #ltr-footer {
+  position: absolute; bottom: 8mm; left: 22mm; right: 18mm;
+  border-top: 1px solid #ccc; padding-top: 3px;
+  font-family: Arial, sans-serif; font-size: 7pt;
+  color: #999; text-align: center; line-height: 1.4;
+}
+
+#mod-courrier .ph { color: #bbb; font-style: italic; }
+
+/* ============================================================
+   IMPRESSION : seul le document du module affiché est imprimé
+   ============================================================ */
+@media print {
+  @page { size: A4 portrait; margin: 0; }
+
+  html, body {
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  #accueil, #topbar { display: none !important; }
+  .module { padding-top: 0 !important; min-height: 0 !important; background: #fff !important; }
+
+  /* ----- Budget : synthèse client uniquement ----- */
+  #mod-budget { font-size: 11.5px; }
+  #mod-budget #entete, #mod-budget #col-saisie, #mod-budget #actions,
+  #mod-budget #analyse, #mod-budget #politique, #mod-budget .pond { display: none !important; }
+  #mod-budget #page { max-width: none; padding: 12mm; }
+  #mod-budget #colonnes { display: block; }
+  #mod-budget #col-synthese { position: static; max-height: none; overflow: visible; padding: 0; }
+  #mod-budget #synthese {
+    box-shadow: none; border: none; padding: 0; margin: 0;
+    break-inside: avoid; page-break-inside: avoid;
+  }
+  #mod-budget #syn-entete { border-bottom: 2px solid #1f3a5f; padding-bottom: 8px; margin-bottom: 6px; }
+  #mod-budget #syn-entete h2 { font-size: 20px; }
+  #mod-budget #syn-ident { font-size: 13px; }
+  #mod-budget #endettement, #mod-budget #detail { break-inside: avoid; }
+
+  /* ----- Courrier : lettre uniquement ----- */
+  #mod-courrier #formulaire, #mod-courrier #apercu-label, #mod-courrier #fenetre-guide { display: none !important; }
+  #mod-courrier #apercu { margin-left: 0 !important; padding: 0 !important; display: block !important; }
+  #mod-courrier #lettre {
+    box-shadow: none !important;
+    margin: 0 !important;
+    width: 210mm !important;
+    height: 296mm !important;
+    min-height: 296mm !important;
+    padding: 18mm 18mm 28mm 22mm !important;
+    overflow: hidden;
+  }
+  #mod-courrier .ph { visibility: hidden; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     ACCUEIL
+     ============================================================ -->
+<div id="accueil">
+  <div id="accueil-entete">
+    <img style="width:100px;" src="3f486541-be22-4701-a2f2-fced7f5c446e.jpg"
+         alt="Caisse d'Epargne Midi Pyrénées" onerror="this.style.display='none'">
+    <h1>Outils conseiller</h1>
+    <p>Ces outils sont accessibles uniquement depuis le partage OneDrive aux personnes concernées.<br/>
+Aucune donnée ne peut être enregistrée, et aucune donnée n'est stockée informatiquement.</p>
+  </div>
+
+  <div id="accueil-boutons">
+    <button type="button" class="gros-bouton" id="gb-budget">
+      <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="12" y="6" width="40" height="52" rx="5"></rect>
+        <rect x="19" y="13" width="26" height="11" rx="2"></rect>
+        <path d="M21 34h2M32 34h2M43 34h2M21 43h2M32 43h2M43 43h2M21 51h2M32 51h2"></path>
+      </svg>
+      <span class="gb-titre">Calculateur de budget</span>
+      <span class="gb-desc">Reste à vivre, taux d'endettement et règle 50 / 30 / 20</span>
+    </button>
+
+    <button type="button" class="gros-bouton" id="gb-courrier">
+      <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="6" y="14" width="52" height="36" rx="5"></rect>
+        <path d="M8 18l24 18 24-18"></path>
+      </svg>
+      <span class="gb-titre">Générateur de courrier</span>
+      <span class="gb-desc">Lettre A4 adaptée à l'enveloppe à fenêtre</span>
+    </button>
+  </div>
+</div>
+
+<!-- ============================================================
+     BARRE SUPERIEURE (affichée après le choix d'un module)
+     ============================================================ -->
+<div id="topbar" hidden>
+  <div class="marque">
+    <img src="https://www.img.caisse-epargne.fr/app/uploads/sites/16/2021/05/31152836/ce-logo-midi-pyrennees.png"
+         alt="" onerror="this.style.display='none'">
+    <span>Outils conseiller</span>
+  </div>
+  <button type="button" class="btn-top" id="top-budget">
+    <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="12" y="6" width="40" height="52" rx="5"></rect>
+      <rect x="19" y="13" width="26" height="11" rx="2"></rect>
+      <path d="M21 36h2M32 36h2M43 36h2M21 47h2M32 47h2M43 47h2"></path>
+    </svg>
+    Calculateur de budget
+  </button>
+  <button type="button" class="btn-top" id="top-courrier">
+    <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="6" y="14" width="52" height="36" rx="5"></rect>
+      <path d="M8 18l24 18 24-18"></path>
+    </svg>
+    Générateur de courrier
+  </button>
+</div>
+
+<!-- ============================================================
+     MODULE 1 : CALCULATEUR DE BUDGET
+     ============================================================ -->
+<div id="mod-budget" class="module" hidden>
+<div id="page">
+
+  <header id="entete">
+    <h1>Calculateur de budget</h1>
+    <p>Reste à vivre, taux d'endettement et règle 50 / 30 / 20</p>
+  </header>
+
+  <div id="colonnes">
+
+    <!-- COLONNE 1 : SAISIE -->
+    <div id="col-saisie">
+
+      <section class="carte" id="carte-client">
+        <h2>Client</h2>
+        <div class="grille3">
+          <div class="champ">
+            <label for="nom">Nom</label>
+            <input type="text" id="nom" placeholder="DUPONT" autocomplete="off">
+          </div>
+          <div class="champ">
+            <label for="prenom">Prénom</label>
+            <input type="text" id="prenom" placeholder="Jean" autocomplete="off">
+          </div>
+          <div class="champ">
+            <label>Date du jour</label>
+            <div class="lecture" id="date-jour"></div>
+          </div>
+        </div>
+        <div class="cases">
+          <label class="case">
+            <input type="checkbox" id="conjoint">
+            Ajouter les revenus et charges du conjoint
+          </label>
+          <label class="case">
+            <input type="checkbox" id="appliquer-pond" checked>
+            Afficher les pondérations (usage conseiller)
+          </label>
+        </div>
+      </section>
+
+      <div id="personnes">
+        <div class="personne" id="bloc-c"></div>
+        <div class="personne" id="bloc-j" hidden></div>
+      </div>
+
+    </div>
+
+    <!-- COLONNE 2 : SYNTHESE -->
+    <div id="col-synthese">
+
+      <!-- Document client : montants NON pondérés uniquement -->
+      <section class="carte" id="synthese">
+        <div id="syn-entete">
+          <h2>Synthèse budgétaire</h2>
+          <div id="syn-ident"></div>
+        </div>
+        <p class="principe">
+          Reste à vivre = revenus − charges fixes − charges variables − épargne actuelle.
+          La règle 50 / 30 / 20 est appliquée sur ce reste à vivre. Montants mensuels.
+        </p>
+
+        <table id="tab-synthese" class="tab-sy sans-conjoint">
+          <thead>
+            <tr>
+              <th>Poste</th>
+              <th>Client</th>
+              <th class="col-conj">Conjoint</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody id="tab-corps"></tbody>
+        </table>
+
+        <div id="endettement" class="bloc-end">
+          <div>
+            <div class="lib">Taux d'endettement actuel</div>
+            <div id="end-valeur" class="end-valeur">-</div>
+          </div>
+          <div id="end-detail" class="end-detail"></div>
+        </div>
+
+        <h3 class="sous-titre">Répartition du reste à vivre (50 / 30 / 20)</h3>
+        <div id="regle">
+          <div class="r r50">
+            <div class="pc">50 %</div>
+            <div class="lib">Charges courantes</div>
+            <div class="mt" id="r50">0 €</div>
+          </div>
+          <div class="r r30">
+            <div class="pc">30 %</div>
+            <div class="lib">Loisirs</div>
+            <div class="mt" id="r30">0 €</div>
+          </div>
+          <div class="r r20">
+            <div class="pc">20 %</div>
+            <div class="lib">À épargner</div>
+            <div class="mt" id="r20">0 €</div>
+          </div>
+        </div>
+
+        <div id="effort">
+          <div>
+            <div class="lib">Effort d'épargne supplémentaire à fournir</div>
+            <div id="effort-valeur">—</div>
+          </div>
+          <div id="effort-note"></div>
+        </div>
+
+        <div id="detail">
+          <div>
+            <h3>Charges variables</h3>
+            <div id="det-cv"></div>
+          </div>
+          <div>
+            <h3>Épargne actuelle</h3>
+            <div id="det-ep"></div>
+          </div>
+        </div>
+
+        <p id="mentions">Document indicatif établi à partir des informations déclarées par le client.</p>
+      </section>
+
+      <div id="actions">
+        <button type="button" id="b-reset">Réinitialiser</button>
+        <button type="button" id="b-print">Imprimer la synthèse (A4)</button>
+      </div>
+
+      <!-- Analyse pondérée : conseiller uniquement, jamais imprimée -->
+      <section class="carte" id="analyse">
+        <h2>Analyse pondérée (conseiller, non imprimée)</h2>
+        <p class="note">
+          Montants retenus après application de la politique de pondération.
+          Ces chiffres ne figurent pas sur le document remis au client.
+        </p>
+
+        <table id="tab-analyse" class="tab-sy sans-conjoint">
+          <thead>
+            <tr>
+              <th>Poste</th>
+              <th>Client</th>
+              <th class="col-conj">Conjoint</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody id="ana-corps"></tbody>
+        </table>
+
+        <div id="ana-endettement" class="bloc-end">
+          <div>
+            <div class="lib">Taux d'endettement pondéré</div>
+            <div id="ana-end-valeur" class="end-valeur">-</div>
+          </div>
+          <div id="ana-end-detail" class="end-detail"></div>
+        </div>
+
+        <p id="ana-effort"></p>
+      </section>
+
+      <!-- Politique de pondération (non imprimée) -->
+      <section class="carte" id="politique">
+        <h2>Pondérations prévues par la politique</h2>
+        <p class="note">
+          Rappel à l'usage du conseiller (non imprimé). Ce tableau alimente aussi la liste
+          des postes proposés dans la saisie. Il se modifie dans le script, à la rubrique
+          POLITIQUE_PONDERATION.
+        </p>
+        <table id="tab-politique">
+          <thead>
+            <tr>
+              <th>Poste</th>
+              <th class="pc">Pondération</th>
+              <th>Commentaire</th>
+            </tr>
+          </thead>
+          <tbody id="tab-politique-corps"></tbody>
+        </table>
+      </section>
+
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!-- ============================================================
+     MODULE 2 : GENERATEUR DE COURRIER
+     ============================================================ -->
+<div id="mod-courrier" class="module" hidden>
+
+  <!-- FORMULAIRE -->
+  <div id="formulaire">
+
+    <div id="form-header">
+      <h1>Générateur de courrier</h1>
+      <p>Caisse d'Epargne Midi Pyrénées</p>
+    </div>
+
+    <div id="form-body">
+
+      <!-- AGENCE -->
+      <div class="section">
+        <div class="section-title">Agence expéditrice</div>
+        <div class="section-body">
+          <div class="fg">
+            <label for="f-agence">Agence</label>
+            <select id="f-agence">
+              <option value="">- Choisir une agence -</option>
+
+              <!-- MODELE POUR AJOUTER UNE AGENCE (copier la balise option ci-dessous, hors du commentaire) :
+              <option value="Nom de la ville"
+                data-a1="Numéro et rue"
+                data-a2="Code postal Ville"
+                data-tel="0X XX XX XX XX">Nom de la ville</option>
+              FIN DU MODELE -->
+
+              <!-- ====== LISTE DES AGENCES (exemples à remplacer par les vraies agences) ====== -->
+              <option value="Toulouse Centre" data-a1="1 Place du Capitole" data-a2="31000 Toulouse" data-tel="05 61 00 00 00">Toulouse Centre</option>
+              <option value="Toulouse Rangueil" data-a1="12 Avenue de l'URSS" data-a2="31400 Toulouse" data-tel="05 61 00 00 01">Toulouse Rangueil</option>
+              <option value="Tarbes" data-a1="15 Place de Verdun" data-a2="65000 Tarbes" data-tel="05 62 00 00 00">Tarbes</option>
+              <option value="Pau" data-a1="8 Rue du Maréchal Joffre" data-a2="64000 Pau" data-tel="05 59 00 00 00">Pau</option>
+            </select>
+          </div>
+          <div class="infobox" id="info-agence"></div>
+        </div>
+      </div>
+
+      <!-- DATE ET LIEU -->
+      <div class="section">
+        <div class="section-title">Date et lieu</div>
+        <div class="section-body">
+          <div class="fg">
+            <label for="f-lieu">Lieu</label>
+            <input type="text" id="f-lieu" placeholder="ex : Toulouse">
+          </div>
+          <div class="fg">
+            <label for="f-date">Date</label>
+            <input type="date" id="f-date">
+          </div>
+        </div>
+      </div>
+
+      <!-- DESTINATAIRE -->
+      <div class="section">
+        <div class="section-title">Destinataire</div>
+        <div class="section-body">
+          <div class="fg">
+            <label for="f-civ">Civilité</label>
+            <select id="f-civ">
+              <option value="">-</option>
+              <option value="M.">M.</option>
+              <option value="Mme">Mme</option>
+              <option value="M. et Mme">M. et Mme</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label for="f-nom">Nom</label>
+            <input type="text" id="f-nom" placeholder="DUPONT">
+          </div>
+          <div class="fg">
+            <label for="f-prenom">Prénom</label>
+            <input type="text" id="f-prenom" placeholder="Jean">
+          </div>
+          <div class="fg">
+            <label for="f-adr1">Adresse ligne 1</label>
+            <input type="text" id="f-adr1" placeholder="12 rue des Lilas">
+          </div>
+          <div class="fg">
+            <label for="f-adr2">Adresse ligne 2</label>
+            <input type="text" id="f-adr2" placeholder="31000 Toulouse">
+          </div>
+        </div>
+      </div>
+
+      <!-- ENVELOPPE A FENETRE -->
+      <div class="section">
+        <div class="section-title">Enveloppe à fenêtre</div>
+        <div class="section-body">
+          <div class="fg">
+            <label for="f-fenetre">Position de la fenêtre</label>
+            <select id="f-fenetre">
+              <option value="droite">Fenêtre à droite</option>
+              <option value="gauche">Fenêtre à gauche</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label class="check"><input type="checkbox" id="f-guide" checked> Afficher le repère de la fenêtre (non imprimé)</label>
+          </div>
+          <div class="note">
+            Enveloppe DL 110 x 220 mm, fenêtre 45 x 100 mm, lettre pliée en 3.
+            À l'impression, choisir une échelle de 100 % (et non « Ajuster à la page »).
+          </div>
+        </div>
+      </div>
+
+      <!-- REFERENCES -->
+      <div class="section">
+        <div class="section-title">Références</div>
+        <div class="section-body">
+          <div class="fg">
+            <label for="f-refclient">Vos références</label>
+            <input type="text" id="f-refclient" placeholder="Contrat N° ...">
+          </div>
+          <div class="fg">
+            <label for="f-refagence">Nos références</label>
+            <input type="text" id="f-refagence" placeholder="CEMP/2026/...">
+          </div>
+        </div>
+      </div>
+
+      <!-- OBJET -->
+      <div class="section">
+        <div class="section-title">Objet</div>
+        <div class="section-body">
+          <div class="fg">
+            <label for="f-objet">Objet du courrier</label>
+            <input type="text" id="f-objet" placeholder="ex : Confirmation de rendez-vous">
+          </div>
+        </div>
+      </div>
+
+      <!-- CORPS -->
+      <div class="section">
+        <div class="section-title">Corps de la lettre</div>
+        <div class="section-body">
+          <div class="fg">
+            <textarea id="f-corps" rows="8" placeholder="Rédigez votre courrier ici..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- POLITESSE (liste construite par le script : voir LISTE_POLITESSES) -->
+      <div class="section">
+        <div class="section-title">Formule de politesse</div>
+        <div class="section-body">
+          <div class="fg">
+            <select id="f-politesse"></select>
+          </div>
+        </div>
+      </div>
+
+      <!-- SIGNATAIRE -->
+      <div class="section">
+        <div class="section-title">Signataire</div>
+        <div class="section-body">
+          <div class="fg">
+            <label for="f-conseiller">Conseiller</label>
+            <select id="f-conseiller">
+              <option value="">- Choisir un conseiller -</option>
+
+              <!-- MODELE POUR AJOUTER UN CONSEILLER (copier la balise option ci-dessous, hors du commentaire) :
+              <option value="Prénom NOM"
+                data-prenom="Prénom"
+                data-nom="NOM"
+                data-poste="Intitulé du poste"
+                data-tel="0X XX XX XX XX"
+                data-mail="prenom.nom@cemp.caisse-epargne.fr">Prénom NOM</option>
+              FIN DU MODELE -->
+
+              <!-- ====== LISTE DES CONSEILLERS : ajouter les nouvelles lignes ci-dessous ====== -->
+
+              <option value="Isabelle LAVILLE"
+                data-prenom="Isabelle"
+                data-nom="LAVILLE"
+                data-poste="Directrice d'agence"
+                data-tel="05 81 16 00 67"
+                data-mail="isabelle.laville@cemp.caisse-epargne.fr">Isabelle LAVILLE</option>
+
+              <option value="Adrien BOCHARD"
+                data-prenom="Adrien"
+                data-nom="BOCHARD"
+                data-poste="Gestionnaire de clientèle"
+                data-tel="05 81 16 00 74"
+                data-mail="adrien.bochard@cemp.caisse-epargne.fr">Adrien BOCHARD</option>
+
+              <option value="Victoria ESTEVES"
+                data-prenom="Victoria"
+                data-nom="ESTEVES"
+                data-poste="Gestionnaire de clientèle"
+                data-tel="05 81 16 00 68"
+                data-mail="victoria.esteves@cemp.caisse-epargne.fr">Victoria ESTEVES</option>
+
+              <option value="Sandy MARCIE"
+                data-prenom="Sandy"
+                data-nom="MARCIE"
+                data-poste="Directrice d'agence"
+                data-tel="05 81 24 40 05"
+                data-mail="sandy.marcie@cemp.caisse-epargne.fr">Sandy MARCIE</option>
+
+              <option value="Marie REY"
+                data-prenom="Marie"
+                data-nom="REY"
+                data-poste="Gestionnaire de clientèle"
+                data-tel="05 81 24 40 01"
+                data-mail="marie.tible-rey@cemp.caisse-epargne.fr">Marie REY</option>
+
+              <option value="Auguste BAUCOURT"
+                data-prenom="Auguste"
+                data-nom="BAUCOURT"
+                data-poste="Gestionnaire de clientèle patrimoniale"
+                data-tel="05 81 24 40 06"
+                data-mail="auguste.baucourt@cemp.caisse-epargne.fr">Auguste BAUCOURT</option>
+
+              <option value="Frédéric LAFON"
+                data-prenom="Frédéric"
+                data-nom="LAFON"
+                data-poste="Gestionnaire de clientèle patrimoniale"
+                data-tel="05 81 24 40 03"
+                data-mail="frederic.lafon@cemp.caisse-epargne.fr">Frédéric LAFON</option>
+
+              <option value="Delphine FRANCOUAL"
+                data-prenom="Delphine"
+                data-nom="FRANCOUAL"
+                data-poste="Gestionnaire de clientèle"
+                data-tel="05 81 24 40 10"
+                data-mail="delphine.francoual@cemp.caisse-epargne.fr">Delphine FRANCOUAL</option>
+
+              <option value="Mickael LAIGRE"
+                data-prenom="Mickael"
+                data-nom="LAIGRE"
+                data-poste="Gestionnaire de clientèle"
+                data-tel="05 81 24 40 07"
+                data-mail="mickael.laigre@cemp.caisse-epargne.fr">Mickael LAIGRE</option>
+
+              <option value="Guillaume BRU"
+                data-prenom="Guillaume"
+                data-nom="BRU"
+                data-poste="Gestionnaire de clientèle professionnelle"
+                data-tel="05 81 24 40 04 - 06 46 07 01 22"
+                data-mail="guillaume.bru@cemp.caisse-epargne.fr">Guillaume BRU</option>
+
+            </select>
+          </div>
+          <div class="infobox" id="info-conseiller"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <div id="form-footer">
+      <button type="button" id="c-print">Imprimer le courrier</button>
+      <button type="button" id="c-reset">Réinitialiser</button>
+    </div>
+
+  </div>
+
+  <!-- APERCU -->
+  <div id="apercu">
+
+    <div id="apercu-label">Aperçu en temps réel - Format A4</div>
+
+    <div id="lettre">
+
+      <div class="pli" id="pli1"></div>
+      <div class="pli" id="pli2"></div>
+
+      <div id="fenetre-guide"><span>Fenêtre de l'enveloppe</span></div>
+
+      <div id="ltr-dest"></div>
+      <div id="ltr-date"></div>
+
+      <div id="ltr-entete">
+        <div id="ltr-exp">
+          <img src="https://www.img.caisse-epargne.fr/app/uploads/sites/16/2021/05/31152836/ce-logo-midi-pyrennees.png"
+               alt="Caisse d'Epargne Midi Pyrénées"
+               onerror="this.style.display='none'">
+          <div id="ltr-exp-name">Caisse d'Epargne de Midi Pyrénées</div>
+          <div id="ltr-exp-agence"></div>
+          <div id="ltr-exp-coords"></div>
+        </div>
+      </div>
+
+      <hr id="ltr-sep">
+
+      <div id="ltr-refs">
+        <div>
+          <span class="ref-label">Vos références</span>
+          <span id="ltr-rc"></span>
+        </div>
+        <div style="text-align:right">
+          <span class="ref-label">Nos références</span>
+          <span id="ltr-ra"></span>
+        </div>
+      </div>
+
+      <div id="ltr-objet">
+        <strong>Objet : </strong><span id="ltr-obj-val"></span>
+      </div>
+
+      <div id="ltr-corps"></div>
+
+      <div id="ltr-politesse"></div>
+
+      <div id="ltr-signature">
+        <div id="ltr-sig">
+          <div id="ltr-sig-titre">Le signataire,</div>
+          <div id="ltr-sig-name"></div>
+          <div id="ltr-sig-poste"></div>
+          <div id="ltr-sig-contact"></div>
+        </div>
+      </div>
+
+      <div id="ltr-footer">
+        Caisse d'Epargne de Midi Pyrénées - Société Anonyme Coopérative de Crédit à capital variable -
+        Régie par les articles L 512-85 et suivants du Code monétaire et financier -
+        RCS Toulouse - Siège social : 1 Place Jourdain, 31000 Toulouse
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ============================================================
+     SCRIPTS : chaque module est isolé dans sa propre fonction
+     pour éviter tout conflit de noms entre les deux.
+     Aucune balise HTML n'est écrite dans les chaînes JavaScript.
+     ============================================================ -->
+
+<!-- ===== NAVIGATION ===== -->
+<script>
+(function () {
+  var accueil = document.getElementById('accueil');
+  var topbar = document.getElementById('topbar');
+  var modules = {
+    budget: document.getElementById('mod-budget'),
+    courrier: document.getElementById('mod-courrier')
+  };
+  var boutons = {
+    budget: document.getElementById('top-budget'),
+    courrier: document.getElementById('top-courrier')
+  };
+
+  function ouvrir(nom) {
+    accueil.hidden = true;
+    topbar.hidden = false;
+    for (var cle in modules) {
+      if (modules.hasOwnProperty(cle)) {
+        var actif = (cle === nom);
+        modules[cle].hidden = !actif;
+        boutons[cle].className = actif ? 'btn-top actif' : 'btn-top';
+        if (actif) { boutons[cle].setAttribute('aria-current', 'page'); }
+        else { boutons[cle].removeAttribute('aria-current'); }
+      }
+    }
+    window.scrollTo(0, 0);
+  }
+
+  document.getElementById('gb-budget').addEventListener('click', function () { ouvrir('budget'); });
+  document.getElementById('gb-courrier').addEventListener('click', function () { ouvrir('courrier'); });
+  boutons.budget.addEventListener('click', function () { ouvrir('budget'); });
+  boutons.courrier.addEventListener('click', function () { ouvrir('courrier'); });
+})();
+</script>
+
+<!-- ===== MODULE BUDGET ===== -->
+<script>
+(function () {
+
+/* PRINCIPE
+   - Document client (synthèse imprimée) : montants NON pondérés.
+   - Analyse conseiller (écran uniquement) : montants pondérés. */
+
+/* ============================================================
+   POLITIQUE_PONDERATION
+   Format : ['Groupe', 'Poste', pondération en %, 'Commentaire'],
+   - Le groupe doit être exactement 'Revenus' ou 'Charges fixes'.
+   - Ce tableau alimente la liste des postes de la saisie.
+   - Un 5e élément facultatif true signale un crédit : il entre alors
+     dans le taux d'endettement. Exemple :
+     ['Charges fixes', 'Crédit immobilier', 100, "", true],
+   - Un texte contenant une apostrophe se met entre guillemets doubles.
+   - Une virgule à la fin de chaque ligne, sauf la dernière.
+   ============================================================ */
+var POLITIQUE_PONDERATION = [
+  ['Revenus', 'Salaires nets CDI', 100, "Contrat à durée indéterminée, hors période d'essai"],
+  ['Revenus', 'Salaires nets CDD', 80, "Contrat à durée déterminée"],
+  ['Revenus', 'Locatifs', 90, "Le client met un bien en location RP"],
+  ['Revenus', 'Pension alimentaire reçue', 100, "Pension alimentaire versée par le client"],
+  ['Revenus', 'Retraites / pensions / rentes', 100, "Retraite, pension invalidité"],
+  ['Revenus', 'Allocations familiales', 70, "CMG, Prime d'activité"],
+  ['Revenus', 'Revenus variables', 90, ""],
+  ['Revenus', 'Revenus de valeurs mobilières', 70, ""],
+  ['Revenus', 'Allocations logement', 80, "APL, ALS"],
+  ['Revenus', 'Revenus fonciers, Quote part SCI', 0, ""],
+  ['Revenus', 'Autres revenus fixes', 100, ""],
+  ['Charges fixes', 'Crédit immobilier', 100, "", true],
+  ['Charges fixes', 'Crédit(s) à la consommation', 100, "", true],
+  ['Charges fixes', 'Loyer', 100, ""],
+  ['Charges fixes', 'Cotisations bancaires', 100, ""],
+  ['Charges fixes', 'Assurance Auto', 100, ""],
+  ['Charges fixes', 'Assurance habitation', 100, ""],
+  ['Charges fixes', 'Crédit dont le client est caution', 10, ""],
+  ['Charges fixes', 'Impôts et taxes', 100, ""],
+  ['Charges fixes', 'Autres charges fixes', 100, ""],
+  ['Charges fixes', "Charges d'emprunt SCI Quote part", 0, ""]
+];
+
+/* Postes affichés d'office à l'ouverture (noms identiques à ceux du tableau) */
+var LIGNES_PAR_DEFAUT = {
+  rev: ['Salaires nets CDI'],
+  cf: ['Crédit immobilier', 'Crédit(s) à la consommation', 'Loyer',
+       'Cotisations bancaires', 'Assurance Auto', 'Assurance habitation']
+};
+
+/* Repère affiché à côté du taux d'endettement, en % (modifiable) */
+var SEUIL_ENDETTEMENT = 35;
+
+var GROUPE_POLITIQUE = { rev: 'Revenus', cf: 'Charges fixes' };
+var AUTRE = '__autre__';
+
+/* ---------- Utilitaires ---------- */
+function get(id) { return document.getElementById(id); }
+
+function el(tag, classe, texte) {
+  var e = document.createElement(tag);
+  if (classe) { e.className = classe; }
+  if (texte !== undefined && texte !== null) { e.textContent = texte; }
+  return e;
+}
+
+function vider(n) { while (n.firstChild) { n.removeChild(n.firstChild); } }
+
+function nombre(v) {
+  var n = parseFloat(v);
+  if (isNaN(n) || n < 0) { return 0; }
+  return n;
+}
+
+/* Coefficient de pondération : champ vide = 100 %, borné entre 0 et 200 % */
+function coefPond(champ) {
+  var v = String(champ.value).trim();
+  if (v === '') { return 1; }
+  var n = parseFloat(v);
+  if (isNaN(n)) { return 1; }
+  if (n < 0) { n = 0; }
+  if (n > 200) { n = 200; }
+  return n / 100;
+}
+
+function eur(n) {
+  return n.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + '\u00a0\u20ac';
+}
+
+function pourcent(a, b) {
+  if (b <= 0) { return '-'; }
+  return (Math.round(a / b * 1000) / 10).toLocaleString('fr-FR') + '\u00a0%';
+}
+
+function dateLongue() {
+  return new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function pondActive() { return get('appliquer-pond').checked; }
+
+/* ---------- Accès à la politique ---------- */
+function trouverPoste(nom) {
+  for (var i = 0; i < POLITIQUE_PONDERATION.length; i++) {
+    if (POLITIQUE_PONDERATION[i][1] === nom) { return POLITIQUE_PONDERATION[i]; }
+  }
+  return null;
+}
+
+function pondPolitique(nom) {
+  var l = trouverPoste(nom);
+  return l ? l[2] : 100;
+}
+
+function estCredit(nom) {
+  var l = trouverPoste(nom);
+  return !!(l && l[4] === true);
+}
+
+/* ---------- Construction de la saisie ---------- */
+function champMontant(p, g) {
+  var i = el('input');
+  i.type = 'number';
+  i.min = '0';
+  i.step = 'any';
+  i.placeholder = '0';
+  i.setAttribute('data-p', p);
+  i.setAttribute('data-g', g);
+  i.addEventListener('input', calculer);
+  return i;
+}
+
+function champPond() {
+  var boite = el('div', 'pond');
+  var i = el('input');
+  i.type = 'number';
+  i.min = '0';
+  i.max = '200';
+  i.step = 'any';
+  i.value = '100';
+  i.title = 'Pondération en %';
+  i.addEventListener('input', calculer);
+  boite.appendChild(i);
+  return { boite: boite, champ: i };
+}
+
+/* avecBrut = true pour revenus et charges fixes : deux totaux (non pondéré / pondéré) */
+function ligneTotal(p, g, avecBrut) {
+  var frag = document.createDocumentFragment();
+  if (avecBrut) {
+    var b = el('div', 'total-brut');
+    b.appendChild(el('span', null, 'Total non pondéré (document client)'));
+    var sb = el('span', null, eur(0));
+    sb.id = 'tb-' + p + '-' + g;
+    b.appendChild(sb);
+    frag.appendChild(b);
+  }
+  var d = el('div', 'total');
+  var lib = el('span', null, 'Total');
+  lib.id = 'tl-' + p + '-' + g;
+  d.appendChild(lib);
+  var s = el('span', null, eur(0));
+  s.id = 'tot-' + p + '-' + g;
+  d.appendChild(s);
+  frag.appendChild(d);
+  return frag;
+}
+
+/* Un poste (revenus ou charges fixes) : liste de postes + pondération + plusieurs montants */
+function lignePoste(p, g, nomDefaut) {
+  var box = el('div', 'lp');
+
+  var tete = el('div', 'lp-tete');
+  var sel = el('select');
+  var nomsGroupe = GROUPE_POLITIQUE[g];
+  for (var i = 0; i < POLITIQUE_PONDERATION.length; i++) {
+    if (POLITIQUE_PONDERATION[i][0] === nomsGroupe) {
+      var o = el('option', null, POLITIQUE_PONDERATION[i][1]);
+      o.value = POLITIQUE_PONDERATION[i][1];
+      sel.appendChild(o);
+    }
+  }
+  var oa = el('option', null, 'Autre (libellé libre)');
+  oa.value = AUTRE;
+  sel.appendChild(oa);
+
+  var pond = champPond();
+  var x = el('button', 'btn-x', '\u00d7');
+  x.type = 'button';
+  x.title = 'Supprimer ce poste';
+  x.addEventListener('click', function () {
+    box.parentNode.removeChild(box);
+    calculer();
+  });
+  tete.appendChild(sel);
+  tete.appendChild(pond.boite);
+  tete.appendChild(x);
+  box.appendChild(tete);
+
+  var autreBoite = el('div', 'lp-autre');
+  autreBoite.hidden = true;
+  var autre = el('input');
+  autre.type = 'text';
+  autre.placeholder = 'Libellé du poste';
+  autre.addEventListener('input', calculer);
+  autreBoite.appendChild(autre);
+  box.appendChild(autreBoite);
+
+  var montants = el('div', 'lp-montants');
+  var btnAjout = el('button', 'btn-mini', '+ montant');
+  btnAjout.type = 'button';
+  var sous = el('span', 'lp-sous', eur(0));
+
+  function ajouterMontant() {
+    var item = el('div', 'montant-item');
+    var champ = champMontant(p, g);
+    champ.pondInput = pond.champ;
+    champ.lignePoste = sel;
+    var rm = el('button', 'btn-mini-x', '\u00d7');
+    rm.type = 'button';
+    rm.title = 'Supprimer ce montant';
+    rm.addEventListener('click', function () {
+      if (montants.querySelectorAll('.montant-item').length > 1) {
+        montants.removeChild(item);
+      } else {
+        champ.value = '';
+      }
+      calculer();
+    });
+    item.appendChild(champ);
+    item.appendChild(rm);
+    montants.insertBefore(item, btnAjout);
+    return champ;
+  }
+
+  btnAjout.addEventListener('click', function () {
+    var c = ajouterMontant();
+    c.focus();
+  });
+
+  montants.appendChild(btnAjout);
+  montants.appendChild(sous);
+  box.appendChild(montants);
+
+  sel.addEventListener('change', function () {
+    if (sel.value === AUTRE) {
+      autreBoite.hidden = false;
+      pond.champ.value = '100';
+    } else {
+      autreBoite.hidden = true;
+      pond.champ.value = String(pondPolitique(sel.value));
+    }
+    calculer();
+  });
+
+  if (nomDefaut) { sel.value = nomDefaut; }
+  if (sel.value === AUTRE) {
+    autreBoite.hidden = false;
+  } else {
+    pond.champ.value = String(pondPolitique(sel.value));
+  }
+  ajouterMontant();
+
+  box.pondInput = pond.champ;
+  box.sousTotal = sous;
+  return box;
+}
+
+function groupeLignes(p, g, classe, titre, libAjout) {
+  var box = el('div', 'groupe ' + classe);
+  box.appendChild(el('div', 'groupe-titre', titre));
+  var corps = el('div', 'groupe-corps');
+
+  var legende = el('div', 'lp-tete lp-legende');
+  legende.appendChild(el('span', null, 'Poste'));
+  legende.appendChild(el('span', 'pond', 'Pondér.'));
+  legende.appendChild(el('span'));
+  corps.appendChild(legende);
+
+  var liste = el('div');
+  var defauts = LIGNES_PAR_DEFAUT[g] || [];
+  for (var i = 0; i < defauts.length; i++) {
+    liste.appendChild(lignePoste(p, g, defauts[i]));
+  }
+  corps.appendChild(liste);
+
+  var b = el('button', 'btn-ajout', libAjout);
+  b.type = 'button';
+  b.addEventListener('click', function () {
+    liste.appendChild(lignePoste(p, g, null));
+    calculer();
+  });
+  corps.appendChild(b);
+  corps.appendChild(ligneTotal(p, g, true));
+  box.appendChild(corps);
+  return box;
+}
+
+function ligneDyn(p, g, exemple) {
+  var l = el('div', 'ligne-dyn');
+  var nom = el('input');
+  nom.type = 'text';
+  nom.placeholder = exemple;
+  nom.setAttribute('data-nom', '1');
+  nom.addEventListener('input', calculer);
+  var montant = champMontant(p, g);
+  var x = el('button', 'btn-x', '\u00d7');
+  x.type = 'button';
+  x.title = 'Supprimer cette ligne';
+  x.addEventListener('click', function () {
+    l.parentNode.removeChild(l);
+    calculer();
+  });
+  l.appendChild(nom);
+  l.appendChild(montant);
+  l.appendChild(x);
+  return l;
+}
+
+function groupeDynamique(p, g, classe, titre, libAjout, exemple, nb) {
+  var box = el('div', 'groupe ' + classe);
+  box.appendChild(el('div', 'groupe-titre', titre));
+  var corps = el('div', 'groupe-corps');
+  var liste = el('div');
+  for (var i = 0; i < nb; i++) { liste.appendChild(ligneDyn(p, g, exemple)); }
+  corps.appendChild(liste);
+  var b = el('button', 'btn-ajout', libAjout);
+  b.type = 'button';
+  b.addEventListener('click', function () {
+    var l = ligneDyn(p, g, exemple);
+    liste.appendChild(l);
+    l.getElementsByTagName('input')[0].focus();
+  });
+  corps.appendChild(b);
+  corps.appendChild(ligneTotal(p, g, false));
+  box.appendChild(corps);
+  return box;
+}
+
+function construirePersonne(p, titre, nbCv, nbEp) {
+  var bloc = get('bloc-' + p);
+  vider(bloc);
+  bloc.appendChild(el('h2', null, titre));
+  bloc.appendChild(groupeLignes(p, 'rev', 'g-rev', 'Revenus', '+ Ajouter un poste de revenus'));
+  bloc.appendChild(groupeLignes(p, 'cf', 'g-cf', 'Charges fixes', '+ Ajouter un poste de charges fixes'));
+  bloc.appendChild(groupeDynamique(p, 'cv', 'g-cv', 'Charges variables',
+    '+ Ajouter une charge', 'Nom de la charge (ex : alimentation)', nbCv));
+  bloc.appendChild(groupeDynamique(p, 'ep', 'g-ep', 'Épargne : versements mensuels',
+    '+ Ajouter une épargne', 'Support (ex : Livret A)', nbEp));
+}
+
+/* ---------- Politique de pondération (affichage) ---------- */
+function construirePolitique() {
+  var corps = get('tab-politique-corps');
+  vider(corps);
+  var groupeCourant = '';
+  for (var i = 0; i < POLITIQUE_PONDERATION.length; i++) {
+    var l = POLITIQUE_PONDERATION[i];
+    if (l[0] !== groupeCourant) {
+      groupeCourant = l[0];
+      var trg = el('tr');
+      var tdg = el('td', 'pol-groupe', groupeCourant);
+      tdg.colSpan = 3;
+      trg.appendChild(tdg);
+      corps.appendChild(trg);
+    }
+    var tr = el('tr');
+    tr.appendChild(el('td', null, l[1]));
+    tr.appendChild(el('td', 'pc', l[2] + '\u00a0%'));
+    tr.appendChild(el('td', null, l[3] || ''));
+    corps.appendChild(tr);
+  }
+}
+
+/* ---------- Calculs ---------- */
+function conjointActif() { return get('conjoint').checked; }
+
+/* Montants bruts (non pondérés) : rev, cf, cv, ep, cred
+   Montants pondérés (conseiller)  : revp, cfp, credp */
+function totalVide() {
+  return { rev: 0, cf: 0, cv: 0, ep: 0, cred: 0, revp: 0, cfp: 0, credp: 0 };
+}
+
+function totaux() {
+  var t = { c: totalVide(), j: totalVide() };
+  var champs = document.querySelectorAll('#mod-budget input[data-g]');
+  for (var i = 0; i < champs.length; i++) {
+    var p = champs[i].getAttribute('data-p');
+    var g = champs[i].getAttribute('data-g');
+    var brut = nombre(champs[i].value);
+    var pondere = brut;
+    if (champs[i].pondInput) {
+      pondere = brut * coefPond(champs[i].pondInput);
+    }
+    t[p][g] += brut;
+    if (g === 'rev') { t[p].revp += pondere; }
+    if (g === 'cf') { t[p].cfp += pondere; }
+    if (champs[i].lignePoste && estCredit(champs[i].lignePoste.value)) {
+      t[p].cred += brut;
+      t[p].credp += pondere;
+    }
+  }
+  return t;
+}
+
+function majSousTotaux(appliquer) {
+  var postes = document.querySelectorAll('#mod-budget .lp');
+  for (var i = 0; i < postes.length; i++) {
+    var box = postes[i];
+    var champs = box.querySelectorAll('input[data-g]');
+    var brut = 0;
+    for (var k = 0; k < champs.length; k++) { brut += nombre(champs[k].value); }
+    var c = coefPond(box.pondInput);
+    if (appliquer && c !== 1) {
+      box.sousTotal.textContent = eur(brut) + ' \u2192 ' + eur(brut * c);
+    } else {
+      box.sousTotal.textContent = eur(brut);
+    }
+  }
+}
+
+function cellule(tr, valeur, classe) {
+  var td = el('td', classe || '', eur(valeur));
+  tr.appendChild(td);
+  return td;
+}
+
+function lignesDetail(groupe, idConteneur) {
+  var conteneur = get(idConteneur);
+  vider(conteneur);
+  var champs = document.querySelectorAll('#mod-budget input[data-g="' + groupe + '"]');
+  var nb = 0;
+  for (var i = 0; i < champs.length; i++) {
+    var champ = champs[i];
+    var ligne = champ.parentNode;
+    var nomInput = ligne.querySelector('input[data-nom]');
+    if (!nomInput) { continue; }
+    var p = champ.getAttribute('data-p');
+    if (p === 'j' && !conjointActif()) { continue; }
+    var m = nombre(champ.value);
+    if (m <= 0) { continue; }
+    var libelle = nomInput.value.trim() || 'Sans libellé';
+    if (p === 'j') { libelle = libelle + ' (conjoint)'; }
+    var d = el('div', 'det-ligne');
+    d.appendChild(el('span', null, libelle));
+    d.appendChild(el('span', null, eur(m)));
+    conteneur.appendChild(d);
+    nb++;
+  }
+  if (nb === 0) { conteneur.appendChild(el('div', 'det-vide', 'Aucune ligne renseignée')); }
+}
+
+/* Taux d'endettement = crédits / revenus */
+function majTaux(idBoite, idValeur, idDetail, rev, cred, notePond) {
+  var boite = get(idBoite);
+  var valeur = get(idValeur);
+  var detail = get(idDetail);
+  vider(detail);
+  boite.className = 'bloc-end';
+
+  if (rev <= 0) {
+    valeur.textContent = '-';
+    detail.appendChild(el('div', null, 'Renseignez les revenus pour calculer le taux d\u2019endettement.'));
+    return;
+  }
+
+  var taux = cred / rev * 100;
+  var arrondi = Math.round(taux * 10) / 10;
+  valeur.textContent = arrondi.toLocaleString('fr-FR') + '\u00a0%';
+  if (taux > SEUIL_ENDETTEMENT) { boite.className = 'bloc-end alerte'; }
+
+  detail.appendChild(el('div', null, 'Crédits : ' + eur(cred) + ' / mois'));
+  detail.appendChild(el('div', null, 'Revenus : ' + eur(rev) + ' / mois'));
+  detail.appendChild(el('div', null,
+    'Repère : ' + SEUIL_ENDETTEMENT + '\u00a0% des revenus. Loyer et autres charges non inclus.'));
+  if (notePond) {
+    detail.appendChild(el('div', null, notePond));
+  }
+}
+
+function remplirTableau(idCorps, t, tt, cles, libelles) {
+  var corps = get(idCorps);
+  vider(corps);
+  for (var i = 0; i < cles.length; i++) {
+    var cle = cles[i];
+    var estRav = (cle === 'rav' || cle === 'ravp');
+    var tr = el('tr', estRav ? 'rav' : '');
+    tr.appendChild(el('td', null, libelles[i]));
+    cellule(tr, t.c[cle], (estRav && t.c[cle] < 0) ? 'neg' : '');
+    cellule(tr, t.j[cle], 'col-conj' + ((estRav && t.j[cle] < 0) ? ' neg' : ''));
+    cellule(tr, tt[cle], (estRav && tt[cle] < 0) ? 'neg' : '');
+    corps.appendChild(tr);
+  }
+}
+
+function calculer() {
+  var avec = conjointActif();
+  var appliquer = pondActive();
+  var t = totaux();
+  if (!avec) { t.j = totalVide(); }
+
+  /* Totaux affichés dans les blocs de saisie */
+  var personnes = ['c', 'j'];
+  var groupes = ['rev', 'cf', 'cv', 'ep'];
+  for (var a = 0; a < personnes.length; a++) {
+    for (var b = 0; b < groupes.length; b++) {
+      var g = groupes[b];
+      var estPondGroupe = (g === 'rev' || g === 'cf');
+      var s = get('tot-' + personnes[a] + '-' + g);
+      if (s) {
+        var v = (appliquer && estPondGroupe) ? t[personnes[a]][g + 'p'] : t[personnes[a]][g];
+        s.textContent = eur(v);
+      }
+      var lib = get('tl-' + personnes[a] + '-' + g);
+      if (lib) {
+        lib.textContent = (appliquer && estPondGroupe) ? 'Total pondéré (conseiller)' : 'Total';
+      }
+      if (estPondGroupe) {
+        var sb = get('tb-' + personnes[a] + '-' + g);
+        if (sb) { sb.textContent = eur(t[personnes[a]][g]); }
+      }
+    }
+  }
+  majSousTotaux(appliquer);
+
+  /* Reste à vivre */
+  t.c.rav = t.c.rev - t.c.cf - t.c.cv - t.c.ep;
+  t.j.rav = t.j.rev - t.j.cf - t.j.cv - t.j.ep;
+  t.c.ravp = t.c.revp - t.c.cfp - t.c.cv - t.c.ep;
+  t.j.ravp = t.j.revp - t.j.cfp - t.j.cv - t.j.ep;
+  var tt = {
+    rev: t.c.rev + t.j.rev,
+    cf: t.c.cf + t.j.cf,
+    cv: t.c.cv + t.j.cv,
+    ep: t.c.ep + t.j.ep,
+    cred: t.c.cred + t.j.cred,
+    revp: t.c.revp + t.j.revp,
+    cfp: t.c.cfp + t.j.cfp,
+    credp: t.c.credp + t.j.credp
+  };
+  tt.rav = tt.rev - tt.cf - tt.cv - tt.ep;
+  tt.ravp = tt.revp - tt.cfp - tt.cv - tt.ep;
+
+  /* ===== DOCUMENT CLIENT : montants non pondérés ===== */
+  remplirTableau('tab-corps', t, tt,
+    ['rev', 'cf', 'cv', 'ep', 'rav'],
+    ['Revenus', '\u2212 Charges fixes', '\u2212 Charges variables',
+     '\u2212 Épargne actuelle', '= Reste à vivre']);
+  get('tab-synthese').className = avec ? 'tab-sy' : 'tab-sy sans-conjoint';
+
+  majTaux('endettement', 'end-valeur', 'end-detail', tt.rev, tt.cred, '');
+
+  var base = Math.max(0, tt.rav);
+  var r20 = base * 0.2;
+  get('r50').textContent = eur(base * 0.5);
+  get('r30').textContent = eur(base * 0.3);
+  get('r20').textContent = eur(r20);
+
+  var boite = get('effort');
+  var valeur = get('effort-valeur');
+  var note = get('effort-note');
+  if (tt.rev <= 0) {
+    boite.className = '';
+    valeur.textContent = '-';
+    note.textContent = 'Renseignez les revenus et les charges pour calculer l\u2019effort d\u2019épargne.';
+  } else if (tt.rav <= 0) {
+    boite.className = 'alerte';
+    valeur.textContent = eur(0);
+    note.textContent = 'Le reste à vivre est nul ou négatif : aucun effort d\u2019épargne supplémentaire n\u2019est possible sans réduire les charges.';
+  } else {
+    boite.className = '';
+    valeur.textContent = '+ ' + eur(r20) + ' / mois';
+    note.textContent = 'Épargne actuelle : ' + eur(tt.ep) + ' / mois (' + pourcent(tt.ep, tt.rev) +
+      ' des revenus). Avec cet effort : ' + eur(tt.ep + r20) + ' / mois (' +
+      pourcent(tt.ep + r20, tt.rev) + ' des revenus).';
+  }
+
+  lignesDetail('cv', 'det-cv');
+  lignesDetail('ep', 'det-ep');
+
+  /* ===== ANALYSE CONSEILLER : montants pondérés (écran uniquement) ===== */
+  get('analyse').hidden = !appliquer;
+  if (appliquer) {
+    remplirTableau('ana-corps', t, tt,
+      ['revp', 'cfp', 'cv', 'ep', 'ravp'],
+      ['Revenus pondérés', '\u2212 Charges fixes pondérées', '\u2212 Charges variables',
+       '\u2212 Épargne actuelle', '= Reste à vivre pondéré']);
+    get('tab-analyse').className = avec ? 'tab-sy' : 'tab-sy sans-conjoint';
+
+    majTaux('ana-endettement', 'ana-end-valeur', 'ana-end-detail',
+      tt.revp, tt.credp, 'Calculé sur les montants retenus après pondération.');
+
+    var zoneEff = get('ana-effort');
+    vider(zoneEff);
+    if (tt.revp <= 0) {
+      zoneEff.appendChild(document.createTextNode('Effort d\u2019épargne pondéré : -'));
+    } else if (tt.ravp <= 0) {
+      zoneEff.appendChild(document.createTextNode('Reste à vivre pondéré nul ou négatif : aucun effort d\u2019épargne possible.'));
+    } else {
+      zoneEff.appendChild(document.createTextNode('Effort d\u2019épargne pondéré (20 % du reste à vivre pondéré) : '));
+      zoneEff.appendChild(el('strong', null, eur(tt.ravp * 0.2) + ' / mois'));
+    }
+  }
+
+  majIdentite();
+}
+
+/* ---------- Identité et date ---------- */
+function majDate() {
+  get('date-jour').textContent = dateLongue();
+}
+
+function majIdentite() {
+  var prenom = get('prenom').value.trim();
+  var nom = get('nom').value.trim().toUpperCase();
+  var complet = (prenom + ' ' + nom).trim();
+  var zone = get('syn-ident');
+  vider(zone);
+
+  var l1 = el('div');
+  l1.appendChild(document.createTextNode('Client : '));
+  l1.appendChild(el('strong', null, complet || '................................'));
+  if (conjointActif()) { l1.appendChild(document.createTextNode(' (avec conjoint)')); }
+  zone.appendChild(l1);
+
+  var l2 = el('div');
+  l2.appendChild(document.createTextNode('Date : '));
+  l2.appendChild(el('strong', null, dateLongue()));
+  zone.appendChild(l2);
+}
+
+/* ---------- Affichage conjoint et pondérations ---------- */
+function majAffichage() {
+  get('personnes').className = pondActive() ? '' : 'sans-pond';
+  get('bloc-j').hidden = !conjointActif();
+}
+
+function appliquerAffichage() {
+  majAffichage();
+  calculer();
+}
+
+/* ---------- Événements ---------- */
+get('nom').addEventListener('input', majIdentite);
+get('prenom').addEventListener('input', majIdentite);
+get('conjoint').addEventListener('change', appliquerAffichage);
+get('appliquer-pond').addEventListener('change', appliquerAffichage);
+
+get('b-print').addEventListener('click', function () {
+  majDate();
+  majIdentite();
+  window.print();
+});
+
+var titreOrigine = document.title;
+window.addEventListener('beforeprint', function () {
+  if (get('mod-budget').hidden) { return; }
+  majDate();
+  majIdentite();
+  var prenom = get('prenom').value.trim();
+  var nom = get('nom').value.trim().toUpperCase();
+  var qui = (prenom + ' ' + nom).trim();
+  document.title = 'Budget' + (qui ? ' - ' + qui : '') + ' - ' + dateLongue();
+});
+window.addEventListener('afterprint', function () {
+  document.title = titreOrigine;
+});
+
+get('b-reset').addEventListener('click', function () {
+  if (!confirm('Réinitialiser toutes les données du budget ?')) { return; }
+  get('nom').value = '';
+  get('prenom').value = '';
+  get('conjoint').checked = false;
+  get('appliquer-pond').checked = true;
+  construirePersonne('c', 'Client', 3, 2);
+  construirePersonne('j', 'Conjoint', 2, 1);
+  majDate();
+  appliquerAffichage();
+});
+
+/* ---------- Initialisation ---------- */
+construirePersonne('c', 'Client', 3, 2);
+construirePersonne('j', 'Conjoint', 2, 1);
+construirePolitique();
+majDate();
+appliquerAffichage();
+
+})();
+</script>
+
+<!-- ===== MODULE COURRIER ===== -->
+<script>
+(function () {
+
+/* ============================================================
+   LISTE DES FORMULES DE POLITESSE : ajouter une ligne par formule
+   Format : ['Libellé affiché dans la liste', 'Formule complète'],
+   [IDENT] est remplacé par "M. DUPONT", "Mme MARTIN" ou "Madame, Monsieur"
+   - Texte entre guillemets doubles, sur une seule ligne.
+   - Une virgule à la fin de chaque ligne, sauf la dernière.
+   ============================================================ */
+var LISTE_POLITESSES = [
+  ['Salutations distinguées', "Veuillez agréer, [IDENT], l'expression de nos salutations distinguées."],
+  ['Sentiments dévoués', "Nous vous prions d'agréer, [IDENT], l'expression de nos sentiments dévoués."],
+  ['Cordiales salutations (attente de réponse)', "Dans l'attente de vous lire, veuillez agréer, [IDENT], l'expression de nos cordiales salutations."],
+  ['Considération distinguée', "Veuillez agréer, [IDENT], l'assurance de notre considération distinguée."],
+  ['Cordiales salutations', "Nous vous adressons, [IDENT], nos cordiales salutations."]
+];
+
+/* Construction automatique de la liste déroulante (ne pas modifier) */
+var POLITESSES = {};
+(function () {
+  var sel = document.getElementById('f-politesse');
+  for (var i = 0; i < LISTE_POLITESSES.length; i++) {
+    var cle = String(i + 1);
+    POLITESSES[cle] = LISTE_POLITESSES[i][1];
+    var o = document.createElement('option');
+    o.value = cle;
+    o.textContent = LISTE_POLITESSES[i][0];
+    sel.appendChild(o);
+  }
+})();
+
+/* ---------- Utilitaires ---------- */
+function get(id) { return document.getElementById(id); }
+
+function val(id) {
+  var e = get(id);
+  return e ? e.value.trim() : '';
+}
+
+function vider(e) {
+  while (e.firstChild) { e.removeChild(e.firstChild); }
+}
+
+function setTexte(id, texte, remplacement) {
+  var e = get(id);
+  if (!e) { return; }
+  vider(e);
+  if (texte) {
+    e.appendChild(document.createTextNode(texte));
+  } else if (remplacement) {
+    var s = document.createElement('span');
+    s.className = 'ph';
+    s.appendChild(document.createTextNode(remplacement));
+    e.appendChild(s);
+  }
+}
+
+/* Plusieurs lignes. Une ligne peut être un texte ou { gras: 'texte' } */
+function setLignes(id, lignes, remplacement) {
+  var e = get(id);
+  if (!e) { return; }
+  vider(e);
+  var utiles = [];
+  for (var i = 0; i < lignes.length; i++) {
+    if (lignes[i]) { utiles.push(lignes[i]); }
+  }
+  if (utiles.length === 0) {
+    if (remplacement) {
+      var s = document.createElement('span');
+      s.className = 'ph';
+      s.appendChild(document.createTextNode(remplacement));
+      e.appendChild(s);
+    }
+    return;
+  }
+  for (var j = 0; j < utiles.length; j++) {
+    if (j > 0) { e.appendChild(document.createElement('br')); }
+    var ligne = utiles[j];
+    if (typeof ligne === 'object') {
+      var b = document.createElement('strong');
+      b.appendChild(document.createTextNode(ligne.gras));
+      e.appendChild(b);
+    } else {
+      e.appendChild(document.createTextNode(ligne));
+    }
+  }
+}
+
+function formatDate(v) {
+  if (!v) { return ''; }
+  var p = v.split('-');
+  if (p.length !== 3) { return v; }
+  return p[2] + '/' + p[1] + '/' + p[0];
+}
+
+function optionChoisie(id) {
+  var sel = get(id);
+  if (!sel || sel.selectedIndex <= 0) { return null; }
+  return sel.options[sel.selectedIndex];
+}
+
+function dateDuJour() {
+  var t = new Date();
+  var mm = String(t.getMonth() + 1);
+  var dd = String(t.getDate());
+  if (mm.length < 2) { mm = '0' + mm; }
+  if (dd.length < 2) { dd = '0' + dd; }
+  return t.getFullYear() + '-' + mm + '-' + dd;
+}
+
+/* ---------- Enveloppe à fenêtre ---------- */
+function majFenetre() {
+  var lettre = get('lettre');
+  if (val('f-fenetre') === 'gauche') {
+    lettre.classList.add('fenetre-gauche');
+  } else {
+    lettre.classList.remove('fenetre-gauche');
+  }
+  get('fenetre-guide').style.display = get('f-guide').checked ? 'block' : 'none';
+}
+
+/* ---------- Rendu de l'aperçu ---------- */
+function render() {
+
+  majFenetre();
+
+  /* Agence */
+  var ag = optionChoisie('f-agence');
+  if (ag) {
+    var a1 = ag.getAttribute('data-a1') || '';
+    var a2 = ag.getAttribute('data-a2') || '';
+    var tel = ag.getAttribute('data-tel') || '';
+    setTexte('ltr-exp-agence', 'Agence de ' + ag.value);
+    setLignes('ltr-exp-coords', [a1, a2, 'Tél. : ' + tel]);
+    setLignes('info-agence', [a1 + ', ' + a2, 'Tél. : ' + tel]);
+  } else {
+    setTexte('ltr-exp-agence', '', 'Agence non sélectionnée');
+    setTexte('ltr-exp-coords', '', 'Adresse - Téléphone');
+    setTexte('info-agence', 'Aucune agence sélectionnée');
+  }
+
+  /* Date et lieu */
+  var lieu = val('f-lieu');
+  var date = formatDate(val('f-date'));
+  var dl = '';
+  if (lieu && date) { dl = lieu + ', le ' + date; }
+  else if (lieu) { dl = lieu; }
+  else if (date) { dl = 'Le ' + date; }
+  setTexte('ltr-date', dl, 'Lieu, le JJ/MM/AAAA');
+
+  /* Destinataire */
+  var civ = val('f-civ');
+  var nom = val('f-nom');
+  var prenom = val('f-prenom');
+  var parties = [];
+  if (civ) { parties.push(civ); }
+  if (prenom) { parties.push(prenom); }
+  if (nom) { parties.push(nom); }
+  var ident = parties.join(' ');
+  var lignesDest = [];
+  if (ident) { lignesDest.push({ gras: ident }); }
+  lignesDest.push(val('f-adr1'));
+  lignesDest.push(val('f-adr2'));
+  setLignes('ltr-dest', lignesDest, 'Bloc destinataire');
+
+  /* Références */
+  setTexte('ltr-rc', val('f-refclient'), '-');
+  setTexte('ltr-ra', val('f-refagence'), '-');
+
+  /* Objet */
+  setTexte('ltr-obj-val', val('f-objet'), 'Objet du courrier');
+
+  /* Corps */
+  setTexte('ltr-corps', get('f-corps').value, 'Le contenu de votre courrier apparaîtra ici...');
+
+  /* Formule de politesse */
+  var modele = POLITESSES[val('f-politesse')] || POLITESSES['1'] || '';
+  var qui = 'Madame, Monsieur';
+  if (civ || nom) {
+    qui = (civ + ' ' + nom.toUpperCase()).trim();
+  }
+  setTexte('ltr-politesse', modele.replace('[IDENT]', qui));
+
+  /* Signataire */
+  var cs = optionChoisie('f-conseiller');
+  if (cs) {
+    var cp = cs.getAttribute('data-prenom') || '';
+    var cn = cs.getAttribute('data-nom') || '';
+    var poste = cs.getAttribute('data-poste') || '';
+    var ctel = cs.getAttribute('data-tel') || '';
+    var cmail = cs.getAttribute('data-mail') || '';
+    setTexte('ltr-sig-name', cp + ' ' + cn);
+    setTexte('ltr-sig-poste', poste);
+    setLignes('ltr-sig-contact', [ctel, cmail]);
+    setLignes('info-conseiller', [cp + ' ' + cn + ' - ' + poste, 'Tél. : ' + ctel, cmail]);
+  } else {
+    setTexte('ltr-sig-name', '', 'Prénom NOM');
+    setTexte('ltr-sig-poste', '');
+    setTexte('ltr-sig-contact', '');
+    setTexte('info-conseiller', 'Aucun conseiller sélectionné');
+  }
+}
+
+/* ---------- Ville de l'agence -> champ Lieu ---------- */
+var dernierLieuAuto = '';
+
+function remplirLieuDepuisAgence() {
+  var ag = optionChoisie('f-agence');
+  var lieuEl = get('f-lieu');
+  if (!ag || !lieuEl) { return; }
+  var actuel = lieuEl.value.trim();
+  if (actuel === '' || actuel === dernierLieuAuto) {
+    var a2 = ag.getAttribute('data-a2') || '';
+    var ville = a2.replace(/^[0-9]+\s*/, '').trim();
+    lieuEl.value = ville;
+    dernierLieuAuto = ville;
+  }
+}
+
+/* ---------- Branchement des événements ---------- */
+var champsCourrier = ['f-lieu', 'f-date', 'f-civ', 'f-nom', 'f-prenom', 'f-adr1', 'f-adr2',
+                      'f-refclient', 'f-refagence', 'f-objet', 'f-corps',
+                      'f-politesse', 'f-conseiller', 'f-agence', 'f-fenetre', 'f-guide'];
+
+for (var i = 0; i < champsCourrier.length; i++) {
+  var champ = get(champsCourrier[i]);
+  if (champ) {
+    champ.addEventListener('input', render);
+    champ.addEventListener('change', render);
+  }
+}
+
+get('f-agence').addEventListener('change', function () {
+  remplirLieuDepuisAgence();
+  render();
+});
+
+get('c-print').addEventListener('click', function () {
+  window.print();
+});
+
+get('c-reset').addEventListener('click', function () {
+  if (!confirm('Réinitialiser le courrier ?')) { return; }
+  var selects = ['f-agence', 'f-civ', 'f-politesse', 'f-conseiller', 'f-fenetre'];
+  for (var a = 0; a < selects.length; a++) { get(selects[a]).selectedIndex = 0; }
+  var vides = ['f-lieu', 'f-nom', 'f-prenom', 'f-adr1', 'f-adr2',
+               'f-refclient', 'f-refagence', 'f-objet', 'f-corps'];
+  for (var b = 0; b < vides.length; b++) { get(vides[b]).value = ''; }
+  get('f-guide').checked = true;
+  dernierLieuAuto = '';
+  get('f-date').value = dateDuJour();
+  render();
+});
+
+/* ---------- Initialisation ---------- */
+get('f-date').value = dateDuJour();
+render();
+
+})();
+</script>
+
+</body>
+</html>

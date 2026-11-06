@@ -79,7 +79,8 @@ function getAgencesFull($onlyActive = true) {
         $rows = getDB()->query("SELECT id, nom, adresse, numero, actif FROM agences " . ($onlyActive ? "WHERE actif = 1 " : "") . "ORDER BY nom")->fetchAll(PDO::FETCH_ASSOC);
         if ($rows) return $rows;
     } catch (Throwable $e) { error_log('agences: ' . $e->getMessage()); }
-    return array_map(fn($n) => ['id' => 0, 'nom' => $n, 'adresse' => '', 'numero' => '', 'actif' => 1], agencesDefaultNames()); // base indisponible : liste de secours
+    $dir = agencesDirectoryData();
+    return array_map(fn($n) => ['id' => 0, 'nom' => $n, 'adresse' => $dir[$n]['adresse'] ?? '', 'numero' => $dir[$n]['numero'] ?? '', 'actif' => 1], agencesDefaultNames()); // base indisponible : liste de secours (annuaire public)
 }
 
 /** Noms des agences actives (compatibilité). */

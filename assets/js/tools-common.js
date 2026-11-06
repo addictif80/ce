@@ -15,9 +15,9 @@
     if(window.toolsShare&&window.toolsShare.get) o.x=window.toolsShare.get();
     return o;
   }
-  function shareUrl(){return location.origin+location.pathname+location.search+'#s='+b64(JSON.stringify(collect()));}
+  function shareUrl(){const p='#s='+b64(JSON.stringify(collect()));return window.TOOLS_SA?window.TOOLS_SA.share(p):location.origin+location.pathname+location.search+p;} // TOOLS_SA : fichier HTML autonome (l'adresse est celle du fichier, pas de l'iframe)
   function restore(){
-    const m=location.hash.match(/^#s=([\w-]+)$/); if(!m) return;
+    const m=(window.TOOLS_SA?window.TOOLS_SA.hash:location.hash).match(/^#s=([\w-]+)$/); if(!m) return;
     let o; try{o=JSON.parse(unb64(m[1]));}catch(e){return;}
     if(o.x&&window.toolsShare&&window.toolsShare.set){try{window.toolsShare.set(o.x);}catch(e){}}
     Object.keys(o.f||{}).forEach(id=>{
@@ -43,7 +43,7 @@
   document.addEventListener('click',async e=>{
     const b=e.target.closest('[data-tool-action]'); if(!b) return;
     const a=b.dataset.toolAction; if(a!=='print') stat(a);
-    if(a==='link'){history.replaceState(null,'',shareUrl().slice(location.origin.length)); flash(b,(await copy(shareUrl()))?'Lien copié':'Copie impossible');}
+    if(a==='link'){if(!window.TOOLS_SA) history.replaceState(null,'',shareUrl().slice(location.origin.length)); flash(b,(await copy(shareUrl()))?'Lien copié':'Copie impossible');}
     else if(a==='copy'){flash(b,(await copy(resultText()))?'Résultat copié':'Copie impossible');}
     else if(a==='print'){window.print();}
     else if(a==='mail'){

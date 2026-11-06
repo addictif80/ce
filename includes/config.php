@@ -17,7 +17,8 @@ define('MAIL_FROM', 'noreply@portail-ce.local');
 define('MAIL_FROM_NAME', 'Portail Gestion d\'Activités');
 define('APP_URL', 'http://localhost/ce');
 
-// Connexion PDO
+// Connexion PDO (la génération du fichier autonome fournit sa propre version, qui lève une exception au lieu d'arrêter la page)
+if (!function_exists('getDB')) {
 function getDB() {
     static $pdo = null;
     if ($pdo === null) {
@@ -38,4 +39,5 @@ function getDB() {
         }
     }
     return $pdo;
+}
 }

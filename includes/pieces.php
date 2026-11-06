@@ -92,8 +92,12 @@ function piecesParse($lignes) {
 }
 
 function piecesModelesActifs() {
-    piecesEnsureSchema();
     $out = [];
+    try { piecesEnsureSchema(); getDB(); } catch (Throwable $e) {
+        if (!defined('TOOLS_STANDALONE')) throw $e;
+        foreach (piecesModelesParDefaut() as $i => [$nom, $lignes]) $out[] = ['id' => $i + 1, 'nom' => $nom, 'items' => piecesParse($lignes)]; // fichier autonome sans base : modèles fournis par défaut
+        return $out;
+    }
     foreach (getDB()->query("SELECT id, nom, lignes FROM pieces_modeles WHERE actif = 1 ORDER BY ordre, nom")->fetchAll() as $m) {
         $out[] = ['id' => (int)$m['id'], 'nom' => $m['nom'], 'items' => piecesParse($m['lignes'])];
     }

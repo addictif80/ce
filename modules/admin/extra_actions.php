@@ -10,6 +10,34 @@ if ($action === 'bareme_ia') { // vérification assistée par IA (réponse JSON,
     echo json_encode(['ok' => !isset($r['erreur']), 'verdict' => $r['verdict'] ?? null, 'ecarts' => $r['ecarts'] ?? 0, 'interne' => !empty($r['interne']), 'html' => baremeIaRender($r)], JSON_UNESCAPED_UNICODE);
     exit;
 }
+if ($action === 'build_standalone') { // fichier HTML autonome « Outils conseiller » (voir scripts/build_standalone.php)
+    $to = trim((string)($_POST['feedback_to'] ?? ''));
+    if ($to !== '' && !filter_var($to, FILTER_VALIDATE_EMAIL)) { header('Location: index.php?tab=outils_publics&msg=standalone_to_invalid'); exit; }
+    setToolsSetting('standalone_feedback_to', $to);
+    @set_time_limit(300);
+    $php = null;
+    foreach (array_merge([dirname(PHP_BINARY) . '/php'], glob('/usr/local/lsws/lsphp*/bin/php') ?: [], ['/usr/bin/php', '/usr/local/bin/php', 'php']) as $cand) {
+        $r = @shell_exec(escapeshellarg($cand) . ' -r "echo PHP_SAPI;" 2>/dev/null');
+        if ($r === 'cli') { $php = $cand; break; }
+    }
+    $tmp = tempnam(sys_get_temp_dir(), 'outils');
+    $log = '';
+    if ($php) {
+        $cmd = escapeshellarg($php) . ' ' . escapeshellarg(__DIR__ . '/../../scripts/build_standalone.php') . ' --out=' . escapeshellarg($tmp) . ($to !== '' ? ' --feedback-to=' . escapeshellarg($to) : '') . ' 2>&1';
+        $log = (string)shell_exec($cmd);
+    }
+    if (!$php || !is_file($tmp) || filesize($tmp) < 100000) {
+        @unlink($tmp);
+        $_SESSION['standalone_log'] = $php ? mb_substr($log, -1500) : "Aucun exécutable PHP en ligne de commande n'a été trouvé sur le serveur. Lancez la commande « php scripts/build_standalone.php » depuis le dossier du portail.";
+        header('Location: index.php?tab=outils_publics&msg=standalone_failed'); exit;
+    }
+    while (ob_get_level() > 0) ob_end_clean();
+    header('Content-Type: text/html; charset=utf-8');
+    header('Content-Disposition: attachment; filename="outils-conseiller-' . date('Y-m-d') . '.html"');
+    header('Content-Length: ' . filesize($tmp));
+    readfile($tmp); @unlink($tmp);
+    exit;
+}
 if ($action === 'save_bareme_ia_domains') {
     setToolsSetting('bareme_ia_domains', trim((string)($_POST['domains'] ?? '')));
     header('Location: index.php?tab=baremes&msg=bareme_ia_domains');

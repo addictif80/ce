@@ -1169,6 +1169,7 @@ function toolsVisitorIsLoggedIn() {
 
 /** Bloque l'accès public à un outil non actif (page « indisponible » avec le motif, ou 404 si masqué) ; les utilisateurs connectés passent toujours. */
 function requirePublicTool($key, $json = false) {
+    if (defined('TOOLS_STANDALONE')) return; // fichier HTML autonome : pas de contrôle d'accès
     if (toolsVisitorIsLoggedIn()) return;
     requireToolsAccess($json);
     $st = getPublicToolsStatus()[$key] ?? ['state' => 'masque', 'motif' => ''];
@@ -1191,6 +1192,7 @@ function requirePublicTool($key, $json = false) {
 
 /** Comme requirePublicTool(), mais accepte n'importe lequel des outils listés (ressource partagée par plusieurs outils). */
 function requireAnyPublicTool(array $keys, $json = false) {
+    if (defined('TOOLS_STANDALONE')) return; // fichier HTML autonome : pas de contrôle d'accès
     if (toolsVisitorIsLoggedIn()) return;
     requireToolsAccess($json);
     $status = getPublicToolsStatus();
@@ -1308,6 +1310,7 @@ function findToolsCode($input) {
 
 /** Redirige vers la saisie du code (ou répond 401 pour une API) si /tools est protégé et le visiteur n'a pas de code valide */
 function requireToolsAccess($json = false) {
+    if (defined('TOOLS_STANDALONE')) return; // fichier HTML autonome : pas de contrôle d'accès
     if (toolsVisitorIsLoggedIn() || toolsAccessGranted()) return;
     if ($json) {
         http_response_code(401);
