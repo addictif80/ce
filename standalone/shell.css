@@ -91,3 +91,26 @@ body, input, select, textarea, button { font-variant-numeric: lining-nums; }
 .ab-nav .rapide-btn span { color: inherit; font-size: inherit; font-weight: inherit; }
 .rapide-accueil .rapide-btn { background: #fff; color: var(--ab-primary); border: 2px solid var(--ab-primary); border-radius: 8px; }
 .rapide-accueil .rapide-btn:hover { background: var(--ab-primary); color: #fff; }
+
+/* mentions : rien n'est enregistré, aucune donnée ne transite, page indépendante */
+#mention-bas { position: fixed; left: 0; right: 0; bottom: 0; z-index: 70; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; justify-content: center; min-height: 30px; padding: 4px 12px; background: var(--ab-primary); color: #fff; font-size: 12px; line-height: 1.4; text-align: center; }
+#mention-bas .sep { opacity: .6; }
+#mention-bas i { color: var(--ab-secondary); margin-right: 4px; }
+#mention-bas .lien-discret { color: var(--ab-secondary); margin: 0; font-size: 12px; }
+body { padding-bottom: 34px; }
+#mod-frame iframe { height: calc(100vh - var(--topbar-h) - 34px); }
+@media (max-width: 760px) { #mention-bas { font-size: 11px; } #mention-bas .sep { display: none; } body { padding-bottom: 56px; } #mod-frame iframe { height: calc(100vh - var(--topbar-h) - 56px); } }
+@media print { #mention-bas, #mention-fond { display: none !important; } body { padding-bottom: 0; } }
+#mention-fond { position: fixed; inset: 0; z-index: 1500; background: rgba(36, 40, 91, .55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+#mention-fond[hidden] { display: none; }
+#mention-boite { background: #fff; border-radius: 14px; max-width: 620px; width: 100%; max-height: 90vh; overflow: auto; padding: 24px 26px; border-top: 6px solid var(--ab-secondary); }
+#mention-boite h2 { font-size: 20px; font-weight: 800; color: var(--ab-primary); margin-bottom: 12px; }
+#mention-boite ul { padding-left: 20px; font-size: 14px; line-height: 1.6; color: #2d3347; }
+#mention-boite li { margin-bottom: 8px; }
+.mention-exc { font-size: 13px; color: #4a5266; background: var(--ab-light); border-radius: 8px; padding: 10px 12px; line-height: 1.55; }
+#accueil-garanties { max-width: 1180px; margin: 0 auto 8px; padding: 0 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.garantie { display: flex; gap: 14px; align-items: flex-start; background: #fff; border: 1px solid var(--ab-line); border-left: 6px solid var(--ab-secondary); border-radius: 12px; padding: 16px 18px; }
+.garantie > i { font-size: 26px; color: var(--ab-primary); margin-top: 2px; }
+.garantie strong { display: block; color: var(--ab-primary); font-size: 16px; margin-bottom: 3px; }
+.garantie span { display: block; font-size: 13.5px; color: #3e4559; line-height: 1.55; }
+@media (max-width: 800px) { #accueil-garanties { grid-template-columns: 1fr; } }

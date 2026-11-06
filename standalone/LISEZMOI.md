@@ -57,3 +57,9 @@ modifiée dans le fichier généré : constante `FEEDBACK_TO` au début du derni
 - `standalone/base_outils.html` : gabarit de départ (page d'origine : accueil, budget, courrier).
 - `standalone/rebrand.php`, `theme.css`, `assets/` : charte ABhD ; `standalone/shell.css`, `shell.js` : accueil, navigation, formulaire de retour ; `shim.js` : amorce de chaque outil (liens, absence de serveur, ADEME, zonage).
 - `standalone/pages/` : procédures, codes et contacts (instantané de la base).
+
+## Confidentialité et indépendance (à ne pas retirer)
+- Un bandeau permanent en bas de page, des encadrés sur l'accueil et dans chaque outil, une diapositive de présentation et une fenêtre « En savoir plus » rappellent que rien n'est enregistré, qu'aucune donnée ne transite, et que la page n'est éditée ni par la Caisse d'Épargne ni par BPCE.
+- Seules exceptions, signalées dans les outils concernés : la recherche RGE et la recherche DPE (bases publiques de l'ADEME) et la recherche d'adresse (plan de financement, crédits spéciaux, comparateur de scénarios, DPE : Base Adresse Nationale). Si vous ajoutez un outil qui appelle un service en ligne, ajoutez-le à la liste des exceptions dans `tools/_layout.php` (fonction `privacyBanner`) et dans `standalone/assemble.php` (variable `$mExc`).
+- Les documents (tableur, présentation) ne gardent plus de brouillon dans le navigateur : il faut les télécharger avant de fermer la page.
+- Le texte de ces mentions est balisé `<!--MENTION-->…<!--/MENTION-->` : le générateur ne le réécrit pas et ne le signale pas comme référence restante à la marque.

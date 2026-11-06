@@ -78,7 +78,22 @@ function toolsHeader($title, $key = null, $extraHead = '') {
 </div>
 <?php }
 
-function privacyBanner($text = null) { ?>
+function privacyBanner($text = null) {
+    if (defined('TOOLS_STANDALONE')) { // fichier autonome : mention renforcée (rien d'enregistré, rien qui transite, page indépendante)
+        $k = $GLOBALS['toolsCurrentKey'] ?? '';
+        $adr = 'La recherche d’adresse interroge la Base Adresse Nationale (adresse.data.gouv.fr, service public) : seul le texte tapé dans ce champ lui est envoyé.';
+        $ex = ['rge' => 'La recherche interroge la base publique de l’ADEME : les critères de recherche saisis lui sont envoyés.',
+               'dpe' => 'La recherche interroge la base publique de l’ADEME : l’adresse ou le numéro saisi lui est envoyé. ' . $adr,
+               'plan' => $adr, 'creditsspeciaux' => $adr, 'scenarios' => $adr][$k] ?? ''; ?>
+<div class="privacy-banner d-flex align-items-center gap-3 my-3 no-print">
+    <i class="fas fa-user-shield"></i>
+    <div><strong>Rien n’est enregistré et aucune donnée ne transite.</strong>
+        Tout reste dans votre navigateur et disparaît quand vous fermez ou actualisez la page : aucun serveur, aucun compte, aucun envoi.
+        <?php if ($ex): ?><div class="small mt-1"><strong>Seule exception sur cet outil :</strong> <?= $ex ?></div><?php endif; ?>
+        <div class="small mt-1"><!--MENTION-->Cette page est indépendante : elle n’est éditée ni par la Caisse d’Épargne ni par BPCE.<!--/MENTION--></div></div>
+</div>
+<?php return; }
+?>
 <div class="privacy-banner d-flex align-items-center gap-3 my-3 no-print">
     <i class="fas fa-user-shield"></i>
     <div><strong>Aucune donnée n'est enregistrée.</strong>
@@ -89,7 +104,7 @@ function privacyBanner($text = null) { ?>
 function toolsFooter() {
     $key = $GLOBALS['toolsCurrentKey'] ?? null;
     if ($key) { ?>
-<script>try{const k=<?= json_encode($key) ?>;let r=JSON.parse(localStorage.getItem('toolsRecent')||'[]').filter(x=>x!==k);r.unshift(k);localStorage.setItem('toolsRecent',JSON.stringify(r.slice(0,8)));}catch(e){}</script>
+<script>try{if(window.TOOLS_SA)throw 0;const k=<?= json_encode($key) ?>;let r=JSON.parse(localStorage.getItem('toolsRecent')||'[]').filter(x=>x!==k);r.unshift(k);localStorage.setItem('toolsRecent',JSON.stringify(r.slice(0,8)));}catch(e){}</script>
 <?php }
     if ($key) { ?>
 <div class="container text-center small my-3 no-print no-client" style="color:#8a5a00"><i class="fas fa-triangle-exclamation me-1"></i>Outil d'aide : il ne se substitue pas aux outils internes du groupe BPCE. Vérifiez les résultats avant toute communication à un client.</div>

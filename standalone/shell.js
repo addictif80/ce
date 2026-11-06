@@ -140,6 +140,15 @@
     var c = e.target.closest('[data-open]'); if (c) { open(c.getAttribute('data-open')); return; }
     var f = e.target.closest('[data-sa-act="feedback"]'); if (f) openFeedback();
   });
+  // fenêtre « Vos données restent chez vous » (lien du bandeau du bas)
+  (function () {
+    var fond = $('mention-fond'), plus = $('mention-plus'); if (!fond || !plus) return;
+    function ferme() { fond.hidden = true; plus.focus(); }
+    plus.addEventListener('click', function () { fond.hidden = false; $('mention-fermer').focus(); });
+    $('mention-fermer').addEventListener('click', ferme);
+    fond.addEventListener('click', function (e) { if (e.target === fond) ferme(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !fond.hidden) ferme(); });
+  })();
   $('top-home').addEventListener('click', function () { home(); });
   $('top-feedback').addEventListener('click', function () { openFeedback(current); });
   // ----- menu « Accès rapide » (barre du haut et accueil), piloté par le bloc de configuration cfg-rapide -----
@@ -187,7 +196,7 @@
   })();
   function esc(t) { return String(t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function buildIntro() {
-    var logo = (document.querySelector('.ab-nav img') || {}).src || '', icons = {}, tiles = '';
+    var logo = (document.querySelector('.ab-nav img') || {}).src || '', icons = {}, tiles = '', indep = ((document.querySelector('#mention-bas .indep') || {}).textContent || '').trim();
     document.querySelectorAll('.carte-outil').forEach(function (c) { icons[c.getAttribute('data-open')] = c.querySelector('.ic i').className; });
     var keys = Object.keys(TOOLS).filter(function (k) { return icons[k]; }), shown = keys.slice(0, 8);
     shown.forEach(function (k, i) { tiles += '<div class="ci-tool" style="--i:' + i + '"><i class="' + esc(icons[k]) + '"></i><span>' + esc(TOOLS[k].title) + '</span></div>'; });
@@ -197,7 +206,8 @@
       + '<button type="button" class="ci-skip"><span>Passer</span> <i class="fas fa-xmark"></i></button><div class="ci-stage">'
       + '<section class="ci-slide ci-hero"><div class="ci-logo r1"><img src="' + esc(logo) + '" alt="ABhD"></div><div class="ci-kicker r2">Bienvenue</div><h2 class="r2">Tous vos outils, au même endroit.</h2><p class="r3">Simulateurs, calculateurs, mémos et documents : de quoi préparer vos entretiens, sans rien installer.</p></section>'
       + '<section class="ci-slide"><h2 class="r1"><i class="fas fa-toolbox"></i> Un outil pour chaque projet</h2><div class="ci-grid">' + tiles + '</div>' + (more > 0 ? '<p class="r4 ci-more">… et ' + more + ' autre' + (more > 1 ? 's' : '') + ' à découvrir.</p>' : '') + '</section>'
-      + '<section class="ci-slide"><h2 class="r1"><i class="fas fa-user-shield"></i> Rien n\'est enregistré</h2><p class="r2 ci-big">Tout se passe dans votre navigateur.</p><p class="r3">Aucune donnée ne peut être enregistrée, et aucune donnée n\'est stockée informatiquement : tout disparaît à la fermeture de la page.</p></section>'
+      + '<section class="ci-slide"><h2 class="r1"><i class="fas fa-user-shield"></i> Rien n\'est enregistré</h2><p class="r2 ci-big">Aucune donnée ne transite.</p><p class="r3">Tout se passe dans votre navigateur : pas de serveur, pas de compte, pas d\'envoi. Tout disparaît à la fermeture de la page.</p></section>'
+      + '<section class="ci-slide"><h2 class="r1"><i class="fas fa-circle-info"></i> Une page indépendante</h2><p class="r2 ci-big">' + esc(indep) + '</p><p class="r3">Elle ne se substitue pas aux outils internes de votre établissement. Les rares recherches en ligne (ADEME, adresses) sont signalées dans l\'outil concerné.</p></section>'
       + '<section class="ci-slide"><h2 class="r1"><i class="fas fa-bolt"></i> Gagnez du temps</h2><ul class="ci-list">'
       + '<li class="r2"><i class="fas fa-link"></i><div><b>Partagez par lien</b><span>Un lien reprend la simulation, sans rien enregistrer.</span></div></li>'
       + '<li class="r3"><i class="fas fa-print"></i><div><b>Imprimez, copiez, envoyez</b><span>Un document propre à remettre à votre client.</span></div></li>'

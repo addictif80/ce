@@ -7,6 +7,13 @@ const SA_INDIGO = '#24285b';
 
 /** Remplacements appliqués aux pages d'outils et au script commun (impression comprise). */
 function sa_rebrand($s) {
+    // les mentions d'indépendance (<!--MENTION-->…<!--/MENTION-->) citent volontairement la marque : elles ne sont jamais réécrites
+    $keep = [];
+    $s = preg_replace_callback('~<!--MENTION-->.*?<!--/MENTION-->~s', function ($m) use (&$keep) { $k = '@@MENTION' . count($keep) . '@@'; $keep[$k] = $m[0]; return $k; }, $s);
+    $keep['@@MENTIONPRINT@@'] = 'Document généré localement par un outil indépendant, <!--MENTION-->non édité par la Caisse d’Épargne ni par BPCE<!--/MENTION-->. Rien n’est enregistré ni transmis.';
+    return strtr(sa_rebrand_core($s), $keep);
+}
+function sa_rebrand_core($s) {
     // logos
     $s = preg_replace('~<img\b[^>]*(?:caisse-epargne|cloudimg|ce-logo)[^>]*>~i', '', $s);
     $s = str_replace('<img src="\'+LOGO+\'" alt="Caisse d\\\'Épargne" onerror="this.style.display=\\\'none\\\'">', '<span></span>', $s);
@@ -17,7 +24,7 @@ function sa_rebrand($s) {
     $apo = "(?:'|’|&#0?39;|\\\\')";
     $s = preg_replace('~la Caisse d' . $apo . '(?:É|E|&Eacute;)pargne de Midi-Pyr(?:é|&eacute;)n(?:é|&eacute;)es~u', 'l\'établissement', $s);
     $s = preg_replace('~par la Caisse d' . $apo . '(?:É|E|&Eacute;)pargne~u', 'par l\'établissement', $s);
-    $s = preg_replace('~Caisse d' . $apo . '(?:É|E|&Eacute;)pargne et de Prévoyance de Midi-Pyrénées — document généré par un outil d.{1,2}aide, qui ne se substitue pas aux outils internes du groupe BPCE\.~u', 'Document généré par un outil d\\\'aide.', $s);
+    $s = preg_replace('~Caisse d' . $apo . '(?:É|E|&Eacute;)pargne et de Prévoyance de Midi-Pyrénées — document généré par un outil d.{1,2}aide, qui ne se substitue pas aux outils internes du groupe BPCE\.~u', '@@MENTIONPRINT@@', $s);
     $s = preg_replace('~Caisse d' . $apo . '(?:É|E|&Eacute;)pargne~u', 'établissement', $s);
     $s = preg_replace('~du groupe BPCE~u', 'de votre établissement', $s);
     $s = preg_replace('~<div[^>]*>\(Intra CEMP\)</div>~', '', $s);
@@ -36,6 +43,7 @@ function sa_rebrand($s) {
  */
 function sa_scan($html, $strict = false) {
     $out = [];
+    $html = preg_replace('~<!--MENTION-->.*?<!--/MENTION-->~s', ' ', $html);
     $visible = preg_replace('~<(script|style)\b.*?</\1>~is', ' ', $html);
     $visible = preg_replace('~[\w.+-]+@[\w.-]*caisse-epargne\.fr~i', '', $visible);
     foreach (['caisse d.{0,8}pargne' => 'Caisse d\'Épargne (texte)', 'bpce' => 'BPCE', '\bcemp\b' => 'CEMP (texte)', 'midi.pyr' => 'Midi-Pyrénées', 'ce-logo' => 'logo CE'] as $re => $lab)

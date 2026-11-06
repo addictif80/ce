@@ -60,6 +60,21 @@ $logo = 'data:image/png;base64,' . base64_encode($asset('abhd-logo.png'));
 $icon = 'data:image/png;base64,' . base64_encode($asset('abhd-A.png'));
 $fontCss = '@font-face{font-family:Raleway;font-style:normal;font-weight:400 800;font-display:swap;src:url(data:font/woff2;base64,' . base64_encode($asset('raleway-latin.woff2')) . ') format("woff2")}'
          . '@font-face{font-family:Raleway;font-style:italic;font-weight:400;font-display:swap;src:url(data:font/woff2;base64,' . base64_encode($asset('raleway-italic.woff2')) . ') format("woff2")}';
+// mentions : indépendance de la page et absence de tout enregistrement ou transit (citent volontairement la marque : balisées pour échapper au rebranding et au contrôle)
+$mIndep = '<!--MENTION-->Page indépendante : elle n’est éditée ni par la Caisse d’Épargne, ni par BPCE.<!--/MENTION-->';
+$mPrive = 'Rien n’est enregistré et aucune donnée ne transite : tout se calcule dans votre navigateur, sans serveur, sans compte et sans envoi.';
+$mExc = 'Exceptions, signalées dans l’outil concerné : la recherche RGE et la recherche DPE interrogent les bases publiques de l’ADEME, et la recherche d’adresse (plan de financement, crédits spéciaux, comparateur de scénarios, DPE) interroge la Base Adresse Nationale (adresse.data.gouv.fr). Seuls les critères tapés dans ces champs de recherche leur sont envoyés, jamais le reste de votre saisie.';
+$mention = '<div id="mention-bas" class="no-print" role="note"><span><i class="fas fa-user-shield"></i> Rien n’est enregistré, aucune donnée ne transite.</span><span class="sep">·</span><span class="indep">' . $mIndep . '</span><button type="button" class="lien-discret" id="mention-plus">En savoir plus</button></div>
+<div id="mention-fond" hidden role="dialog" aria-modal="true" aria-labelledby="mention-titre"><div id="mention-boite">
+  <h2 id="mention-titre"><i class="fas fa-user-shield"></i> Vos données restent chez vous</h2>
+  <ul>
+    <li><strong>Rien n’est enregistré.</strong> Aucune de vos saisies n’est conservée, ni sur un serveur ni dans votre navigateur : tout disparaît quand vous fermez ou actualisez la page (seul un repère « présentation déjà vue » est gardé le temps de la session).</li>
+    <li><strong>Aucune donnée ne transite.</strong> Les calculs, les documents (tableur, présentation, courrier, fiches) et les impressions sont produits dans votre navigateur. Les messages (retours, fiches) sont des fichiers .eml que vous téléchargez puis envoyez vous-même depuis votre messagerie : cette page n’envoie rien.</li>
+    <li><strong>' . $mIndep . '</strong> Elle n’engage ni l’une ni l’autre, et ne se substitue pas aux outils internes de votre établissement.</li>
+  </ul>
+  <p class="mention-exc">' . $mExc . '</p>
+  <div class="fb-actions"><button type="button" class="btn-top" id="mention-fermer">Fermer</button></div>
+</div></div>';
 // accueil
 $home = '<div id="accueil">
   <nav class="ab-nav"><img src="' . $logo . '" alt="ABhD"><span>Outils conseiller</span><div class="rapide rapide-accueil" hidden><button type="button" class="btn-top rapide-btn" aria-haspopup="true" aria-expanded="false"><i class="fas fa-bolt"></i> <span>Accès rapide</span> <i class="fas fa-caret-down"></i></button><div class="rapide-liste" role="menu" hidden></div></div></nav>
@@ -67,11 +82,15 @@ $home = '<div id="accueil">
     <div>
       <h1>Tous vos outils, <span class="underline">au même endroit</span>.</h1>
       <p>Simulateurs, calculateurs, mémos et documents : de quoi préparer un entretien sans rien installer.</p>
-      <p class="note">Ces outils sont accessibles uniquement depuis le partage OneDrive aux personnes concernées. Aucune donnée ne peut être enregistrée, et aucune donnée n\'est stockée informatiquement.</p>
+      <p class="note">Ces outils sont accessibles uniquement depuis le partage OneDrive aux personnes concernées.</p>
       <div id="accueil-recherche"><input type="search" id="rech" placeholder="Rechercher un outil…" aria-label="Rechercher un outil" autocomplete="off"></div>
     </div>
     <div class="art" aria-hidden="true"><div><i class="fas fa-toolbox"></i></div></div>
   </header>
+  <section id="accueil-garanties" aria-label="Confidentialité et indépendance">
+    <div class="garantie"><i class="fas fa-user-shield"></i><div><strong>Rien n’est enregistré, aucune donnée ne transite</strong><span>Tout se calcule dans votre navigateur : pas de serveur, pas de compte, pas d’envoi. Tout disparaît à la fermeture de la page.</span></div></div>
+    <div class="garantie"><i class="fas fa-circle-info"></i><div><strong>Page indépendante</strong><span>' . $mIndep . ' Elle ne se substitue pas aux outils internes de votre établissement.</span></div></div>
+  </section>
   <div id="accueil-groupes">';
 foreach ($groups as $g => $gk) {
     $cards = '';
@@ -86,6 +105,7 @@ $home .= '</div>
   <p id="accueil-vide" hidden>Aucun outil ne correspond à cette recherche.</p>
   <footer id="accueil-pied"><strong>ABhD</strong> · Reprenez le contrôle<br>
     Fichier généré le ' . $date . '. Les barèmes et plafonds réglementaires sont figés à cette date : vérifiez-les avant toute décision. Outil d\'aide : il ne se substitue pas aux outils internes de votre établissement.<br>
+    ' . $mIndep . ' ' . $mPrive . '<br>
     <button type="button" class="lien-discret" data-sa-act="feedback"><i class="fas fa-comment-dots"></i> Un problème, une idée ? Écrire un retour</button>
     <button type="button" class="lien-discret" data-intro-replay><i class="fas fa-circle-play"></i> Revoir la présentation</button></footer>
 </div>';
@@ -106,7 +126,7 @@ $fbOptions = '<option value="">Général (tous les outils)</option>';
 foreach ($groups as $g => $gk) { $fbOptions .= '<optgroup label="' . $esc($g) . '">'; foreach ($gk as $k) if (isset($tools[$k])) $fbOptions .= '<option value="' . $esc($k) . '">' . $esc($tools[$k]['title']) . '</option>'; $fbOptions .= '</optgroup>'; }
 $feedback = '<div id="fb-fond" hidden role="dialog" aria-modal="true" aria-labelledby="fb-titre"><div id="fb-boite">
   <h2 id="fb-titre"><i class="fas fa-comment-dots"></i> Écrire un retour</h2>
-  <p class="fb-note">Ce formulaire ne transmet rien : il prépare un <strong>fichier e-mail (.eml)</strong> que vous téléchargez, puis ouvrez dans votre messagerie pour l\'envoyer.</p>
+  <p class="fb-note">Ce formulaire ne transmet rien (aucune donnée ne transite par cette page) : il prépare un <strong>fichier e-mail (.eml)</strong> que vous téléchargez, puis ouvrez dans votre messagerie pour l\'envoyer.</p>
   <label for="fb-type">Nature du retour</label>
   <select id="fb-type"><option value="Un problème">Un problème</option><option value="Une suggestion">Une suggestion</option><option value="Une question">Une question</option><option value="Autre">Autre</option></select>
   <label for="fb-outil">Outil concerné</label>
@@ -134,7 +154,7 @@ $nav = '<!-- ===== NAVIGATION ET OUTILS INTÉGRÉS ===== -->
 $sub = function ($pattern, $replacement, $subject, $what) { $n = 0; $r = preg_replace_callback($pattern, fn() => $replacement, $subject, 1, $n); if ($n !== 1 || $r === null) { say("Gabarit : $what introuvable"); exit(1); } return $r; };
 $base = $sub('~<div id="accueil">.*?(?=\s*<!-- =+\s*BARRE SUPERIEURE)~s', $home . "\n", $base, 'bloc accueil');
 $base = $sub('~<div id="topbar" hidden>.*?</div>\s*(?=<!-- =+\s*MODULE 1)~s', $top . "\n\n", $base, 'barre supérieure');
-$base = $sub('~<!-- ===== NAVIGATION ===== -->\s*<script>.*?</script>~s', $frameModule . "\n" . $feedback . "\n" . $nav, $base, 'script de navigation');
+$base = $sub('~<!-- ===== NAVIGATION ===== -->\s*<script>.*?</script>~s', $frameModule . "\n" . $mention . "\n" . $feedback . "\n" . $nav, $base, 'script de navigation');
 $base = preg_replace_callback('~(<meta name="viewport"[^>]*>)~', fn($m) => $m[1] . "\n" . sa_config_block($tools, $groups, $agences, $feedbackTo, $popups), $base, 1); // zone de configuration, tout en haut du fichier
 $base = $sub('~</style>~', "\n" . $css . "\n</style>", $base, 'feuille de style');
 $base = $sub('~</head>~', '<link rel="icon" type="image/png" href="' . $icon . '">' . "\n" . '<style id="sa-font">' . $fontCss . '</style>' . "\n" . '<style id="sa-fa">' . $faCss . "</style>\n</head>", $base, 'en-tête'); // icônes : une seule copie, réutilisée par les outils intégrés

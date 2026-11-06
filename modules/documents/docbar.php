@@ -25,7 +25,7 @@ $linkables = $docMode === 'portal' ? array_map(fn($m) => $m['label'], docsLinkab
   <button type="button" class="btn btn-sm btn-outline-secondary" id="db-dl"><i class="fas fa-download me-1"></i>Enregistrer sur mon ordinateur</button>
   <button type="button" class="btn btn-sm btn-outline-secondary" id="db-open"><i class="fas fa-folder-open me-1"></i>Ouvrir un fichier</button>
   <input type="file" id="db-file" accept=".json,application/json" class="d-none">
-  <span class="db-status" id="db-status" role="status">Brouillon conservé dans ce navigateur</span>
+  <span class="db-status" id="db-status" role="status"><?= defined('TOOLS_STANDALONE') ? 'Rien n’est conservé : téléchargez votre document avant de fermer la page' : 'Brouillon conservé dans ce navigateur' ?></span>
  <?php endif; ?>
 </div>
 <?php if ($docMode === 'portal'): ?>
@@ -57,7 +57,7 @@ window.DocIO = (function () {
   }
   // ----- /tools : brouillon local et fichier -----
   const KEY = 'ce_doc_draft_' + TYPE;
-  function draft() { try { localStorage.setItem(KEY, JSON.stringify({ nom: nom(), data: ed.get(), t: Date.now() })); status('Brouillon enregistré dans ce navigateur'); } catch (e) { status('Brouillon non conservé (stockage du navigateur indisponible ou plein)', true); } }
+  function draft() { if (window.TOOLS_SA) { status('Rien n\u2019est conservé : téléchargez votre document avant de fermer la page'); return; } try { localStorage.setItem(KEY, JSON.stringify({ nom: nom(), data: ed.get(), t: Date.now() })); status('Brouillon enregistré dans ce navigateur'); } catch (e) { status('Brouillon non conservé (stockage du navigateur indisponible ou plein)', true); } }
   function download(name, blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
   const safeName = () => nom().replace(/[\\/:*?"<>|]+/g, '_');
   function renderLinks() { const b = $('db-links'); if (!b) return;
@@ -84,7 +84,7 @@ window.DocIO = (function () {
         if (r.ok) { o.set(r.data); markDirty(); modal('db-m-versions', false); } else alert(r.error); });
       status('Document ouvert');
     } else {
-      let restored = false; try { const d = JSON.parse(localStorage.getItem(KEY) || 'null'); if (d && d.data && Date.now() - d.t < 30 * 864e5 && confirm('Reprendre le brouillon enregistré le ' + new Date(d.t).toLocaleString('fr-FR') + ' ?')) { o.set(d.data); $('db-name').value = d.nom || $('db-name').value; restored = true; } } catch (e) {}
+      let restored = false; if (!window.TOOLS_SA) try { const d = JSON.parse(localStorage.getItem(KEY) || 'null'); if (d && d.data && Date.now() - d.t < 30 * 864e5 && confirm('Reprendre le brouillon enregistré le ' + new Date(d.t).toLocaleString('fr-FR') + ' ?')) { o.set(d.data); $('db-name').value = d.nom || $('db-name').value; restored = true; } } catch (e) {}
       if (!restored) o.set(o.blank());
       $('db-name').addEventListener('input', markDirty);
       $('db-dl').onclick = () => download(safeName() + '.' + TYPE + '.json', new Blob([JSON.stringify({ nom: nom(), type: TYPE, data: ed.get() })], { type: 'application/json' }));

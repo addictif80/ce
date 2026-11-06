@@ -187,12 +187,14 @@ function toolTours() {
         'fiche_production' => tourDef('fa-chart-line', 'Fiche de production', 'Une feuille A4 pour noter vos rendez-vous et vos ventes.', [
             ['fa-sliders', 'Réglez la feuille', 'Conseiller, agence, période, nombre de lignes et format (paysage ou portrait).'],
             ['fa-print', 'Imprimez en A4', 'Choisissez l\'échelle 100 % dans la fenêtre d\'impression.'],
-            ['fa-pen', 'Remplissez à la main ou à l\'écran', 'Les cases se remplissent aussi à l\'écran, avant impression.']],
+            ['fa-pen', 'Remplissez à la main ou à l\'écran', 'Les cases se remplissent aussi à l\'écran, avant impression.'],
+            ['fa-paper-plane', 'Envoyez-la par e-mail', 'Le bouton prépare un fichier .eml : ouvrez-le dans votre messagerie, puis envoyez-le vous-même.']],
             ['Les lignes vides s\'impriment comme des cases à remplir.', 'Rien n\'est enregistré : ni sur le serveur, ni dans le navigateur.']),
         'fiche_phoning' => tourDef('fa-phone-volume', 'Fiche de phoning', 'Une feuille A4 pour tenir une séance d\'appels et en faire le bilan.', [
             ['fa-sliders', 'Réglez la feuille', 'Conseiller, agence, période, nombre de lignes et format (paysage ou portrait).'],
             ['fa-print', 'Imprimez en A4', 'Choisissez l\'échelle 100 % dans la fenêtre d\'impression.'],
-            ['fa-pen', 'Remplissez à la main ou à l\'écran', 'Les cases se remplissent aussi à l\'écran, avant impression.']],
+            ['fa-pen', 'Remplissez à la main ou à l\'écran', 'Les cases se remplissent aussi à l\'écran, avant impression.'],
+            ['fa-paper-plane', 'Envoyez le bilan par e-mail', 'Le bouton prépare un fichier .eml : ouvrez-le dans votre messagerie, puis envoyez-le vous-même.']],
             ['Les lignes vides s\'impriment comme des cases à remplir.', 'Rien n\'est enregistré : ni sur le serveur, ni dans le navigateur.']),
         'disc' => tourDef('fa-user-gear', 'Test DISC', 'Découvrez votre style de comportement et celui de vos interlocuteurs.', [
             ['fa-hand-pointer', 'Répondez à 24 séries', 'Dans chaque série, choisissez le qualificatif qui vous ressemble le plus et celui qui vous ressemble le moins.'],
