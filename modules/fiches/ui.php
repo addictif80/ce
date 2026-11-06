@@ -60,13 +60,13 @@ $actionsOpts = ['link' => true, 'copy' => false, 'print' => true, 'mail' => fals
  </div>
 </div>
 <div id="fe-sheet" class="js-print" aria-label="Aperçu de la feuille A4"></div>
-<div id="fe-mail" class="cap-card no-print mt-3" style="display:none"><h2><i class="fas fa-paper-plane me-2 text-danger"></i>Transmettre mes instances à un collaborateur</h2>
- <p class="small text-muted mb-2">Avant un congé, envoyez la liste de vos instances à la personne qui vous remplace. Seules les lignes renseignées sont transmises. Le bouton prépare un message prêt à envoyer : à vous de l'ouvrir dans votre messagerie et de cliquer sur « Envoyer ».</p>
+<div id="fe-mail" class="cap-card no-print mt-3" style="display:none"><h2><i class="fas fa-paper-plane me-2 text-danger"></i><span id="fm_titre">Transmettre mes instances à un collaborateur</span></h2>
+ <p class="small text-muted mb-2"><span id="fm_intro">Avant un congé, envoyez la liste de vos instances à la personne qui vous remplace.</span> Seules les lignes renseignées sont transmises. Le bouton prépare un message prêt à envoyer : à vous de l'ouvrir dans votre messagerie et de cliquer sur « Envoyer ».</p>
  <div class="row g-2">
   <div class="col-md-6"><label class="form-label small" for="fm_collab">Collaborateur</label><select id="fm_collab" data-noshare class="form-select"></select></div>
   <div class="col-md-6"><label class="form-label small" for="fm_to">Adresse e-mail du destinataire</label><input type="email" id="fm_to" data-noshare class="form-control" maxlength="150" placeholder="prenom.nom@exemple.fr"></div>
-  <div class="col-6 col-md-3"><label class="form-label small" for="fm_du">Absent du</label><input type="date" id="fm_du" data-noshare class="form-control"></div>
-  <div class="col-6 col-md-3"><label class="form-label small" for="fm_au">au</label><input type="date" id="fm_au" data-noshare class="form-control"></div>
+  <div class="col-6 col-md-3 fm-abs"><label class="form-label small" for="fm_du">Absent du</label><input type="date" id="fm_du" data-noshare class="form-control"></div>
+  <div class="col-6 col-md-3 fm-abs"><label class="form-label small" for="fm_au">au</label><input type="date" id="fm_au" data-noshare class="form-control"></div>
   <div class="col-12"><label class="form-label small" for="fm_msg">Message d'accompagnement</label><textarea id="fm_msg" data-noshare class="form-control" maxlength="1500"></textarea></div>
   <div class="col-12 d-flex flex-wrap gap-2 align-items-center">
    <button type="button" class="btn btn-danger btn-sm" id="fm_eml"><i class="fas fa-file-arrow-down me-1"></i>Préparer l'e-mail (fichier .eml)</button>
@@ -127,7 +127,7 @@ $actionsOpts = ['link' => true, 'copy' => false, 'print' => true, 'mail' => fals
     let st = $('fe-pg'); if (!st) { st = document.createElement('style'); st.id = 'fe-pg'; document.head.appendChild(st); }
     st.textContent = '@page{size:A4 ' + o.orient + ';margin:8mm}';
     $('fe_rows').value = o.rows; $('fe_or').value = o.orient; $('fe_memo').checked = o.memo; $('fe_memo_box').style.display = S.type === 'production' ? '' : 'none';
-    $('fe_per_lab').textContent = CFG[S.type].per; $('fe-mail').style.display = S.type === 'instances' ? '' : 'none';
+    $('fe_per_lab').textContent = CFG[S.type].per; $('fe-mail').style.display = ''; mailSwitch();
     document.querySelectorAll('[data-fe-type]').forEach(b => b.className = 'btn btn-sm ' + (b.dataset.feType === S.type ? 'btn-danger' : 'btn-outline-secondary'));
     $('fe-sheet').querySelectorAll('textarea').forEach(t => { t.style.height = '100%'; });
   }
@@ -149,7 +149,20 @@ $actionsOpts = ['link' => true, 'copy' => false, 'print' => true, 'mail' => fals
   const collabs = (() => { try { return (window.parent && window.parent !== window && window.parent.CFG && window.parent.CFG.conseillers) || []; } catch (e) { return []; } })().filter(c => c.mail);
   $('fm_collab').innerHTML = '<option value="">Saisir une adresse…</option>' + collabs.map((c, i) => '<option value="' + i + '">' + esc((c.prenom + ' ' + c.nom).trim()) + '</option>').join('');
   $('fm_collab').addEventListener('change', () => { const c = collabs[$('fm_collab').value]; if (c) $('fm_to').value = c.mail; });
-  $('fm_msg').value = 'Bonjour,\n\nJe serai absent(e) prochainement. Voici la liste de mes instances en cours, afin que vous puissiez assurer leur suivi pendant mon absence.\n\nMerci d\'avance.';
+  const MAIL = {
+    instances: { titre: 'Transmettre mes instances à un collaborateur', intro: 'Avant un congé, envoyez la liste de vos instances à la personne qui vous remplace.', fichier: 'instances', objet: 'Instances en cours', liste: 'Instances en cours', vide: '(aucune instance renseignée)', unite: 'instance(s)', abs: true,
+      msg: 'Bonjour,\n\nJe serai absent(e) prochainement. Voici la liste de mes instances en cours, afin que vous puissiez assurer leur suivi pendant mon absence.\n\nMerci d\'avance.' },
+    production: { titre: 'Envoyer ma production', intro: 'Transmettez votre suivi de production à votre manager ou à un collègue.', fichier: 'production', objet: 'Suivi de production', liste: 'Production', vide: '(aucune ligne renseignée)', unite: 'ligne(s)', abs: false,
+      msg: 'Bonjour,\n\nVoici mon suivi de production.\n\nBien cordialement.' },
+    phoning: { titre: 'Envoyer le bilan de ma séance de phoning', intro: 'Transmettez le bilan de votre séance d\'appels à votre manager ou à un collègue.', fichier: 'phoning', objet: 'Bilan de séance de phoning', liste: 'Appels de la séance', vide: '(aucun appel renseigné)', unite: 'appel(s)', abs: false,
+      msg: 'Bonjour,\n\nVoici le bilan de ma séance de phoning.\n\nBien cordialement.' }
+  };
+  const MSG = {}; Object.keys(MAIL).forEach(k => { MSG[k] = MAIL[k].msg; });
+  $('fm_msg').addEventListener('input', () => { MSG[S.type] = $('fm_msg').value; });
+  function mailSwitch() {
+    const m = MAIL[S.type]; $('fm_titre').textContent = m.titre; $('fm_intro').textContent = m.intro; $('fm_msg').value = MSG[S.type];
+    document.querySelectorAll('.fm-abs').forEach(e => { e.style.display = m.abs ? '' : 'none'; });
+  }
   const frDate = v => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || ''); return m ? m[3] + '/' + m[2] + '/' + m[1] : (v || ''); };
   function instancesTexte() {
     const rows = (S.rows.instances || []).map(r => r || {}).filter(r => (r.num || '').trim() || (r.det || '').trim());
@@ -157,11 +170,25 @@ $actionsOpts = ['link' => true, 'copy' => false, 'print' => true, 'mail' => fals
       + ((r.cats || []).length ? ' — ' + r.cats.map(k => CATS_I[k]).join(', ') : '') + (r.stat ? ' — ' + (r.stat === 'fait' ? 'fait' : 'à faire') : '') + ((r.det || '').trim() ? '\n   Détails : ' + r.det.trim().replace(/\n/g, '\n   ') : ''));
     return { n: rows.length, texte: lines.join('\n') };
   }
+  const listeCoches = (l, a) => (a || []).map(k => l[k]).join(', ');
+  function productionTexte() {
+    const rows = (S.rows.production || []).map(r => r || {}).filter(r => ['date', 'prod', 'mont', 'det'].some(k => (r[k] || '').trim()) || (r.cat || []).length);
+    const lines = rows.map((r, i) => (i + 1) + '. ' + (r.date ? frDate(r.date) + ' — ' : '') + ((r.prod || '').trim() || '(produit non précisé)') + ((r.cat || []).length ? ' — ' + listeCoches(CATS_P, r.cat) : '') + ((r.mont || '').trim() ? ' — ' + r.mont.trim() : '') + ((r.det || '').trim() ? '\n   Détails : ' + r.det.trim().replace(/\n/g, '\n   ') : ''));
+    return { n: rows.length, texte: lines.join('\n') };
+  }
+  function phoningTexte() {
+    const rows = (S.rows.phoning || []).map(r => r || {}).filter(r => ['heure', 'num', 'rdv', 'com'].some(k => (r[k] || '').trim()) || (r.res || []).length || (r.motif || []).length || r.anv);
+    const lines = rows.map((r, i) => (i + 1) + '. ' + (r.heure ? r.heure + ' — ' : '') + ((r.num || '').trim() || '(sans nom)') + ((r.res || []).length ? ' — ' + listeCoches(RES, r.res) : '') + ((r.rdv || '').trim() ? ' — RDV : ' + r.rdv.trim() : '') + ((r.motif || []).length ? ' — ' + listeCoches(MOTIFS, r.motif) : '') + (r.anv ? ' — ANV' : '') + ((r.com || '').trim() ? '\n   ' + r.com.trim().replace(/\n/g, '\n   ') : ''));
+    const nb = (k) => rows.filter(r => (r.res || []).indexOf(k) >= 0).length;
+    const bilan = rows.length ? '\n\nBilan : ' + rows.length + ' appel(s), ' + nb(1) + ' répondeur(s), ' + nb(3) + ' RDV, dont ' + rows.filter(r => r.anv).length + ' ANV.' : '';
+    return { n: rows.length, texte: lines.join('\n') + bilan };
+  }
   function mailContent() {
-    const t = instancesTexte(), du = frDate($('fm_du').value), au = frDate($('fm_au').value), cons = S.head.cons || '';
+    const M = MAIL[S.type], t = S.type === 'instances' ? instancesTexte() : S.type === 'production' ? productionTexte() : phoningTexte(), cons = S.head.cons || '';
+    const du = M.abs ? frDate($('fm_du').value) : '', au = M.abs ? frDate($('fm_au').value) : '', per = (S.head.per || '').trim();
     const abs = du || au ? '\n\nAbsence : ' + (du ? 'du ' + du : '') + (au ? ' au ' + au : '') : '';
-    const corps = $('fm_msg').value.trim() + abs + '\n\nInstances en cours (' + t.n + ') :\n\n' + (t.n ? t.texte : '(aucune instance renseignée)') + (cons ? '\n\nCordialement,\n' + cons : '');
-    return { n: t.n, objet: 'Instances en cours' + (cons ? ' - ' + cons : '') + (du ? ' (absence du ' + du + (au ? ' au ' + au : '') + ')' : ''), corps };
+    const corps = $('fm_msg').value.trim() + abs + '\n\n' + M.liste + ' (' + t.n + ') :\n\n' + (t.n ? t.texte : M.vide) + (cons ? '\n\nCordialement,\n' + cons : '');
+    return { n: t.n, objet: M.objet + (per && !M.abs ? ' - ' + per : '') + (cons ? ' - ' + cons : '') + (du ? ' (absence du ' + du + (au ? ' au ' + au : '') + ')' : ''), corps };
   }
   const b64 = s => btoa(unescape(encodeURIComponent(s)));
   function words(s) { const parts = []; let cur = ''; Array.from(s).forEach(c => { if (unescape(encodeURIComponent(cur + c)).length > 36) { parts.push(cur); cur = c; } else cur += c; }); if (cur) parts.push(cur); return parts.map(p => '=?UTF-8?B?' + b64(p) + '?=').join('\r\n '); }
@@ -169,8 +196,8 @@ $actionsOpts = ['link' => true, 'copy' => false, 'print' => true, 'mail' => fals
   $('fm_eml').addEventListener('click', () => {
     const to = check(); if (!to) return; const m = mailContent();
     const eml = ['X-Unsent: 1', 'To: ' + to, 'Subject: ' + words(m.objet), 'Date: ' + new Date().toUTCString().replace('GMT', '+0000'), 'MIME-Version: 1.0', 'Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', b64(m.corps.replace(/\n/g, '\r\n')).replace(/.{1,76}/g, '$&\r\n')].join('\r\n');
-    const a = document.createElement('a'), d = new Date(), p = n => (n < 10 ? '0' : '') + n; a.href = URL.createObjectURL(new Blob([eml], { type: 'message/rfc822' })); a.download = 'instances-' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '.eml'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 800);
-    $('fm_info').textContent = m.n + ' instance(s) dans le message. Ouvrez le fichier téléchargé, puis cliquez sur « Envoyer ».';
+    const a = document.createElement('a'), d = new Date(), p = n => (n < 10 ? '0' : '') + n; a.href = URL.createObjectURL(new Blob([eml], { type: 'message/rfc822' })); a.download = MAIL[S.type].fichier + '-' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '.eml'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 800);
+    $('fm_info').textContent = m.n + ' ' + MAIL[S.type].unite + ' dans le message. Ouvrez le fichier téléchargé, puis cliquez sur « Envoyer ».';
   });
   $('fm_mailto').addEventListener('click', () => {
     const to = check(); if (!to) return; const m = mailContent(), url = 'mailto:' + encodeURIComponent(to) + '?subject=' + encodeURIComponent(m.objet) + '&body=' + encodeURIComponent(m.corps);
