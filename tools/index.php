@@ -107,7 +107,7 @@ toolsHeader('Outils en libre accès');
     $groupes = [
         'Financer un projet' => ['calculateur', 'capacite', 'notaire', 'ptz', 'creditsspeciaux', 'plan', 'scenarios', 'relais', 'rachat', 'usure'],
         'Épargne et patrimoine' => ['epargne', 'assurancevie', 'per', 'epargnecredit', 'succession'],
-        'Conseil et conformité' => ['signataires', 'evenements', 'pieces', 'saisie', 'memo_plafonds', 'memo_delais'],
+        'Conseil et conformité' => ['signataires', 'evenements', 'pieces', 'saisie', 'memo_plafonds', 'memo_delais', 'guide_fiscal'],
         'Boîte à outils' => ['dates', 'validateurs', 'calculs', 'servicepublic', 'assistant_ia', 'pdf', 'courrier', 'bureau_dom', 'disc', 'tableur', 'presentation', 'fiche_instances', 'fiche_production', 'fiche_phoning'],
         'Références' => ['dpe', 'rge', 'procedures', 'codes', 'contacts'],
     ];

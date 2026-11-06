@@ -124,6 +124,11 @@ function toolTours() {
             ['fa-eye', 'Lisez la valeur et la précision', 'Chaque ligne indique le montant et la condition.'],
             ['fa-print', 'Imprimez la fiche', 'Document daté avec la mention de vérification.']],
             ['Les plafonds évoluent par décret ou loi de finances.', 'La date de contrôle affichée vous dit si le mémo est à jour.'], false),
+        'guide_fiscal' => tourDef('fa-landmark', 'Guide de la fiscalité bancaire', 'Les taux et barèmes 2026, recoupés sur les sources officielles.', [
+            ['fa-magnifying-glass', 'Cherchez ou parcourez', 'Tapez un mot (PFU, PEA, IFI…) ou choisissez une section.'],
+            ['fa-link', 'Remontez à la source', 'Chaque encadré renvoie vers service-public, impots.gouv ou le BOFiP.'],
+            ['fa-triangle-exclamation', 'Repérez ce qui reste à confirmer', 'Les lignes jaunes n\'ont pas pu être confirmées officiellement.']],
+            ['Les barèmes changent chaque année avec la loi de finances.', 'La section « Sources croisées » explique les écarts trouvés entre sites.'], false),
         'memo_delais' => tourDef('fa-hourglass-half', 'Mémo : délais légaux', 'Délais de réflexion, de rétractation, de contestation et de réponse.', [
             ['fa-magnifying-glass', 'Filtrez le mémo', 'Tapez un mot : seules les lignes concernées restent.'],
             ['fa-clock', 'Lisez le délai et sa précision', 'Point de départ et conditions éventuelles.'],

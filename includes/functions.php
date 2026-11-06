@@ -364,12 +364,13 @@ function getDefaultMenuItems() {
         ['item_key' => 'codes', 'parent_key' => 'references', 'label' => 'Codes utiles', 'icon' => 'fa-key', 'url' => '/modules/codes/index.php', 'uri_patterns' => '/codes/', 'ordre' => 1],
         ['item_key' => 'contacts', 'parent_key' => 'references', 'label' => 'Contacts utiles', 'icon' => 'fa-address-book', 'url' => '/modules/contacts/index.php', 'uri_patterns' => '/contacts/', 'ordre' => 2],
         // Section Boîte à outils bancaire (calculs, validateurs, mémos)
-        ['item_key' => 'boite_outils', 'parent_key' => null, 'label' => 'Boîte à outils bancaire', 'icon' => 'fa-toolbox', 'url' => null, 'uri_patterns' => '/dates/,/validateurs/,/calculs/,/saisie/,/memo_plafonds/,/memo_delais/,/signataires/,/evenements/,/usure/,/servicepublic/', 'ordre' => 7],
+        ['item_key' => 'boite_outils', 'parent_key' => null, 'label' => 'Boîte à outils bancaire', 'icon' => 'fa-toolbox', 'url' => null, 'uri_patterns' => '/dates/,/validateurs/,/calculs/,/saisie/,/memo_plafonds/,/memo_delais/,/guide_fiscal/,/signataires/,/evenements/,/usure/,/servicepublic/', 'ordre' => 7],
         ['item_key' => 'dates', 'parent_key' => 'boite_outils', 'label' => 'Calculateur de dates', 'icon' => 'fa-calendar-days', 'url' => '/modules/dates/index.php', 'uri_patterns' => '/dates/', 'ordre' => 1],
         ['item_key' => 'validateurs', 'parent_key' => 'boite_outils', 'label' => 'Validateurs de numéros', 'icon' => 'fa-shield-halved', 'url' => '/modules/validateurs/index.php', 'uri_patterns' => '/validateurs/', 'ordre' => 2],
         ['item_key' => 'calculs', 'parent_key' => 'boite_outils', 'label' => 'Boîte à calculs', 'icon' => 'fa-calculator', 'url' => '/modules/calculs/index.php', 'uri_patterns' => '/calculs/', 'ordre' => 3],
         ['item_key' => 'saisie', 'parent_key' => 'boite_outils', 'label' => 'Quotité saisissable', 'icon' => 'fa-gavel', 'url' => '/modules/saisie/index.php', 'uri_patterns' => '/saisie/', 'ordre' => 4],
         ['item_key' => 'memo_plafonds', 'parent_key' => 'boite_outils', 'label' => 'Mémo : plafonds et seuils', 'icon' => 'fa-gauge-high', 'url' => '/modules/memo_plafonds/index.php', 'uri_patterns' => '/memo_plafonds/', 'ordre' => 5],
+        ['item_key' => 'guide_fiscal', 'parent_key' => 'boite_outils', 'label' => 'Guide de la fiscalité', 'icon' => 'fa-landmark', 'url' => '/modules/guide_fiscal/index.php', 'uri_patterns' => '/guide_fiscal/', 'ordre' => 5],
         ['item_key' => 'memo_delais', 'parent_key' => 'boite_outils', 'label' => 'Mémo : délais légaux', 'icon' => 'fa-hourglass-half', 'url' => '/modules/memo_delais/index.php', 'uri_patterns' => '/memo_delais/', 'ordre' => 6],
         ['item_key' => 'signataires', 'parent_key' => 'boite_outils', 'label' => 'Qui peut signer quoi ?', 'icon' => 'fa-signature', 'url' => '/modules/signataires/index.php', 'uri_patterns' => '/signataires/', 'ordre' => 7],
         ['item_key' => 'evenements', 'parent_key' => 'boite_outils', 'label' => 'Événements de vie', 'icon' => 'fa-route', 'url' => '/modules/evenements/index.php', 'uri_patterns' => '/evenements/', 'ordre' => 8],
@@ -996,6 +997,12 @@ function getPublicToolsCatalog() {
             'label' => 'Mémo : plafonds et seuils', 'icon' => 'fa-gauge-high', 'url' => 'memo_plafonds.php', 'default' => true,
             'description' => 'Plafonds des livrets, espèces et paiements, garantie des dépôts, abattements de donation et d\'assurance-vie.',
             'note' => 'Consultation sans enregistrement.',
+        ],
+        'guide_fiscal' => [
+            'added' => '2026-11-06',
+            'label' => 'Guide de la fiscalité bancaire', 'icon' => 'fa-landmark', 'url' => 'guide_fiscal.php', 'default' => true,
+            'description' => 'Taux et barèmes 2026 : prélèvements sociaux, flat tax, assurance-vie, PEA, PER, plus-values, IFI, succession et donation, avec les sources officielles.',
+            'note' => 'Consultation sans enregistrement. Contenu à contrôler avant diffusion.',
         ],
         'memo_delais' => [
             'added' => '2026-10-09',
