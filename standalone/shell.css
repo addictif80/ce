@@ -55,8 +55,7 @@ body { font-family: Raleway, "Segoe UI", Arial, sans-serif; background: #fff; co
 #mod-frame iframe { display: block; width: 100%; height: calc(100vh - var(--topbar-h)); margin-top: var(--topbar-h); border: 0; background: var(--ab-light); }
 
 /* ----- modules d'origine : en-têtes à la charte ----- */
-#mod-budget #entete, #mod-courrier #form-header { border-bottom: 4px solid var(--ab-secondary); }
-#mod-courrier #c-print { font-family: inherit; }
+#mod-budget #entete { border-bottom: 4px solid var(--ab-secondary); } /* le générateur de courrier reste tel quel */
 
 /* ----- retour par e-mail ----- */
 #fb-fond { position: fixed; inset: 0; background: rgba(20,22,48,.55); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; }

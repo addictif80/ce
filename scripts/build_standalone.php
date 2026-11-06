@@ -57,7 +57,7 @@ if (($argv[1] ?? '') === '--render') {
 
 function opt($name, $default = null) { global $argv; foreach ($argv as $a) if (strpos($a, "--$name=") === 0) return substr($a, strlen($name) + 3); return $default; }
 $out = opt('out', 'standalone/outils-conseiller.html');
-$feedbackTo = opt('feedback-to', '');
+$feedbackTo = opt('feedback-to', 'adrien.bochard@cemp.caisse-epargne.fr'); // destinataire des retours (préremplie dans le fichier .eml)
 $only = opt('only') ? explode(',', opt('only')) : null;
 $cache = __DIR__ . '/../standalone/.cache'; if (!is_dir($cache)) @mkdir($cache, 0775, true);
 if (!is_dir($cache) || !is_writable($cache)) { $cache = sys_get_temp_dir() . '/outils_standalone_cache'; if (!is_dir($cache)) mkdir($cache, 0775, true); } // dossier du portail non inscriptible : cache temporaire

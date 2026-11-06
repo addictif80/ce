@@ -130,7 +130,11 @@ $base = $sub('~</head>~', '<link rel="icon" type="image/png" href="' . $icon . '
 
 $left = [];
 foreach ($tools as $k => $t) if (isset($t['html']) && ($r = sa_scan($t['html']))) $left[$k] = $r;
-if ($r = sa_scan(preg_replace('~<script type="application/json" id="sa-data">.*?</script>~s', '', $base), true)) $left['(page)'] = $r;
+// le générateur de courrier est repris tel quel du gabarit d'origine (en-tête, pied de page, liste des collaborateurs) : exclu du contrôle
+$page = preg_replace('~<script type="application/json" id="sa-data">.*?</script>~s', '', $base);
+$page = preg_replace('~<div id="mod-courrier".*?(?=<!-- =+\s*SCRIPTS)~s', '', $page);
+$page = str_replace($feedbackTo, '', $page);
+if ($r = sa_scan($page, true)) $left['(page)'] = $r;
 if ($left) say('Références restantes à la marque du portail : ' . json_encode($left, JSON_UNESCAPED_UNICODE));
 if (!is_dir(dirname($out))) mkdir(dirname($out), 0775, true);
 file_put_contents($out, $base);

@@ -2080,7 +2080,7 @@ $allTemplates = $db->query("SELECT m.id, m.nom_modele, m.objet, m.public_tools, 
         <form method="post" class="row g-2 align-items-end">
             <input type="hidden" name="action" value="build_standalone">
             <div class="col-md-6"><label class="form-label">Adresse e-mail qui reçoit les retours des utilisateurs <span class="text-muted">(facultatif)</span></label>
-                <input type="email" name="feedback_to" class="form-control" maxlength="150" value="<?= e(getToolsSetting('standalone_feedback_to', '')) ?>" placeholder="prérempli dans le fichier .eml généré par le formulaire de retour"></div>
+                <input type="email" name="feedback_to" class="form-control" maxlength="150" value="<?= e(getToolsSetting('standalone_feedback_to', 'adrien.bochard@cemp.caisse-epargne.fr')) ?>" placeholder="prérempli dans le fichier .eml généré par le formulaire de retour"></div>
             <div class="col-md-6"><button class="btn btn-ce"><i class="fas fa-download"></i> Générer et télécharger le fichier</button></div>
         </form>
     </div>

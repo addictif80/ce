@@ -7,7 +7,7 @@ il s'ouvre par double-clic, sans serveur, et peut être déposé sur un partage 
 Le fichier suit la charte du site ABhD.fr : indigo `#24285b`, jaune `#ffd200`, police Raleway, logo ABhD (fichiers dans `standalone/assets/`).
 Aucune référence à la marque du portail : le générateur retire logos, noms, mentions légales et couleurs (`standalone/rebrand.php`)
 et signale s'il en reste (« Références restantes… »). `standalone/theme.css` habille les outils, `standalone/shell.css` l'accueil et la navigation.
-Seules subsistent, dans le gabarit d'origine du courrier, les adresses e-mail de la liste des collaborateurs (données saisies, pas du design).
+Le **générateur de courrier est repris à l'identique** de la page d'origine (en-tête avec logo, pied de page légal, couleurs, liste des collaborateurs) : le générateur ne le modifie pas.
 
 ## Contenu
 - Accueil avec recherche et regroupement par thème, barre de navigation entre outils, bouton « Un retour ? ».
@@ -33,7 +33,7 @@ le zonage A/B/C importé, et les procédures, codes et contacts validés. Sans b
 (barèmes « à confirmer ») et laisse de côté procédures, codes et contacts. Les bibliothèques (Bootstrap, icônes, Leaflet, pdf-lib)
 sont téléchargées au premier lancement puis gardées dans `standalone/.cache`.
 
-L'adresse qui reçoit les retours se règle avec `--feedback-to` (ou dans le champ de l'administration) ; elle peut aussi être
+L'adresse qui reçoit les retours est préremplie avec `adrien.bochard@cemp.caisse-epargne.fr` ; elle se change avec `--feedback-to` (ou dans le champ de l'administration) ; elle peut aussi être
 modifiée dans le fichier généré : constante `FEEDBACK_TO` au début du dernier `<script>`.
 
 ## Fichiers

@@ -326,7 +326,7 @@ body {
    MODULE COURRIER (tout est limité à #mod-courrier)
    ============================================================ */
 #mod-courrier {
-  background: #f5f6f8;
+  background: #f0ebf5;
   font-family: Arial, Helvetica, sans-serif;
   font-size: 13px; color: #222;
 }
@@ -340,7 +340,7 @@ body {
   display: flex; flex-direction: column;
   z-index: 10;
 }
-#mod-courrier #form-header { background: #24285b; color: #fff; padding: 16px 18px; flex-shrink: 0; }
+#mod-courrier #form-header { background: #6F2C91; color: #fff; padding: 16px 18px; flex-shrink: 0; }
 #mod-courrier #form-header h1 { font-size: 15px; }
 #mod-courrier #form-header p { font-size: 11px; opacity: .75; margin-top: 3px; }
 
@@ -348,8 +348,8 @@ body {
 
 #mod-courrier .section { border: 1px solid #ddd; border-radius: 6px; margin-bottom: 10px; overflow: hidden; }
 #mod-courrier .section-title {
-  background: #eef0f8; padding: 7px 11px;
-  font-size: 11px; font-weight: bold; color: #24285b;
+  background: #f5f0fa; padding: 7px 11px;
+  font-size: 11px; font-weight: bold; color: #6F2C91;
   text-transform: uppercase; letter-spacing: .5px;
   border-bottom: 1px solid #ddd;
 }
@@ -371,7 +371,7 @@ body {
 }
 #mod-courrier .fg input:focus,
 #mod-courrier .fg select:focus,
-#mod-courrier .fg textarea:focus { outline: none; border-color: #24285b; }
+#mod-courrier .fg textarea:focus { outline: none; border-color: #6F2C91; }
 #mod-courrier .fg textarea { resize: vertical; min-height: 120px; }
 #mod-courrier .fg .check {
   display: flex; align-items: center; gap: 6px; font-size: 12px;
@@ -380,7 +380,7 @@ body {
 #mod-courrier .fg .check input { width: auto; }
 
 #mod-courrier .infobox {
-  background: #eef0f8; border: 1px solid #ddd; border-radius: 4px;
+  background: #f5f0fa; border: 1px solid #ddd; border-radius: 4px;
   padding: 6px 8px; font-size: 11px; color: #666;
   margin-top: 6px; line-height: 1.6;
 }
@@ -388,11 +388,11 @@ body {
 
 #mod-courrier #form-footer { flex-shrink: 0; padding: 12px 14px; border-top: 2px solid #ddd; background: #fff; }
 #mod-courrier #c-print {
-  display: block; width: 100%; background: #24285b; color: #fff;
+  display: block; width: 100%; background: #6F2C91; color: #fff;
   border: none; border-radius: 5px; padding: 10px;
   font-size: 13px; font-weight: bold; cursor: pointer; margin-bottom: 7px;
 }
-#mod-courrier #c-print:hover { background: #1d2049; }
+#mod-courrier #c-print:hover { background: #4A1A6B; }
 #mod-courrier #c-reset {
   display: block; width: 100%; background: #fff; color: #999;
   border: 1.5px solid #ddd; border-radius: 5px; padding: 8px;
@@ -432,11 +432,11 @@ body {
 #mod-courrier #ltr-exp img { max-width: 150px; height: auto; display: block; margin-bottom: 6px; }
 #mod-courrier #ltr-exp-name {
   font-family: Arial, sans-serif; font-size: 9.5pt;
-  font-weight: bold; color: #24285b; margin-bottom: 1px;
+  font-weight: bold; color: #6F2C91; margin-bottom: 1px;
 }
 #mod-courrier #ltr-exp-agence {
   font-family: Arial, sans-serif; font-size: 9pt;
-  font-weight: bold; color: #24285b; margin-bottom: 5px;
+  font-weight: bold; color: #6F2C91; margin-bottom: 5px;
 }
 #mod-courrier #ltr-exp-coords { font-size: 9pt; line-height: 1.6; color: #333; }
 
@@ -470,7 +470,7 @@ body {
 #mod-courrier #pli1 { top: 99mm; }
 #mod-courrier #pli2 { top: 198mm; }
 
-#mod-courrier #ltr-sep { border: none; border-top: 2px solid #24285b; margin: 0 0 6mm; }
+#mod-courrier #ltr-sep { border: none; border-top: 2px solid #6F2C91; margin: 0 0 6mm; }
 
 #mod-courrier #ltr-refs {
   display: flex; justify-content: space-between;
@@ -814,7 +814,7 @@ Aucune donnée ne peut être enregistrée, et aucune donnée n'est stockée info
 
     <div id="form-header">
       <h1>Générateur de courrier</h1>
-      <p>Lettre A4 adaptée à l'enveloppe à fenêtre</p>
+      <p>Caisse d'Epargne Midi Pyrénées</p>
     </div>
 
     <div id="form-body">
@@ -924,7 +924,7 @@ Aucune donnée ne peut être enregistrée, et aucune donnée n'est stockée info
           </div>
           <div class="fg">
             <label for="f-refagence">Nos références</label>
-            <input type="text" id="f-refagence" placeholder="REF/2026/...">
+            <input type="text" id="f-refagence" placeholder="CEMP/2026/...">
           </div>
         </div>
       </div>
@@ -1082,6 +1082,10 @@ Aucune donnée ne peut être enregistrée, et aucune donnée n'est stockée info
 
       <div id="ltr-entete">
         <div id="ltr-exp">
+          <img src="https://www.img.caisse-epargne.fr/app/uploads/sites/16/2021/05/31152836/ce-logo-midi-pyrennees.png"
+               alt="Caisse d'Epargne Midi Pyrénées"
+               onerror="this.style.display='none'">
+          <div id="ltr-exp-name">Caisse d'Epargne de Midi Pyrénées</div>
           <div id="ltr-exp-agence"></div>
           <div id="ltr-exp-coords"></div>
         </div>
@@ -1117,7 +1121,11 @@ Aucune donnée ne peut être enregistrée, et aucune donnée n'est stockée info
         </div>
       </div>
 
-      <div id="ltr-footer"></div>
+      <div id="ltr-footer">
+        Caisse d'Epargne de Midi Pyrénées - Société Anonyme Coopérative de Crédit à capital variable -
+        Régie par les articles L 512-85 et suivants du Code monétaire et financier -
+        RCS Toulouse - Siège social : 1 Place Jourdain, 31000 Toulouse
+      </div>
 
     </div>
   </div>
