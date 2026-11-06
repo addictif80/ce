@@ -9,6 +9,7 @@ Au tout début du fichier (balises `<script type="text/plain" id="cfg-...">`), e
 - `cfg-general` : `adresse_retours:` (destinataire du .eml), `seuil_endettement:` et `presentation_demarrage:true/false`.
 - `cfg-popup1`, `cfg-popup2` : fenêtres d'information (`actif:true`, titre, bouton, fréquence, dates, puis le message après la ligne `---`). Elles s'affichent à l'accueil, après la présentation de démarrage ; à la génération, elles reprennent celles de l'administration. Ne jamais écrire de balise script dans un message.
 - `cfg-outils` : `nom_de_l_outil:true` ou `nom_de_l_outil:false` pour afficher ou masquer un outil (accueil, navigation et formulaire de retour).
+- `cfg-rapide` : menu déroulant « Accès rapide » de la barre du haut. `nom_de_l_outil:true` l'ajoute au menu, `false` (ou absence de ligne) l'en retire ; l'ordre des lignes est l'ordre du menu.
 - `cfg-agences` : Nom ; Numéro ; Adresse ; Code postal et ville ; Téléphone. Alimente le courrier et le bureau domiciliaire.
 - `cfg-conseillers` : signataires du courrier (Prénom ; NOM ; Poste ; Téléphone ; E-mail).
 - `cfg-politesses` : formules de politesse du courrier.

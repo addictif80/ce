@@ -49,6 +49,13 @@ body { font-family: Raleway, "Segoe UI", Arial, sans-serif; background: #fff; co
 #top-select { max-width: 240px; padding: 7px 8px; border: 2px solid #d9dce8; border-radius: 8px; background: #fff; color: #2d2d2d; font-size: 13px; font-family: inherit; }
 #topbar .btn-top { padding: 7px 14px; font-size: 13px; }
 #topbar .btn-top i { font-size: 15px; }
+#top-rapide { position: relative; }
+#top-rapide-liste { position: absolute; top: calc(100% + 6px); right: 0; min-width: 260px; max-height: 70vh; overflow: auto; background: #fff; border: 1px solid var(--ab-line); border-top: 3px solid var(--ab-secondary); border-radius: 8px; box-shadow: 0 8px 24px rgba(36, 40, 91, .18); z-index: 60; padding: 6px; }
+#top-rapide-liste[hidden] { display: none; }
+#top-rapide-liste button { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 0; background: none; padding: 9px 10px; border-radius: 6px; font: inherit; font-size: 13px; font-weight: 600; color: var(--ab-primary); cursor: pointer; }
+#top-rapide-liste button:hover, #top-rapide-liste button:focus { background: #eef0f8; outline: none; }
+#top-rapide-liste button i { width: 18px; text-align: center; }
+@media (max-width: 760px) { #top-rapide-btn span { display: none; } }
 @media (max-width: 760px) { #top-titre, #top-select { display: none; } #topbar .marque span { display: none; } }
 
 #mod-frame { padding: 0; background: var(--ab-light); min-height: 0; }

@@ -42,6 +42,13 @@ TXT;
     $out .= $blocks('cfg-general', 'RÉGLAGES GÉNÉRAUX', "Un réglage par ligne, au format  nom:valeur\nadresse_retours : destinataire préinscrit dans le fichier e-mail du formulaire « Un retour ? » (laisser vide = aucun)\nseuil_endettement : repère du taux d'endettement affiché dans le calculateur de budget, en %\npresentation_demarrage : true = présentation plein écran à l'ouverture du fichier (une fois par session), false = pas de présentation",
         'adresse_retours:' . $feedbackTo . "\nseuil_endettement:35\npresentation_demarrage:true");
     $out .= $blocks('cfg-outils', 'OUTILS AFFICHÉS', "Un outil par ligne, au format  nom:true  (affiché)  ou  nom:false  (masqué).\nUn outil qui n'est pas listé ici reste affiché. Le texte après le # n'est qu'un rappel du nom de l'outil.\n(calculateur = calculateur de budget ; courrier = générateur de courrier)", $o);
+    $rapideOn = ['fiche_instances', 'fiche_production', 'fiche_phoning', 'calculateur', 'courrier', 'guide_fiscal'];
+    $r = '';
+    foreach ($groups as $g => $gk) {
+        $r .= "\n# $g\n";
+        foreach ($gk as $k) if (isset($tools[$k])) $r .= str_pad($k . ':' . (in_array($k, $rapideOn, true) ? 'true' : 'false'), 26) . '# ' . $tools[$k]['title'] . "\n";
+    }
+    $out .= $blocks('cfg-rapide', 'MENU « ACCÈS RAPIDE » (BARRE DU HAUT)', "Menu déroulant « Accès rapide » de la barre du haut : une ligne par outil, au format  nom:true  (dans le menu)  ou  nom:false  (pas dans le menu).\nUn outil qui n'est pas listé ici n'apparaît pas dans le menu. L'ordre des lignes est l'ordre du menu : déplacez une ligne pour changer sa place.\nSi aucune ligne n'est à true, le menu disparaît. Un outil masqué dans « OUTILS AFFICHÉS » n'apparaît jamais ici.", $r);
     $out .= $blocks('cfg-agences', 'AGENCES', "Format : Nom ; Numéro ; Adresse (rue) ; Code postal et ville ; Téléphone\nAlimente la liste des agences du générateur de courrier (adresse et téléphone repris dans la lettre)\net celle du bureau domiciliaire (affichée « NOM (numéro) »). Le téléphone est facultatif.", $a);
     $out .= $blocks('cfg-conseillers', 'SIGNATAIRES (CONSEILLERS DU COURRIER)', "Format : Prénom ; NOM ; Intitulé du poste ; Téléphone ; E-mail\nListe « Conseiller » du générateur de courrier (signature de la lettre).", $read('default_conseillers.txt'));
     $out .= $blocks('cfg-politesses', 'FORMULES DE POLITESSE (COURRIER)', "Format : Libellé affiché dans la liste ; Formule complète\n[IDENT] est remplacé par « M. DUPONT », « Mme MARTIN » ou « Madame, Monsieur ».", $read('default_politesses.txt'));

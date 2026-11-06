@@ -97,6 +97,7 @@ $top = '<div id="topbar" hidden>
   <select id="top-select" aria-label="Changer d\'outil"><option value="">Changer d\'outil…</option>';
 foreach ($groups as $g => $gk) { $top .= '<optgroup label="' . $esc($g) . '">'; foreach ($gk as $k) if (isset($tools[$k])) $top .= '<option value="' . $esc($k) . '">' . $esc($tools[$k]['title']) . '</option>'; $top .= '</optgroup>'; }
 $top .= '</select>
+  <div id="top-rapide" hidden><button type="button" class="btn-top" id="top-rapide-btn" aria-haspopup="true" aria-expanded="false"><i class="fas fa-bolt"></i> <span>Accès rapide</span> <i class="fas fa-caret-down"></i></button><div id="top-rapide-liste" role="menu" hidden></div></div>
   <button type="button" class="btn-top" id="top-feedback" title="Écrire un retour (fichier e-mail à envoyer)"><i class="fas fa-comment-dots"></i> Un retour ?</button>
 </div>';
 $frameModule = '<div id="mod-frame" class="module" hidden></div>';
@@ -122,7 +123,7 @@ $feedback = '<div id="fb-fond" hidden role="dialog" aria-modal="true" aria-label
 // ---------- 4. Feuille de style ajoutée au gabarit ----------
 $css = file_get_contents(__DIR__ . '/shell.css');
 // ---------- 5. Script de navigation ----------
-$data = ['tools' => array_values(array_map(fn($t) => ['key' => $t['key'], 'title' => $t['title'], 'native' => $t['native'] ?? null, 'html' => $t['html'] ?? null], $tools)), 'shared' => $shared, 'date' => $date, 'feedbackTo' => $feedbackTo];
+$data = ['tools' => array_values(array_map(fn($t) => ['key' => $t['key'], 'title' => $t['title'], 'icon' => $t['icon'] ?? 'fa-wrench', 'native' => $t['native'] ?? null, 'html' => $t['html'] ?? null], $tools)), 'shared' => $shared, 'date' => $date, 'feedbackTo' => $feedbackTo];
 $json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
 if ($json === false) { say('Échec de l\'encodage JSON : ' . json_last_error_msg()); exit(1); }
 $nav = '<!-- ===== NAVIGATION ET OUTILS INTÉGRÉS ===== -->
