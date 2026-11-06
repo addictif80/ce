@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Outils conseiller - Caisse d'Epargne Midi Pyrénées</title>
+<title>Outils conseiller</title>
 <style>
 /* ============================================================
    BASE COMMUNE
@@ -13,8 +13,8 @@
 :root { --topbar-h: 56px; }
 
 body {
-  font-family: "Segoe UI", Arial, Helvetica, sans-serif;
-  background: #e9edf3;
+  font-family: Raleway, "Segoe UI", Arial, Helvetica, sans-serif;
+  background: #f5f6f8;
   color: #1f2d3d;
 }
 
@@ -26,17 +26,17 @@ body {
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   gap: 34px; padding: 30px 20px;
-  background: linear-gradient(135deg, #f3eef8 0%, #e8eef6 100%);
+  background: linear-gradient(135deg, #f5f6f8 0%, #ffffff 100%);
 }
 #accueil-entete { text-align: center; }
 #accueil-entete img { max-width: 220px; height: auto; display: block; margin: 0 auto 14px; }
-#accueil-entete h1 { font-size: 28px; color: #3b2a4d; }
+#accueil-entete h1 { font-size: 28px; color: #24285b; }
 #accueil-entete p { font-size: 14px; color: #6b7785; margin-top: 4px; }
 
 #accueil-boutons { display: flex; flex-wrap: wrap; gap: 28px; justify-content: center; }
 .gros-bouton {
   width: 320px; min-height: 270px;
-  background: #fff; border: 2px solid #dcd3e6; border-radius: 16px;
+  background: #fff; border: 2px solid #e1e4ee; border-radius: 16px;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 14px; padding: 28px 22px;
   cursor: pointer; font-family: inherit;
@@ -52,8 +52,8 @@ body {
 .gros-bouton svg { width: 88px; height: 88px; color: var(--accent); }
 .gros-bouton .gb-titre { font-size: 22px; font-weight: 700; color: var(--accent); }
 .gros-bouton .gb-desc { font-size: 13px; color: #6b7785; text-align: center; line-height: 1.5; }
-#gb-budget { --accent: #1f3a5f; }
-#gb-courrier { --accent: #6F2C91; }
+#gb-budget { --accent: #24285b; }
+#gb-courrier { --accent: #24285b; }
 
 /* ============================================================
    BARRE SUPERIEURE
@@ -68,7 +68,7 @@ body {
 }
 #topbar .marque {
   display: flex; align-items: center; gap: 10px;
-  font-weight: 700; font-size: 14px; color: #3b2a4d; margin-right: 18px;
+  font-weight: 700; font-size: 14px; color: #24285b; margin-right: 18px;
 }
 #topbar .marque img { height: 30px; width: auto; }
 .btn-top {
@@ -79,8 +79,8 @@ body {
 }
 .btn-top svg { width: 20px; height: 20px; }
 .btn-top:hover { background: #f4f6f9; }
-#top-budget.actif { background: #1f3a5f; border-color: #1f3a5f; color: #fff; }
-#top-courrier.actif { background: #6F2C91; border-color: #6F2C91; color: #fff; }
+#top-budget.actif { background: #24285b; border-color: #24285b; color: #fff; }
+#top-courrier.actif { background: #24285b; border-color: #24285b; color: #fff; }
 
 .module { min-height: 100vh; padding-top: var(--topbar-h); }
 
@@ -88,15 +88,15 @@ body {
    MODULE BUDGET (tout est limité à #mod-budget)
    ============================================================ */
 #mod-budget {
-  background: #eef1f5;
-  font-family: "Segoe UI", Arial, sans-serif;
+  background: #f5f6f8;
+  font-family: Raleway, "Segoe UI", Arial, sans-serif;
   font-size: 14px; line-height: 1.45; color: #1f2d3d;
 }
 
 #mod-budget #page { max-width: 1400px; margin: 0 auto; padding: 16px 16px 30px; }
 
 #mod-budget #entete {
-  background: #1f3a5f; color: #fff;
+  background: #24285b; color: #fff;
   border-radius: 8px; padding: 14px 24px; margin-bottom: 16px;
 }
 #mod-budget #entete h1 { font-size: 20px; }
@@ -121,7 +121,7 @@ body {
 }
 #mod-budget .carte h2, #mod-budget .personne h2 {
   font-size: 13px; text-transform: uppercase; letter-spacing: .06em;
-  color: #1f3a5f; margin-bottom: 12px;
+  color: #24285b; margin-bottom: 12px;
 }
 
 #mod-budget .grille3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 12px; }
@@ -134,13 +134,13 @@ body {
   padding: 7px 9px; font-size: 14px; font-family: inherit;
   background: #fff; color: inherit;
 }
-#mod-budget input:focus, #mod-budget select:focus { outline: 2px solid #9db6d6; border-color: #1f3a5f; }
+#mod-budget input:focus, #mod-budget select:focus { outline: 2px solid #9db6d6; border-color: #24285b; }
 #mod-budget input[type=number] { text-align: right; }
 #mod-budget .lecture { padding: 7px 9px; background: #f4f6f9; border: 1px solid #e1e6ec; border-radius: 5px; }
 
 #mod-budget .cases { display: flex; flex-wrap: wrap; gap: 8px 28px; }
 #mod-budget .case { display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; padding-top: 4px; }
-#mod-budget .case input { width: 17px; height: 17px; accent-color: #1f3a5f; }
+#mod-budget .case input { width: 17px; height: 17px; accent-color: #24285b; }
 
 #mod-budget #personnes { display: flex; flex-direction: column; gap: 16px; }
 #mod-budget #personnes .personne { margin-bottom: 0; }
@@ -151,10 +151,10 @@ body {
   padding: 7px 12px; font-size: 12px; font-weight: 700;
   text-transform: uppercase; letter-spacing: .05em; color: #fff;
 }
-#mod-budget .g-rev .groupe-titre { background: #2e7d5b; }
-#mod-budget .g-cf  .groupe-titre { background: #a34a3d; }
-#mod-budget .g-cv  .groupe-titre { background: #b9742a; }
-#mod-budget .g-ep  .groupe-titre { background: #2f6aa3; }
+#mod-budget .g-rev .groupe-titre { background: #00a06a; }
+#mod-budget .g-cf  .groupe-titre { background: #dc3545; }
+#mod-budget .g-cv  .groupe-titre { background: #ffd200; color: #24285b; }
+#mod-budget .g-ep  .groupe-titre { background: #3763f4; }
 #mod-budget .groupe-corps { padding: 12px; }
 
 #mod-budget .lp {
@@ -195,7 +195,7 @@ body {
   border: 1px dashed #b7c0cc; background: none; color: #5b6878;
   border-radius: 5px; padding: 6px 9px; font-size: 12px; cursor: pointer;
 }
-#mod-budget .btn-mini:hover { border-color: #1f3a5f; color: #1f3a5f; }
+#mod-budget .btn-mini:hover { border-color: #24285b; color: #24285b; }
 #mod-budget .lp-sous { margin-left: auto; font-weight: 700; font-size: 12.5px; white-space: nowrap; }
 
 #mod-budget .pond { position: relative; }
@@ -215,7 +215,7 @@ body {
   width: 100%; background: none; border: 1px dashed #b7c0cc; color: #5b6878;
   border-radius: 5px; padding: 7px; cursor: pointer; font-size: 13px; margin-top: 2px;
 }
-#mod-budget .btn-ajout:hover { border-color: #1f3a5f; color: #1f3a5f; }
+#mod-budget .btn-ajout:hover { border-color: #24285b; color: #24285b; }
 #mod-budget .total {
   display: flex; justify-content: space-between;
   border-top: 1px solid #e1e6ec; margin-top: 8px; padding-top: 7px; font-weight: 700;
@@ -239,7 +239,7 @@ body {
 #mod-budget .tab-sy th, #mod-budget .tab-sy td { padding: 6px 10px; border-bottom: 1px solid #e1e6ec; text-align: right; }
 #mod-budget .tab-sy th:first-child, #mod-budget .tab-sy td:first-child { text-align: left; }
 #mod-budget .tab-sy th { font-size: 11px; text-transform: uppercase; color: #6b7785; }
-#mod-budget .tab-sy tr.rav td { font-weight: 700; background: #f0f4f9; border-top: 2px solid #1f3a5f; }
+#mod-budget .tab-sy tr.rav td { font-weight: 700; background: #f0f4f9; border-top: 2px solid #24285b; }
 #mod-budget .tab-sy.sans-conjoint .col-conj { display: none; }
 #mod-budget .neg { color: #b3261e; }
 
@@ -249,9 +249,9 @@ body {
   border-radius: 6px; padding: 12px 16px; margin-bottom: 16px;
 }
 #mod-budget .bloc-end.alerte { background: #fbeceb; border-color: #e3b5b1; }
-#mod-budget .bloc-end .lib { font-size: 12px; text-transform: uppercase; font-weight: 700; color: #1f3a5f; letter-spacing: .04em; }
+#mod-budget .bloc-end .lib { font-size: 12px; text-transform: uppercase; font-weight: 700; color: #24285b; letter-spacing: .04em; }
 #mod-budget .bloc-end.alerte .lib { color: #a33a32; }
-#mod-budget .bloc-end .end-valeur { font-size: 26px; font-weight: 800; color: #1f3a5f; white-space: nowrap; }
+#mod-budget .bloc-end .end-valeur { font-size: 26px; font-weight: 800; color: #24285b; white-space: nowrap; }
 #mod-budget .bloc-end.alerte .end-valeur { color: #a33a32; }
 #mod-budget .bloc-end .end-detail { flex: 1; text-align: right; font-size: 12px; color: #4a5766; line-height: 1.55; }
 
@@ -270,7 +270,7 @@ body {
 
 #mod-budget #effort {
   display: flex; justify-content: space-between; align-items: center; gap: 16px;
-  border-radius: 6px; padding: 14px 18px; color: #fff; background: #1f3a5f;
+  border-radius: 6px; padding: 14px 18px; color: #fff; background: #24285b;
   margin-bottom: 16px;
 }
 #mod-budget #effort.alerte { background: #a33a32; }
@@ -288,8 +288,8 @@ body {
 #mod-budget #actions button {
   border-radius: 6px; padding: 10px 20px; font-size: 14px; font-weight: 600; cursor: pointer;
 }
-#mod-budget #b-print { background: #1f3a5f; color: #fff; border: none; }
-#mod-budget #b-print:hover { background: #2b4d7c; }
+#mod-budget #b-print { background: #24285b; color: #fff; border: none; }
+#mod-budget #b-print:hover { background: #1f224d; }
 #mod-budget #b-reset { background: #fff; color: #a33a32; border: 1.5px solid #a33a32; }
 #mod-budget #b-reset:hover { background: #fdf1f1; }
 
@@ -297,7 +297,7 @@ body {
 #mod-budget #analyse .note { font-size: 12px; color: #6b7785; margin-bottom: 10px; }
 #mod-budget #analyse .tab-sy { margin-bottom: 12px; }
 #mod-budget #ana-effort { font-size: 12.5px; color: #4a5766; }
-#mod-budget #ana-effort strong { color: #1f3a5f; }
+#mod-budget #ana-effort strong { color: #24285b; }
 
 #mod-budget #politique { border-left: 4px solid #e0b93a; margin-bottom: 0; }
 #mod-budget #politique .note { font-size: 12px; color: #6b7785; margin-bottom: 10px; }
@@ -310,7 +310,7 @@ body {
 #mod-budget #tab-politique th.pc { text-align: right; }
 #mod-budget #tab-politique td.pol-groupe {
   background: #f4f6f9; font-weight: 700; font-size: 12px;
-  text-transform: uppercase; letter-spacing: .05em; color: #1f3a5f;
+  text-transform: uppercase; letter-spacing: .05em; color: #24285b;
 }
 
 @media (max-width: 1000px) {
@@ -326,7 +326,7 @@ body {
    MODULE COURRIER (tout est limité à #mod-courrier)
    ============================================================ */
 #mod-courrier {
-  background: #f0ebf5;
+  background: #f5f6f8;
   font-family: Arial, Helvetica, sans-serif;
   font-size: 13px; color: #222;
 }
@@ -340,7 +340,7 @@ body {
   display: flex; flex-direction: column;
   z-index: 10;
 }
-#mod-courrier #form-header { background: #6F2C91; color: #fff; padding: 16px 18px; flex-shrink: 0; }
+#mod-courrier #form-header { background: #24285b; color: #fff; padding: 16px 18px; flex-shrink: 0; }
 #mod-courrier #form-header h1 { font-size: 15px; }
 #mod-courrier #form-header p { font-size: 11px; opacity: .75; margin-top: 3px; }
 
@@ -348,8 +348,8 @@ body {
 
 #mod-courrier .section { border: 1px solid #ddd; border-radius: 6px; margin-bottom: 10px; overflow: hidden; }
 #mod-courrier .section-title {
-  background: #f5f0fa; padding: 7px 11px;
-  font-size: 11px; font-weight: bold; color: #6F2C91;
+  background: #eef0f8; padding: 7px 11px;
+  font-size: 11px; font-weight: bold; color: #24285b;
   text-transform: uppercase; letter-spacing: .5px;
   border-bottom: 1px solid #ddd;
 }
@@ -371,7 +371,7 @@ body {
 }
 #mod-courrier .fg input:focus,
 #mod-courrier .fg select:focus,
-#mod-courrier .fg textarea:focus { outline: none; border-color: #6F2C91; }
+#mod-courrier .fg textarea:focus { outline: none; border-color: #24285b; }
 #mod-courrier .fg textarea { resize: vertical; min-height: 120px; }
 #mod-courrier .fg .check {
   display: flex; align-items: center; gap: 6px; font-size: 12px;
@@ -380,7 +380,7 @@ body {
 #mod-courrier .fg .check input { width: auto; }
 
 #mod-courrier .infobox {
-  background: #f5f0fa; border: 1px solid #ddd; border-radius: 4px;
+  background: #eef0f8; border: 1px solid #ddd; border-radius: 4px;
   padding: 6px 8px; font-size: 11px; color: #666;
   margin-top: 6px; line-height: 1.6;
 }
@@ -388,11 +388,11 @@ body {
 
 #mod-courrier #form-footer { flex-shrink: 0; padding: 12px 14px; border-top: 2px solid #ddd; background: #fff; }
 #mod-courrier #c-print {
-  display: block; width: 100%; background: #6F2C91; color: #fff;
+  display: block; width: 100%; background: #24285b; color: #fff;
   border: none; border-radius: 5px; padding: 10px;
   font-size: 13px; font-weight: bold; cursor: pointer; margin-bottom: 7px;
 }
-#mod-courrier #c-print:hover { background: #4A1A6B; }
+#mod-courrier #c-print:hover { background: #1d2049; }
 #mod-courrier #c-reset {
   display: block; width: 100%; background: #fff; color: #999;
   border: 1.5px solid #ddd; border-radius: 5px; padding: 8px;
@@ -432,11 +432,11 @@ body {
 #mod-courrier #ltr-exp img { max-width: 150px; height: auto; display: block; margin-bottom: 6px; }
 #mod-courrier #ltr-exp-name {
   font-family: Arial, sans-serif; font-size: 9.5pt;
-  font-weight: bold; color: #6F2C91; margin-bottom: 1px;
+  font-weight: bold; color: #24285b; margin-bottom: 1px;
 }
 #mod-courrier #ltr-exp-agence {
   font-family: Arial, sans-serif; font-size: 9pt;
-  font-weight: bold; color: #6F2C91; margin-bottom: 5px;
+  font-weight: bold; color: #24285b; margin-bottom: 5px;
 }
 #mod-courrier #ltr-exp-coords { font-size: 9pt; line-height: 1.6; color: #333; }
 
@@ -470,7 +470,7 @@ body {
 #mod-courrier #pli1 { top: 99mm; }
 #mod-courrier #pli2 { top: 198mm; }
 
-#mod-courrier #ltr-sep { border: none; border-top: 2px solid #6F2C91; margin: 0 0 6mm; }
+#mod-courrier #ltr-sep { border: none; border-top: 2px solid #24285b; margin: 0 0 6mm; }
 
 #mod-courrier #ltr-refs {
   display: flex; justify-content: space-between;
@@ -533,7 +533,7 @@ body {
     box-shadow: none; border: none; padding: 0; margin: 0;
     break-inside: avoid; page-break-inside: avoid;
   }
-  #mod-budget #syn-entete { border-bottom: 2px solid #1f3a5f; padding-bottom: 8px; margin-bottom: 6px; }
+  #mod-budget #syn-entete { border-bottom: 2px solid #24285b; padding-bottom: 8px; margin-bottom: 6px; }
   #mod-budget #syn-entete h2 { font-size: 20px; }
   #mod-budget #syn-ident { font-size: 13px; }
   #mod-budget #endettement, #mod-budget #detail { break-inside: avoid; }
@@ -814,7 +814,7 @@ Aucune donnée ne peut être enregistrée, et aucune donnée n'est stockée info
 
     <div id="form-header">
       <h1>Générateur de courrier</h1>
-      <p>Caisse d'Epargne Midi Pyrénées</p>
+      <p>Lettre A4 adaptée à l'enveloppe à fenêtre</p>
     </div>
 
     <div id="form-body">
@@ -924,7 +924,7 @@ Aucune donnée ne peut être enregistrée, et aucune donnée n'est stockée info
           </div>
           <div class="fg">
             <label for="f-refagence">Nos références</label>
-            <input type="text" id="f-refagence" placeholder="CEMP/2026/...">
+            <input type="text" id="f-refagence" placeholder="REF/2026/...">
           </div>
         </div>
       </div>
@@ -1082,10 +1082,6 @@ Aucune donnée ne peut être enregistrée, et aucune donnée n'est stockée info
 
       <div id="ltr-entete">
         <div id="ltr-exp">
-          <img src="https://www.img.caisse-epargne.fr/app/uploads/sites/16/2021/05/31152836/ce-logo-midi-pyrennees.png"
-               alt="Caisse d'Epargne Midi Pyrénées"
-               onerror="this.style.display='none'">
-          <div id="ltr-exp-name">Caisse d'Epargne de Midi Pyrénées</div>
           <div id="ltr-exp-agence"></div>
           <div id="ltr-exp-coords"></div>
         </div>
@@ -1121,11 +1117,7 @@ Aucune donnée ne peut être enregistrée, et aucune donnée n'est stockée info
         </div>
       </div>
 
-      <div id="ltr-footer">
-        Caisse d'Epargne de Midi Pyrénées - Société Anonyme Coopérative de Crédit à capital variable -
-        Régie par les articles L 512-85 et suivants du Code monétaire et financier -
-        RCS Toulouse - Siège social : 1 Place Jourdain, 31000 Toulouse
-      </div>
+      <div id="ltr-footer"></div>
 
     </div>
   </div>

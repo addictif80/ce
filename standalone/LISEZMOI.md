@@ -3,6 +3,12 @@
 `outils-conseiller.html` réunit **tous les outils de /tools dans un seul fichier** (CSS, scripts et polices embarqués) :
 il s'ouvre par double-clic, sans serveur, et peut être déposé sur un partage (OneDrive…).
 
+## Charte graphique
+Le fichier suit la charte du site ABhD.fr : indigo `#24285b`, jaune `#ffd200`, police Raleway, logo ABhD (fichiers dans `standalone/assets/`).
+Aucune référence à la marque du portail : le générateur retire logos, noms, mentions légales et couleurs (`standalone/rebrand.php`)
+et signale s'il en reste (« Références restantes… »). `standalone/theme.css` habille les outils, `standalone/shell.css` l'accueil et la navigation.
+Seules subsistent, dans le gabarit d'origine du courrier, les adresses e-mail de la liste des collaborateurs (données saisies, pas du design).
+
 ## Contenu
 - Accueil avec recherche et regroupement par thème, barre de navigation entre outils, bouton « Un retour ? ».
 - Les deux modules de la page d'origine (calculateur de budget, générateur de courrier) sont conservés tels quels.
@@ -34,5 +40,5 @@ modifiée dans le fichier généré : constante `FEEDBACK_TO` au début du derni
 - `scripts/build_standalone.php` : orchestration (un processus PHP par outil, rendu des pages de `tools/`).
 - `standalone/assemble.php` : traitement des pages et montage du fichier.
 - `standalone/base_outils.html` : gabarit de départ (page d'origine : accueil, budget, courrier).
-- `standalone/shell.css`, `shell.js` : accueil, navigation, formulaire de retour ; `shim.js` : amorce de chaque outil (liens, absence de serveur, ADEME, zonage).
+- `standalone/rebrand.php`, `theme.css`, `assets/` : charte ABhD ; `standalone/shell.css`, `shell.js` : accueil, navigation, formulaire de retour ; `shim.js` : amorce de chaque outil (liens, absence de serveur, ADEME, zonage).
 - `standalone/pages/` : procédures, codes et contacts (instantané de la base).

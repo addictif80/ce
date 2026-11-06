@@ -76,7 +76,7 @@ function fetchCached($url, $cache) {
 }
 
 // ---------- ressources partagées (CSS, JS, polices) ----------
-$bsCss = fetchCached('https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css', $cache);
+$bsCss = file_get_contents(__DIR__ . '/../standalone/assets/abhd-bootstrap.min.css'); // Bootstrap compilé avec la charte ABhD
 $bsCss = preg_replace('~/\*# sourceMappingURL=.*?\*/~', '', $bsCss);
 $bsJs = fetchCached('https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js', $cache);
 $bsJs = preg_replace('~//# sourceMappingURL=\S+~', '', $bsJs);

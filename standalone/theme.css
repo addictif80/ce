@@ -1,0 +1,28 @@
+/* Habillage des outils intégrés : charte ABhD (appliqué après Bootstrap et les styles propres à chaque outil). */
+body { font-family: Raleway, "Segoe UI", Arial, sans-serif; background: #f5f6f8; color: #2d2d2d; }
+.tools-header, .page-header { background: #24285b !important; color: #fff; border-bottom: 4px solid #ffd200; }
+.tools-header .btn-light, .page-header .btn-light { color: #24285b; font-weight: 700; border: 0; }
+.tools-header h1, .page-header h1 { font-weight: 800; }
+.privacy-banner { background: #eefaf5; border: 1px solid #00b779; color: #00573a; border-radius: .6rem; }
+.privacy-banner i { color: #00a06a; }
+.card, .cap-card { border-radius: .6rem; }
+.card { border-color: rgba(45,45,45,.12); }
+.btn { font-weight: 600; }
+.btn-danger { --bs-btn-bg: #24285b; --bs-btn-border-color: #24285b; --bs-btn-hover-bg: #1d2049; --bs-btn-hover-border-color: #1d2049; --bs-btn-active-bg: #1b1e44; --bs-btn-active-border-color: #1b1e44; --bs-btn-focus-shadow-rgb: 69,72,116; --bs-btn-disabled-bg: #24285b; --bs-btn-disabled-border-color: #24285b; --bs-btn-color: #fff; --bs-btn-hover-color: #fff; --bs-btn-active-color: #fff; }
+.btn-outline-danger { --bs-btn-color: #24285b; --bs-btn-border-color: #24285b; --bs-btn-hover-bg: #24285b; --bs-btn-hover-border-color: #24285b; --bs-btn-active-bg: #24285b; --bs-btn-active-border-color: #24285b; --bs-btn-hover-color: #fff; --bs-btn-active-color: #fff; --bs-btn-focus-shadow-rgb: 69,72,116; }
+h1 .text-danger, h2 .text-danger, h3 .text-danger, h4 .text-danger, h5 .text-danger, h6 .text-danger, summary .text-danger, .card-header .text-danger, legend .text-danger, .nav .text-danger, label .text-danger { color: #24285b !important; }
+a { color: #24285b; }
+.form-control:focus, .form-select:focus, .form-check-input:focus { border-color: #7b7fb5; box-shadow: 0 0 0 .25rem rgba(36,40,91,.18); }
+.form-check-input:checked { background-color: #24285b; border-color: #24285b; }
+.modal-header { border-bottom: 3px solid #ffd200; }
+html.f2f body { background: #fff; }
+/* Dans la charte, « secondary » est le jaune : lisible en fond, pas en texte ni en contour */
+.btn-outline-secondary { --bs-btn-color: #24285b; --bs-btn-border-color: #b9bdd6; --bs-btn-hover-color: #fff; --bs-btn-hover-bg: #24285b; --bs-btn-hover-border-color: #24285b; --bs-btn-active-color: #fff; --bs-btn-active-bg: #24285b; --bs-btn-active-border-color: #24285b; --bs-btn-focus-shadow-rgb: 69,72,116; --bs-btn-disabled-color: #8a8fa8; --bs-btn-disabled-border-color: #d9dce8; }
+.text-secondary { color: #6b7385 !important; }
+.badge.bg-secondary { background-color: #6b7385 !important; color: #fff !important; }
+.btn-secondary { --bs-btn-color: #24285b; --bs-btn-hover-color: #24285b; --bs-btn-active-color: #24285b; font-weight: 700; }
+.btn-link { color: #24285b; }
+.dropdown-item.active, .dropdown-item:active { background-color: #24285b; }
+.nav-pills .nav-link.active { background-color: #24285b; }
+.progress-bar { background-color: #24285b; }
+body, input, select, textarea, button { font-variant-numeric: lining-nums; }

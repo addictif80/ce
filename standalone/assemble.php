@@ -3,6 +3,7 @@
  * Assemblage du fichier autonome (inclus par scripts/build_standalone.php).
  * Variables reçues : $tools, $report, $groups, $catalog, $exclus, $natifs, $out, $feedbackTo, $bsCss, $bsJs, $faCss, $pdfLib, $portalCss, $common, $cache
  */
+require_once __DIR__ . '/rebrand.php';
 $keys = array_keys($tools);
 
 // ---------- 1. Traitement de chaque page d'outil ----------
@@ -23,6 +24,9 @@ function sa_process($html, $key, array $toolKeys, $portalCss, $common) {
     $html = preg_replace_callback('~<script>(// Boutons communs des outils.*?)</script>~s', fn($m) => trim($m[1]) === $common ? '<script data-shared="common"></script>' : $m[0], $html, 1);
     // liens vers d'autres outils -> ouverture dans le fichier
     $html = preg_replace_callback('~href="(?:\./|\.\./tools/)?([a-z_]+)\.php(?:\?[^"]*)?"~', fn($m) => in_array($m[1], $toolKeys, true) ? 'href="#" data-sa="open" data-tool="' . $m[1] . '"' : $m[0], $html);
+    // habillage : retrait de la marque du portail, charte ABhD (feuille appliquée en dernier)
+    $html = sa_rebrand($html);
+    $html = preg_replace('~</head>~', '<style data-shared="theme"></style></head>', $html, 1);
     // point d'accroche de l'amorce (injectée à l'ouverture : outil courant, partage, routes de remplacement du serveur)
     $html = preg_replace('~<head>~', "<head>\n<!--SA-BOOT-->", $html, 1);
     return $html;
@@ -31,7 +35,9 @@ foreach ($tools as $k => &$t) if (isset($t['html'])) $t['html'] = sa_process($t[
 unset($t);
 
 // ---------- 2. Ressources partagées ----------
-$shared = ['bootstrap' => $bsCss, 'bootstrap-js' => $bsJs, 'common' => $common, 'pdflib' => $pdfLib, 'portalcss' => $portalCss, 'leaflet' => $leafletJs, 'leaflet-css' => $leafletCss, 'zonage' => $zonage ?: '', 'shim' => file_get_contents(__DIR__ . '/shim.js')];
+$common = sa_rebrand($common);
+$portalCss = sa_rebrand($portalCss);
+$shared = ['bootstrap' => $bsCss, 'bootstrap-js' => $bsJs, 'common' => $common, 'pdflib' => $pdfLib, 'portalcss' => $portalCss, 'theme' => file_get_contents(__DIR__ . '/theme.css'), 'leaflet' => $leafletJs, 'leaflet-css' => $leafletCss, 'zonage' => $zonage ?: '', 'shim' => file_get_contents(__DIR__ . '/shim.js')];
 foreach ($shared as $n => $c) if (stripos($c, '</script') !== false && $n !== 'shim' && $n !== 'zonage') { say("Ressource partagée « $n » contient </script : à traiter"); exit(1); }
 
 // ---------- 3. Gabarit de base (page fournie : accueil, budget, courrier) ----------
@@ -40,36 +46,43 @@ $date = date('d/m/Y');
 $esc = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 $groupIcons = ['Financer un projet' => '#1f3a5f', 'Épargne et patrimoine' => '#2e7d5b', 'Conseil et conformité' => '#6F2C91', 'Boîte à outils' => '#a34a3d', 'Références' => '#2f6aa3'];
 
+// logos et polices de la charte ABhD (fichiers du dossier standalone/assets, embarqués en base64)
+$asset = fn($f) => file_get_contents(__DIR__ . '/assets/' . $f);
+$logo = 'data:image/png;base64,' . base64_encode($asset('abhd-logo.png'));
+$icon = 'data:image/png;base64,' . base64_encode($asset('abhd-A.png'));
+$fontCss = '@font-face{font-family:Raleway;font-style:normal;font-weight:400 800;font-display:swap;src:url(data:font/woff2;base64,' . base64_encode($asset('raleway-latin.woff2')) . ') format("woff2")}'
+         . '@font-face{font-family:Raleway;font-style:italic;font-weight:400;font-display:swap;src:url(data:font/woff2;base64,' . base64_encode($asset('raleway-italic.woff2')) . ') format("woff2")}';
 // accueil
 $home = '<div id="accueil">
-  <div id="accueil-entete">
-    <img style="width:100px;" src="3f486541-be22-4701-a2f2-fced7f5c446e.jpg" alt="Caisse d\'Epargne Midi Pyrénées" onerror="this.style.display=\'none\'">
-    <h1>Outils conseiller</h1>
-    <p>Ces outils sont accessibles uniquement depuis le partage OneDrive aux personnes concernées.<br/>
-Aucune donnée ne peut être enregistrée, et aucune donnée n\'est stockée informatiquement.</p>
-    <div id="accueil-recherche"><input type="search" id="rech" placeholder="Rechercher un outil…" aria-label="Rechercher un outil" autocomplete="off"></div>
-  </div>
+  <nav class="ab-nav"><img src="' . $logo . '" alt="ABhD"><span>Outils conseiller</span></nav>
+  <header class="ab-hero">
+    <div>
+      <h1>Tous vos outils, <span class="underline">au même endroit</span>.</h1>
+      <p>Simulateurs, calculateurs, mémos et documents : de quoi préparer un entretien sans rien installer.</p>
+      <p class="note">Ces outils sont accessibles uniquement depuis le partage OneDrive aux personnes concernées. Aucune donnée ne peut être enregistrée, et aucune donnée n\'est stockée informatiquement.</p>
+      <div id="accueil-recherche"><input type="search" id="rech" placeholder="Rechercher un outil…" aria-label="Rechercher un outil" autocomplete="off"></div>
+    </div>
+    <div class="art" aria-hidden="true"><div><i class="fas fa-toolbox"></i></div></div>
+  </header>
   <div id="accueil-groupes">';
 foreach ($groups as $g => $gk) {
     $cards = '';
     foreach ($gk as $k) {
         if (!isset($tools[$k])) continue;
         $t = $tools[$k];
-        $cards .= '<button type="button" class="carte-outil" data-open="' . $esc($k) . '" style="--c:' . $groupIcons[$g] . '" data-txt="' . $esc(mb_strtolower($t['title'] . ' ' . $t['desc'])) . '"><span class="ic"><i class="fas ' . $esc($t['icon']) . '"></i></span><span class="tx"><strong>' . $esc($t['title']) . '</strong><small>' . $esc($t['desc']) . '</small></span></button>';
+        $cards .= '<button type="button" class="carte-outil" data-open="' . $esc($k) . '" data-txt="' . $esc(mb_strtolower($t['title'] . ' ' . $t['desc'])) . '"><span class="ic"><i class="fas ' . $esc($t['icon']) . '"></i></span><span class="tx"><strong>' . $esc($t['title']) . '</strong><small>' . $esc($t['desc']) . '</small></span><span class="go">Ouvrir <i class="fas fa-arrow-right"></i></span></button>';
     }
-    if ($cards) $home .= '<section class="groupe-accueil"><h2 style="color:' . $groupIcons[$g] . '">' . $esc($g) . '</h2><div class="grille-outils">' . $cards . '</div></section>';
+    if ($cards) $home .= '<section class="groupe-accueil"><h2>' . $esc($g) . '</h2><div class="grille-outils">' . $cards . '</div></section>';
 }
 $home .= '</div>
   <p id="accueil-vide" hidden>Aucun outil ne correspond à cette recherche.</p>
-  <p id="accueil-pied">Fichier généré le ' . $date . '. Les barèmes et plafonds réglementaires sont figés à cette date : vérifiez-les avant toute décision. Outil d\'aide : il ne se substitue pas aux outils internes du groupe BPCE.<br>
-  <button type="button" class="lien-discret" data-sa-act="feedback"><i class="fas fa-comment-dots"></i> Un problème, une idée ? Écrire un retour</button></p>
+  <footer id="accueil-pied"><strong>ABhD</strong> · Reprenez le contrôle<br>
+    Fichier généré le ' . $date . '. Les barèmes et plafonds réglementaires sont figés à cette date : vérifiez-les avant toute décision. Outil d\'aide : il ne se substitue pas aux outils internes de votre établissement.<br>
+    <button type="button" class="lien-discret" data-sa-act="feedback"><i class="fas fa-comment-dots"></i> Un problème, une idée ? Écrire un retour</button></footer>
 </div>';
 // barre supérieure
 $top = '<div id="topbar" hidden>
-  <div class="marque">
-    <img src="https://www.img.caisse-epargne.fr/app/uploads/sites/16/2021/05/31152836/ce-logo-midi-pyrennees.png" alt="" onerror="this.style.display=\'none\'">
-    <span>Outils conseiller</span>
-  </div>
+  <div class="marque"><img src="' . $logo . '" alt="ABhD"></div>
   <button type="button" class="btn-top" id="top-home"><i class="fas fa-th-large"></i> Tous les outils</button>
   <span id="top-titre"></span>
   <select id="top-select" aria-label="Changer d\'outil"><option value="">Changer d\'outil…</option>';
@@ -113,8 +126,12 @@ $base = $sub('~<div id="accueil">.*?(?=\s*<!-- =+\s*BARRE SUPERIEURE)~s', $home 
 $base = $sub('~<div id="topbar" hidden>.*?</div>\s*(?=<!-- =+\s*MODULE 1)~s', $top . "\n\n", $base, 'barre supérieure');
 $base = $sub('~<!-- ===== NAVIGATION ===== -->\s*<script>.*?</script>~s', $frameModule . "\n" . $feedback . "\n" . $nav, $base, 'script de navigation');
 $base = $sub('~</style>~', "\n" . $css . "\n</style>", $base, 'feuille de style');
-$base = $sub('~</head>~', '<style id="sa-fa">' . $faCss . "</style>\n</head>", $base, 'en-tête'); // icônes : une seule copie, réutilisée par les outils intégrés
+$base = $sub('~</head>~', '<link rel="icon" type="image/png" href="' . $icon . '">' . "\n" . '<style id="sa-font">' . $fontCss . '</style>' . "\n" . '<style id="sa-fa">' . $faCss . "</style>\n</head>", $base, 'en-tête'); // icônes : une seule copie, réutilisée par les outils intégrés
 
+$left = [];
+foreach ($tools as $k => $t) if (isset($t['html']) && ($r = sa_scan($t['html']))) $left[$k] = $r;
+if ($r = sa_scan(preg_replace('~<script type="application/json" id="sa-data">.*?</script>~s', '', $base), true)) $left['(page)'] = $r;
+if ($left) say('Références restantes à la marque du portail : ' . json_encode($left, JSON_UNESCAPED_UNICODE));
 if (!is_dir(dirname($out))) mkdir(dirname($out), 0775, true);
 file_put_contents($out, $base);
 say('');

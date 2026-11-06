@@ -16,11 +16,11 @@
     return o;
   }
   function buildDoc(key, hash) {
-    var t = TOOLS[key], S = D.shared; S.fa = $('sa-fa').textContent;
+    var t = TOOLS[key], S = D.shared; S.fa = $('sa-fa').textContent; if (!S.themeFull) S.themeFull = $('sa-font').textContent + S.theme;
     var zon = (S.zonage && /^(ptz|plan|scenarios|creditsspeciaux)$/.test(key)) ? 'window.TOOLS_SA.zonage=parent.CE.zonage();' : '';
     var boot = '<script>window.TOOLS_SA={tool:' + JSON.stringify(key) + ',hash:' + JSON.stringify(hash || '') + ',routes:{},share:function(p){return parent.CE.share(' + JSON.stringify(key) + ',p);}};' + zon + S.shim.replace(/<\//g, '<\\/') + '<\/script>';
     return t.html.replace('<!--SA-BOOT-->', function () { return boot; })
-      .replace(/<(style|script) data-shared="([\w-]+)"><\/\1>/g, function (m, tag, name) { return S[name] === undefined ? m : '<' + tag + '>' + S[name] + '</' + tag + '>'; });
+      .replace(/<(style|script) data-shared="([\w-]+)"><\/\1>/g, function (m, tag, name) { var c = name === 'theme' ? S.themeFull : S[name]; return c === undefined ? m : '<' + tag + '>' + c + '</' + tag + '>'; });
   }
   function ensureFrame(key, hash) {
     if (frames[key]) return frames[key];
@@ -37,7 +37,7 @@
   function home(push) {
     hideAll(); topbar.hidden = true; accueil.hidden = false; current = null;
     if (push !== false) history.pushState(null, '', location.pathname + location.search);
-    document.title = 'Outils conseiller - Caisse d\'Epargne Midi Pyrénées';
+    document.title = 'Outils conseiller';
     window.scrollTo(0, 0);
   }
   function open(key, hash, push) {
