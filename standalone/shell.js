@@ -159,5 +159,98 @@
   });
   window.addEventListener('popstate', route);
   window.addEventListener('hashchange', route);
+  // ----- présentation de démarrage et fenêtres d'information -----
+  (function () {
+    var st = document.createElement('style'); st.textContent = D.shared['slides-css']; document.head.appendChild(st);
+    var sc = document.createElement('script'); sc.textContent = D.shared['slides-js']; document.head.appendChild(sc);
+  })();
+  function esc(t) { return String(t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function buildIntro() {
+    var logo = (document.querySelector('.ab-nav img') || {}).src || '', icons = {}, tiles = '';
+    document.querySelectorAll('.carte-outil').forEach(function (c) { icons[c.getAttribute('data-open')] = c.querySelector('.ic i').className; });
+    var keys = Object.keys(TOOLS).filter(function (k) { return icons[k]; }), shown = keys.slice(0, 8);
+    shown.forEach(function (k, i) { tiles += '<div class="ci-tool" style="--i:' + i + '"><i class="' + esc(icons[k]) + '"></i><span>' + esc(TOOLS[k].title) + '</span></div>'; });
+    var more = keys.length - shown.length;
+    var root = document.createElement('div'); root.id = 'ciIntro'; root.className = 'ci-intro'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('aria-label', 'Présentation des outils'); root.hidden = true;
+    root.innerHTML = '<div class="ci-bg" aria-hidden="true"><span></span><span></span><span></span></div><div class="ci-bar" aria-hidden="true"><i></i></div>'
+      + '<button type="button" class="ci-skip"><span>Passer</span> <i class="fas fa-xmark"></i></button><div class="ci-stage">'
+      + '<section class="ci-slide ci-hero"><div class="ci-logo r1"><img src="' + esc(logo) + '" alt="ABhD"></div><div class="ci-kicker r2">Bienvenue</div><h2 class="r2">Tous vos outils, au même endroit.</h2><p class="r3">Simulateurs, calculateurs, mémos et documents : de quoi préparer vos entretiens, sans rien installer.</p></section>'
+      + '<section class="ci-slide"><h2 class="r1"><i class="fas fa-toolbox"></i> Un outil pour chaque projet</h2><div class="ci-grid">' + tiles + '</div>' + (more > 0 ? '<p class="r4 ci-more">… et ' + more + ' autre' + (more > 1 ? 's' : '') + ' à découvrir.</p>' : '') + '</section>'
+      + '<section class="ci-slide"><h2 class="r1"><i class="fas fa-user-shield"></i> Rien n\'est enregistré</h2><p class="r2 ci-big">Tout se passe dans votre navigateur.</p><p class="r3">Aucune donnée ne peut être enregistrée, et aucune donnée n\'est stockée informatiquement : tout disparaît à la fermeture de la page.</p></section>'
+      + '<section class="ci-slide"><h2 class="r1"><i class="fas fa-bolt"></i> Gagnez du temps</h2><ul class="ci-list">'
+      + '<li class="r2"><i class="fas fa-link"></i><div><b>Partagez par lien</b><span>Un lien reprend la simulation, sans rien enregistrer.</span></div></li>'
+      + '<li class="r3"><i class="fas fa-print"></i><div><b>Imprimez, copiez, envoyez</b><span>Un document propre à remettre à votre client.</span></div></li>'
+      + '<li class="r4"><i class="fas fa-comment-dots"></i><div><b>Dites-nous ce qui manque</b><span>Le bouton « Un retour ? » prépare un e-mail prêt à envoyer.</span></div></li></ul></section>'
+      + '<section class="ci-slide"><h2 class="r1"><i class="fas fa-circle-info"></i> Des aides, pas des substituts</h2><p class="r2 ci-big">Ces outils complètent vos outils internes, sans les remplacer.</p><p class="r3">Vérifiez toujours l\'exactitude des données avant toute communication à un client.</p></section>'
+      + '<section class="ci-slide ci-last"><h2 class="r1"><i class="fas fa-rocket"></i> C\'est parti !</h2><p class="r2 ci-big">Choisissez un outil pour commencer.</p><div class="r3 ci-actions"><button type="button" class="ci-btn ci-btn-light ci-go">Découvrir les outils <i class="fas fa-arrow-right"></i></button></div></section></div>'
+      + '<button type="button" class="ci-nav ci-prev" aria-label="Précédent"><i class="fas fa-chevron-left"></i></button><button type="button" class="ci-nav ci-next" aria-label="Suivant"><i class="fas fa-chevron-right"></i></button><div class="ci-dots" role="tablist"></div>';
+    document.body.appendChild(root); return root;
+  }
+  // HTML des fenêtres d'information : liste blanche de balises, sans script ni gestionnaire d'événement
+  var OK_TAGS = /^(P|BR|B|STRONG|I|EM|U|UL|OL|LI|A|H2|H3|H4|SPAN|DIV|HR|BLOCKQUOTE|SMALL|MARK)$/;
+  function clean(html) {
+    var doc = new DOMParser().parseFromString('<body>' + html + '</body>', 'text/html');
+    (function walk(n) {
+      Array.prototype.slice.call(n.childNodes).forEach(function (c) {
+        if (c.nodeType === 8) { n.removeChild(c); return; }
+        if (c.nodeType !== 1) return;
+        if (/^(SCRIPT|STYLE|IFRAME|OBJECT|EMBED|FORM|LINK|META)$/.test(c.tagName)) { n.removeChild(c); return; }
+        walk(c);
+        if (!OK_TAGS.test(c.tagName)) { while (c.firstChild) n.insertBefore(c.firstChild, c); n.removeChild(c); return; }
+        var href = c.tagName === 'A' ? c.getAttribute('href') : null;
+        Array.prototype.slice.call(c.attributes).forEach(function (a) { c.removeAttribute(a.name); });
+        if (href && /^(https?:|mailto:|tel:)/i.test(href.trim())) c.setAttribute('href', href.trim());
+      });
+    })(doc.body);
+    return doc.body.innerHTML;
+  }
+  function popupConfig(id) {
+    var e = $(id); if (!e) return null;
+    var txt = e.textContent.replace(/\r/g, ''), i = txt.search(/^---\s*$/m); if (i < 0) return null;
+    var o = {}; txt.slice(0, i).split('\n').forEach(function (l) { l = l.trim(); if (!l || l[0] === '#') return; var m = /^(\w+)\s*:\s*(.*)$/.exec(l); if (m) o[m[1]] = m[2].trim(); });
+    o.html = clean(txt.slice(i).replace(/^---\s*/, '')); o.id = id; return o;
+  }
+  function popupsDue() {
+    var today = new Date().toISOString().slice(0, 10), out = [];
+    var store = function (w) { try { return window[w]; } catch (e) { return null; } };
+    var get = function (s, k) { try { return s && s.getItem(k); } catch (e) { return null; } }, set = function (s, k, v) { try { s && s.setItem(k, v); } catch (e) {} };
+    ['cfg-popup1', 'cfg-popup2'].forEach(function (id) {
+      var p = popupConfig(id); if (!p || !/^(true|vrai|oui|1)$/i.test(p.actif || '') || !p.html.replace(/<[^>]*>/g, '').trim()) return;
+      if (p.debut && today < p.debut) return; if (p.fin && today > p.fin) return;
+      var key = 'popup_' + id + '_' + (p.version || '1'), f = (p.frequence || 'session').toLowerCase(), ss = store('sessionStorage'), ls = store('localStorage'), due;
+      if (f === 'toujours') due = true; else if (f === 'jour') due = get(ls, key) !== today; else if (f === 'une_fois') due = !get(ls, key); else due = !get(ss, key);
+      if (!due) return;
+      out.push({ p: p, seen: function () { if (f === 'jour') set(ls, key, today); else if (f === 'une_fois') set(ls, key, '1'); else if (f !== 'toujours') set(ss, key, '1'); } });
+    });
+    return out;
+  }
+  function showPopups() {
+    var queue = popupsDue();
+    (function next() {
+      var q = queue.shift(); if (!q) return; var p = q.p;
+      var f = document.createElement('div'); f.className = 'pp-fond'; f.setAttribute('role', 'dialog'); f.setAttribute('aria-modal', 'true');
+      f.innerHTML = '<div class="pp-boite">' + (p.titre ? '<div class="pp-tete"><h2>' + esc(p.titre) + '</h2><button type="button" class="pp-x" aria-label="Fermer">&times;</button></div>' : '') + '<div class="pp-corps">' + p.html + '</div><div class="pp-pied"><button type="button" class="pp-ok">' + esc(p.bouton || 'Fermer') + '</button></div></div>';
+      f.querySelectorAll('a[href]').forEach(function (a) { a.target = '_blank'; a.rel = 'noopener noreferrer'; if (!/^(https?:|mailto:|tel:)/i.test(a.getAttribute('href'))) a.removeAttribute('href'); });
+      var close = function () { f.remove(); setTimeout(next, 250); };
+      f.addEventListener('click', function (e) { if (e.target === f || e.target.closest('.pp-ok, .pp-x')) close(); });
+      document.addEventListener('keydown', function esc2(e) { if (e.key === 'Escape' && document.body.contains(f)) { document.removeEventListener('keydown', esc2); close(); } });
+      document.body.appendChild(f); q.seen(); f.querySelector('.pp-ok').focus();
+    })();
+  }
+  function startup() {
+    var onHome = !accueil.hidden, introOn = !/^(false|faux|non|0|off)$/i.test(GEN.presentation_demarrage || 'true');
+    if (!window.ciSlideshow) return;
+    var root = introOn ? buildIntro() : null, ctl = null, seenIntro = false;
+    if (root) {
+      try { seenIntro = sessionStorage.getItem('toolsIntroSeen') === '1'; } catch (e) {}
+      ctl = window.ciSlideshow(root, { seenKey: 'toolsIntroSeen', autoOpen: onHome, duration: 7000, replaySelector: '[data-intro-replay]' });
+    }
+    if (!root) document.querySelectorAll('[data-intro-replay]').forEach(function (b) { b.hidden = true; });
+    if (!onHome) return;
+    if (root && !seenIntro) {
+      new MutationObserver(function (m, ob) { if (root.hidden) { ob.disconnect(); showPopups(); } }).observe(root, { attributes: true, attributeFilter: ['hidden'] });
+    } else showPopups();
+  }
   route();
+  startup();
 })();

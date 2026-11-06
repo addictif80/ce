@@ -6,7 +6,8 @@ il s'ouvre par double-clic, sans serveur, et peut être déposé sur un partage 
 ## Zone de configuration (tout ce qui se modifie à la main)
 Au tout début du fichier (balises `<script type="text/plain" id="cfg-...">`), en texte simple, une ligne par élément, champs séparés par `;`,
 `#` pour un commentaire, rien à protéger (apostrophes comprises). Une ligne mal écrite est ignorée : la page ne casse pas.
-- `cfg-general` : `adresse_retours:` (destinataire du .eml) et `seuil_endettement:`.
+- `cfg-general` : `adresse_retours:` (destinataire du .eml), `seuil_endettement:` et `presentation_demarrage:true/false`.
+- `cfg-popup1`, `cfg-popup2` : fenêtres d'information (`actif:true`, titre, bouton, fréquence, dates, puis le message après la ligne `---`). Elles s'affichent à l'accueil, après la présentation de démarrage ; à la génération, elles reprennent celles de l'administration. Ne jamais écrire de balise script dans un message.
 - `cfg-outils` : `nom_de_l_outil:true` ou `nom_de_l_outil:false` pour afficher ou masquer un outil (accueil, navigation et formulaire de retour).
 - `cfg-agences` : Nom ; Numéro ; Adresse ; Code postal et ville ; Téléphone. Alimente le courrier et le bureau domiciliaire.
 - `cfg-conseillers` : signataires du courrier (Prénom ; NOM ; Poste ; Téléphone ; E-mail).
@@ -22,6 +23,7 @@ et signale s'il en reste (« Références restantes… »). `standalone/theme.cs
 Le **générateur de courrier est repris à l'identique** de la page d'origine (en-tête avec logo, pied de page légal, couleurs, liste des collaborateurs) : le générateur ne le modifie pas.
 
 ## Contenu
+- Présentation de démarrage plein écran (une fois par session ; « Revoir la présentation » en bas de l'accueil), fenêtres d'information et présentations « Comment ça marche ? » des outils, à la charte ABhD (`standalone/slideshow.css`).
 - Accueil avec recherche et regroupement par thème, barre de navigation entre outils, bouton « Un retour ? ».
 - Les deux modules de la page d'origine (calculateur de budget, générateur de courrier) sont conservés tels quels.
 - Les autres outils sont les pages de /tools, générées à partir du même code que le portail.

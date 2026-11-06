@@ -25,6 +25,11 @@ function sa_process($html, $key, array $toolKeys, $portalCss, $common) {
     $html = preg_replace_callback('~<script>(// Boutons communs des outils.*?)</script>~s', fn($m) => trim($m[1]) === $common ? '<script data-shared="common"></script>' : $m[0], $html, 1);
     // liens vers d'autres outils -> ouverture dans le fichier
     $html = preg_replace_callback('~href="(?:\./|\.\./tools/)?([a-z_]+)\.php(?:\?[^"]*)?"~', fn($m) => in_array($m[1], $toolKeys, true) ? 'href="#" data-sa="open" data-tool="' . $m[1] . '"' : $m[0], $html);
+    // présentations « Comment ça marche ? » : habillage et moteur mis en commun (charte ABhD)
+    $html = preg_replace('~<style>\s*\.ci-intro\{.*?</style>~s', '<style data-shared="slides-css"></style>', $html);
+    $html = preg_replace('~<script>\s*window\.ciSlideshow=function.*?\n\};\s*</script>~s', '<script data-shared="slides-js"></script>', $html);
+    $html = str_replace("Un document aux couleurs de la Caisse d\\'Épargne, à remettre au client.", "Un document propre et sobre, à remettre au client.", $html);
+    $html = preg_replace('~Un document aux couleurs de la Caisse d(?:\'|’|&#0?39;)Épargne, à remettre au client\.~u', 'Un document propre et sobre, à remettre au client.', $html);
     // habillage : retrait de la marque du portail, charte ABhD (feuille appliquée en dernier)
     $html = sa_rebrand($html);
     $html = preg_replace('~</head>~', '<style data-shared="theme"></style></head>', $html, 1);
@@ -40,7 +45,7 @@ unset($t);
 // ---------- 2. Ressources partagées ----------
 $common = sa_rebrand($common);
 $portalCss = sa_rebrand($portalCss);
-$shared = ['bootstrap' => $bsCss, 'bootstrap-js' => $bsJs, 'common' => $common, 'pdflib' => $pdfLib, 'portalcss' => $portalCss, 'theme' => file_get_contents(__DIR__ . '/theme.css'), 'leaflet' => $leafletJs, 'leaflet-css' => $leafletCss, 'zonage' => $zonage ?: '', 'shim' => file_get_contents(__DIR__ . '/shim.js')];
+$shared = ['bootstrap' => $bsCss, 'bootstrap-js' => $bsJs, 'common' => $common, 'pdflib' => $pdfLib, 'portalcss' => $portalCss, 'theme' => file_get_contents(__DIR__ . '/theme.css'), 'slides-css' => file_get_contents(__DIR__ . '/slideshow.css'), 'slides-js' => $slidesJs, 'leaflet' => $leafletJs, 'leaflet-css' => $leafletCss, 'zonage' => $zonage ?: '', 'shim' => file_get_contents(__DIR__ . '/shim.js')];
 foreach ($shared as $n => $c) if (stripos($c, '</script') !== false && $n !== 'shim' && $n !== 'zonage') { say("Ressource partagée « $n » contient </script : à traiter"); exit(1); }
 
 // ---------- 3. Gabarit de base (page fournie : accueil, budget, courrier) ----------
@@ -81,7 +86,8 @@ $home .= '</div>
   <p id="accueil-vide" hidden>Aucun outil ne correspond à cette recherche.</p>
   <footer id="accueil-pied"><strong>ABhD</strong> · Reprenez le contrôle<br>
     Fichier généré le ' . $date . '. Les barèmes et plafonds réglementaires sont figés à cette date : vérifiez-les avant toute décision. Outil d\'aide : il ne se substitue pas aux outils internes de votre établissement.<br>
-    <button type="button" class="lien-discret" data-sa-act="feedback"><i class="fas fa-comment-dots"></i> Un problème, une idée ? Écrire un retour</button></footer>
+    <button type="button" class="lien-discret" data-sa-act="feedback"><i class="fas fa-comment-dots"></i> Un problème, une idée ? Écrire un retour</button>
+    <button type="button" class="lien-discret" data-intro-replay><i class="fas fa-circle-play"></i> Revoir la présentation</button></footer>
 </div>';
 // barre supérieure
 $top = '<div id="topbar" hidden>
@@ -128,7 +134,7 @@ $sub = function ($pattern, $replacement, $subject, $what) { $n = 0; $r = preg_re
 $base = $sub('~<div id="accueil">.*?(?=\s*<!-- =+\s*BARRE SUPERIEURE)~s', $home . "\n", $base, 'bloc accueil');
 $base = $sub('~<div id="topbar" hidden>.*?</div>\s*(?=<!-- =+\s*MODULE 1)~s', $top . "\n\n", $base, 'barre supérieure');
 $base = $sub('~<!-- ===== NAVIGATION ===== -->\s*<script>.*?</script>~s', $frameModule . "\n" . $feedback . "\n" . $nav, $base, 'script de navigation');
-$base = preg_replace_callback('~(<meta name="viewport"[^>]*>)~', fn($m) => $m[1] . "\n" . sa_config_block($tools, $groups, $agences, $feedbackTo), $base, 1); // zone de configuration, tout en haut du fichier
+$base = preg_replace_callback('~(<meta name="viewport"[^>]*>)~', fn($m) => $m[1] . "\n" . sa_config_block($tools, $groups, $agences, $feedbackTo, $popups), $base, 1); // zone de configuration, tout en haut du fichier
 $base = $sub('~</style>~', "\n" . $css . "\n</style>", $base, 'feuille de style');
 $base = $sub('~</head>~', '<link rel="icon" type="image/png" href="' . $icon . '">' . "\n" . '<style id="sa-font">' . $fontCss . '</style>' . "\n" . '<style id="sa-fa">' . $faCss . "</style>\n</head>", $base, 'en-tête'); // icônes : une seule copie, réutilisée par les outils intégrés
 

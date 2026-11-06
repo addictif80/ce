@@ -32,6 +32,24 @@ if (($argv[1] ?? '') === '--zonage') { // export du zonage A/B/C (JSON) si la ba
     } catch (Throwable $e) {}
     exit(0);
 }
+if (($argv[1] ?? '') === '--popups') { // fenêtres d'information réglées en administration (valeurs de départ de la zone de configuration)
+    ini_set('display_errors', '0'); error_reporting(0);
+    function getDB() {
+        static $pdo = null;
+        if ($pdo === null) {
+            $dsn = getenv('CE_DB_DSN') ?: 'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4';
+            $pdo = new PDO($dsn, getenv('CE_DB_USER') !== false ? getenv('CE_DB_USER') : DB_USER, getenv('CE_DB_PASS') !== false ? getenv('CE_DB_PASS') : DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC, PDO::ATTR_TIMEOUT => 3]);
+        }
+        return $pdo;
+    }
+    try {
+        require_once 'includes/config.php'; require_once 'includes/functions.php'; require_once 'includes/popups.php';
+        $out = [];
+        foreach (array_keys(popupSlots()) as $slot) $out[] = getPopupSettings($slot);
+        echo json_encode($out, JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $e) {}
+    exit(0);
+}
 if (($argv[1] ?? '') === '--agences') { // liste des agences (nom, numéro, adresse) : base si elle répond, sinon annuaire public
     ini_set('display_errors', '0'); error_reporting(0);
     function getDB() {
@@ -169,4 +187,12 @@ say($zonage ? 'Zonage embarqué : ' . round(strlen($zonage) / 1024) . ' Ko' : 'Z
 $ag = shell_exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__FILE__) . ' --agences 2>/dev/null');
 $agences = is_string($ag) ? (json_decode($ag, true) ?: []) : [];
 say('Agences : ' . count($agences));
+// fenêtres d'information (popups) de l'administration : valeurs de départ
+$pp = shell_exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__FILE__) . ' --popups 2>/dev/null');
+$popups = is_string($pp) ? (json_decode($pp, true) ?: []) : [];
+// moteur des présentations plein écran (démarrage et « Comment ça marche ? ») : script du portail, habillage refait pour ABhD
+require_once __DIR__ . '/../includes/tour.php';
+ob_start(); slideshowAssets(); $ssAssets = ob_get_clean();
+$slidesJs = preg_match('~<script>(.*?)</script>~s', $ssAssets, $m) ? trim($m[1]) : '';
+if (strpos($slidesJs, 'ciSlideshow') === false) { say('Moteur de présentation introuvable'); exit(1); }
 require __DIR__ . '/../standalone/assemble.php';
