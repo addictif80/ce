@@ -91,6 +91,7 @@ $actionsOpts = ['link' => true, 'copy' => false, 'print' => true, 'mail' => fals
     phoning: { titre: 'Séance de phoning', sub: 'Appels passés et rendez-vous obtenus', orient: 'portrait', rows: 12, per: 'Opération / titre de la séance', rh: '8.5mm' }
   };
   const S = { type: TYPES[0], head: {}, rows: {}, opts: {} };
+  try { const q = new URLSearchParams(window.location.search).get('type'); if (q && TYPES.indexOf(q) >= 0) S.type = q; } catch (e) {}
   TYPES.forEach(t => { S.opts[t] = { rows: CFG[t].rows, orient: CFG[t].orient, memo: true }; S.rows[t] = []; });
   const today = () => new Date().toLocaleDateString('fr-FR');
   const cb = (name, list, sel, cls) => '<div class="fe-cb">' + list.map((l, k) => '<label><input type="checkbox" data-f="' + name + '" value="' + k + '"' + (sel && sel.indexOf(k) >= 0 ? ' checked' : '') + '>' + esc((cls || list)[k]) + '</label>').join('') + '</div>';

@@ -180,6 +180,9 @@ foreach ($seances as $s) {
     <div class="col-md-2 d-flex align-items-center">
         <button class="btn btn-ce" data-bs-toggle="modal" data-bs-target="#addModal"><i class="fas fa-plus"></i> Nouvelle séance</button>
     </div>
+    <div class="col-md-2 d-flex align-items-center">
+        <?php require __DIR__ . '/../fiches/dropdown.php'; ?>
+    </div>
 </div>
 
 <!-- Tableau des séances -->
